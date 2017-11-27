@@ -59,11 +59,6 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 			strncpy( p_env->role_context.collector.monitor_path , argv[c+1] , sizeof(p_env->role_context.collector.monitor_path)-1 );
 			c++;
 		}
-		else if( STRCMP( argv[c] , == , "--trace-file-space-size" ) && c + 1 < argc )
-		{
-			p_env->role_context.collector.trace_file_space_size = atoi(argv[c+1]) ;
-			c++;
-		}
 		else if( STRCMP( argv[c] , == , "--log-file" ) && c + 1 < argc )
 		{
 			strncpy( p_env->log_pathfilename , argv[c+1] , sizeof(p_env->log_pathfilename)-1 );
@@ -112,26 +107,30 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 	
 	if( p_env->role == LOGPIPE_ROLE_COLLECTOR )
 	{
+		struct stat	dir_stat ;
+		
 		if( p_env->role_context.collector.monitor_path[0] == '\0' )
 		{
 			printf( "*** ERROR : need parameter '--monitor-path' for --role C\n" );
 			return -1;
 		}
 		
-		nret = access( p_env->role_context.collector.monitor_path , R_OK ) ;
+		memset( & dir_stat , 0x00 , sizeof(struct stat) );
+		nret = stat( p_env->role_context.collector.monitor_path , & dir_stat ) ;
 		if( nret == -1 )
 		{
 			printf( "*** ERROR : path '%s' invalid\n" , p_env->role_context.collector.monitor_path );
 			return -1;
 		}
 		
-		if( p_env->role_context.collector.trace_file_space_size <= 0 )
-			p_env->role_context.collector.trace_file_space_size = LOGPIPE_FILE_TRACE_SPACE_DEFAULT_SIZE ;
-		p_env->role_context.collector.trace_file_space_total_size = p_env->role_context.collector.trace_file_space_size * LOGPIPE_FILE_TRACE_SPACE_EXPANSION_FACTOR ;
+		if( ! S_ISDIR(dir_stat.st_mode) )
+		{
+			printf( "*** ERROR : path '%s' isn't a directory\n" , p_env->role_context.collector.monitor_path );
+			return -1;
+		}
 		
 		printf( "role : LOGPIPE_ROLE_COLLECTOR\n" );
 		printf( "monitor_path : %s\n" , p_env->role_context.collector.monitor_path );
-		printf( "trace_file_space_size : %d\n" , p_env->role_context.collector.trace_file_space_size );
 	}
 	else
 	{
@@ -144,12 +143,18 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 
 int main( int argc , char *argv[] )
 {
-	struct LogPipeEnv	env , *p_env = & env ;
+	struct LogPipeEnv	*p_env = NULL ;
 	
 	int			nret = 0 ;
 	
 	setbuf( stdout , NULL );
 	
+	p_env = (struct LogPipeEnv *)malloc( sizeof(struct LogPipeEnv) ) ;
+	if( p_env == NULL )
+	{
+		printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
+		return 1;
+	}
 	memset( p_env , 0x00 , sizeof(struct LogPipeEnv) );
 	
 	nret = ParseCommandParameter( p_env , argc , argv ) ;
@@ -173,6 +178,7 @@ int main( int argc , char *argv[] )
 	}
 	
 	CleanEnvironment( p_env );
+	free( p_env );
 	
 	return -nret;
 }

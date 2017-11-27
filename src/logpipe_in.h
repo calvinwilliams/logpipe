@@ -17,13 +17,16 @@ extern "C" {
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/inotify.h>
+#include <dirent.h>
+
+int asprintf(char **strp, const char *fmt, ...);
 
 #include "rbtree.h"
 #include "LOGC.h"
 
 struct TraceFile
 {
-	char				filename[ PATH_MAX + 1 ] ;
+	char				*path_filename ;
 	int				fd ;
 	off_t				trace_offset ;
 	
@@ -35,8 +38,7 @@ struct TraceFile
 #define LOGPIPE_ROLE_PIPER		'P'
 #define LOGPIPE_ROLE_DUMPSERVER		'S'
 
-#define LOGPIPE_FILE_TRACE_SPACE_DEFAULT_SIZE		1000
-#define LOGPIPE_FILE_TRACE_SPACE_EXPANSION_FACTOR	4
+#define LOGPIPE_INOTIFY_READ_BUFSIZE	16*1024*1024
 
 struct LogPipeEnv
 {
@@ -46,12 +48,10 @@ struct LogPipeEnv
 		struct LogCollector
 		{
 			char			monitor_path[ PATH_MAX + 1 ] ;
-			int			trace_file_space_size ;
-			int			trace_file_space_total_size ;
-			struct TraceFile	*trace_file_space ;
 			int			inotify_fd ;
 			int			inotify_path_wd ;
 			struct rb_root		inotify_wd_rbtree ;
+			char			inotify_read_buffer[ LOGPIPE_INOTIFY_READ_BUFSIZE + 1 ] ;
 		} collector ;
 	} role_context ;
 	char					log_pathfilename[ PATH_MAX + 1 ] ;
