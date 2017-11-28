@@ -27,7 +27,6 @@ int asprintf(char **strp, const char *fmt, ...);
 struct TraceFile
 {
 	char				*path_filename ;
-	int				fd ;
 	off_t				trace_offset ;
 	
 	int				inotify_file_wd ;

@@ -55,6 +55,8 @@ void SetLogFileV( char *format , va_list valist )
 {
 	VSNPRINTF( g_log_pathfilename , sizeof(g_log_pathfilename)-1 , format , valist );
 	
+	g_pid = getpid() ;
+	
 	return;
 }
 

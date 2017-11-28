@@ -20,10 +20,15 @@ int monitor( struct LogPipeEnv *p_env )
 	pid_t			pid ;
 	int			status ;
 	
+	SetLogFile( "%s" , p_env->log_pathfilename );
+	
 	/* 设置信号 */
+	if( ! p_env->no_daemon )
+	{
+		signal( SIGINT , SIG_IGN );
+	}
 	signal( SIGCLD , SIG_DFL );
 	signal( SIGCHLD , SIG_DFL );
-	signal( SIGINT , SIG_IGN );
 	signal( SIGPIPE , SIG_IGN );
 	act.sa_handler = & sig_set_flag ;
 	sigemptyset( & (act.sa_mask) );
@@ -54,6 +59,7 @@ int monitor( struct LogPipeEnv *p_env )
 _GOTO_WAITPID :
 		
 		/* 堵塞等待工作进程结束 */
+		DEBUGLOG( "waitpid ..." )
 		pid = waitpid( pid , & status , 0 );
 		if( pid == -1 )
 		{

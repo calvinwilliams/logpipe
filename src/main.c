@@ -149,6 +149,12 @@ int main( int argc , char *argv[] )
 	
 	setbuf( stdout , NULL );
 	
+	if( argc == 1 )
+	{
+		usage();
+		exit(0);
+	}
+	
 	p_env = (struct LogPipeEnv *)malloc( sizeof(struct LogPipeEnv) ) ;
 	if( p_env == NULL )
 	{
@@ -164,9 +170,6 @@ int main( int argc , char *argv[] )
 	nret = InitEnvironment( p_env ) ;
 	if( nret )
 		return -nret;
-	
-	printf( "set log file to '%s'\n" , p_env->log_pathfilename );
-	SetLogFile( "%s" , p_env->log_pathfilename );
 	
 	if( p_env->no_daemon )
 	{
