@@ -207,7 +207,7 @@ static int OutputFileAppender( struct LogPipeEnv *p_env , struct TraceFile *p_tr
 	return 0;
 }
 
-int worker( struct LogPipeEnv *p_env )
+int worker_collector( struct LogPipeEnv *p_env )
 {
 	long			read_len ;
 	struct inotify_event	*p_inotify_event = NULL ;

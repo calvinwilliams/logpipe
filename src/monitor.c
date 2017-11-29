@@ -49,7 +49,12 @@ int monitor( struct LogPipeEnv *p_env )
 		else if( pid == 0 )
 		{
 			INFOLOG( "child : [%ld] fork [%ld]" , getppid() , getpid() )
-			return -worker( p_env );
+			if( p_env->role == LOGPIPE_ROLE_COLLECTOR )
+				return -worker_collector( p_env );
+			else if( p_env->role == LOGPIPE_ROLE_DUMPSERVER )
+				return -worker_dumpserver( p_env );
+			else
+				return -2;
 		}
 		else
 		{

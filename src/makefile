@@ -8,6 +8,7 @@
 ###### 源文件配置区
 #@ c_FILE
 c_FILE		=	\
+			list.c \
 			rbtree.c \
 			rbtree_ins.c \
 			LOGC.c \
@@ -15,7 +16,8 @@ c_FILE		=	\
 			main.c \
 			env.c \
 			monitor.c \
-			worker.c \
+			worker_collector.c \
+			worker_dumpserver.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall

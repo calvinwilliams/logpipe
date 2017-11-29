@@ -13,6 +13,7 @@ static void usage()
 {
 	printf( "USAGE : logpipe -v\n" );
 	printf( "        logpipe --role C --monitor-path (dir_path) [ --trace-file-space-size (max_file_count) ]\n" );
+	printf( "                --role S --listen-ip (ip) --listen-port (port)\n" );
 	printf( "                        --log-file (log_file) --log-level (DEBUG|INFO|WARN|ERROR|FATAL)\n" );
 	printf( "                        --no-daemon\n" );
 	return;
@@ -57,6 +58,16 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 		else if( STRCMP( argv[c] , == , "--monitor-path" ) && c + 1 < argc )
 		{
 			strncpy( p_env->role_context.collector.monitor_path , argv[c+1] , sizeof(p_env->role_context.collector.monitor_path)-1 );
+			c++;
+		}
+		else if( STRCMP( argv[c] , == , "--listen-ip" ) && c + 1 < argc )
+		{
+			strncpy( p_env->role_context.dumpserver.listen_ip , argv[c+1] , sizeof(p_env->role_context.dumpserver.listen_ip)-1 );
+			c++;
+		}
+		else if( STRCMP( argv[c] , == , "--listen-port" ) && c + 1 < argc )
+		{
+			p_env->role_context.dumpserver.listen_port = atoi(argv[c+1]) ;
 			c++;
 		}
 		else if( STRCMP( argv[c] , == , "--log-file" ) && c + 1 < argc )
@@ -131,6 +142,24 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 		
 		printf( "role : LOGPIPE_ROLE_COLLECTOR\n" );
 		printf( "monitor_path : %s\n" , p_env->role_context.collector.monitor_path );
+	}
+	else if( p_env->role == LOGPIPE_ROLE_DUMPSERVER )
+	{
+		if( p_env->role_context.dumpserver.listen_ip[0] == '\0' )
+		{
+			printf( "*** ERROR : need parameter '--listen-ip' for --role S\n" );
+			return -1;
+		}
+		
+		if( p_env->role_context.dumpserver.listen_port <= 0 )
+		{
+			printf( "*** ERROR : need parameter '--listen-port' for --role S\n" );
+			return -1;
+		}
+		
+		printf( "role : LOGPIPE_ROLE_DUMPSERVER\n" );
+		printf( "listen_ip : %s\n" , p_env->role_context.dumpserver.listen_ip );
+		printf( "listen_port : %d\n" , p_env->role_context.dumpserver.listen_port );
 	}
 	else
 	{
