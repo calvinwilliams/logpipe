@@ -21,8 +21,42 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			printf( "*** ERROR : inotify_add_watch[%s] failed , errno[%d]\n" , p_env->role_context.collector.monitor_path , errno );
 			return -1;
 		}
+		
+		/* 创建套接字 */
+		p_env->role_context.collector.connect_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+		if( p_env->role_context.collector.connect_sock == -1 )
+		{
+			printf( "*** ERROR : socket failed , errno[%d]\n" , errno );
+			return -1;
+		}
+		
+		/* 设置套接字选项 */
+		{
+			int	onoff = 1 ;
+			setsockopt( p_env->role_context.collector.connect_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+		}
+		
+		{
+			int	onoff = 1 ;
+			setsockopt( p_env->role_context.collector.connect_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+		}
+		
+		/* 连接到服务端侦听端口 */
+		memset( & (p_env->role_context.collector.connect_addr) , 0x00 , sizeof(struct sockaddr_in) );
+		p_env->role_context.collector.connect_addr.sin_family = AF_INET ;
+		if( p_env->listen_ip[0] == '\0' )
+			p_env->role_context.collector.connect_addr.sin_addr.s_addr = INADDR_ANY ;
+		else
+			p_env->role_context.collector.connect_addr.sin_addr.s_addr = inet_addr(p_env->listen_ip) ;
+		p_env->role_context.collector.connect_addr.sin_port = htons( (unsigned short)(p_env->listen_port) );
+		nret = connect( p_env->role_context.collector.connect_sock , (struct sockaddr *) & (p_env->role_context.collector.connect_addr) , sizeof(struct sockaddr) ) ;
+		if( nret == -1 )
+		{
+			printf( "*** ERROR : connect[%s:%d] failed , errno[%d]\n" , p_env->listen_ip , p_env->listen_port , errno );
+			return -1;
+		}
 	}
-	else if( p_env->role == LOGPIPE_ROLE_COLLECTOR )
+	else if( p_env->role == LOGPIPE_ROLE_DUMPSERVER )
 	{
 		struct epoll_event      event ;
 		
@@ -34,6 +68,7 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			return -1;
 		}
 		
+		/* 设置套接字选项 */
 		{
 			int	opts ;
 			opts = fcntl( p_env->role_context.dumpserver.listen_sock , F_GETFL ) ;
@@ -54,15 +89,15 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 		/* 绑定套接字到侦听端口 */
 		memset( & (p_env->role_context.dumpserver.listen_addr) , 0x00 , sizeof(struct sockaddr_in) );
 		p_env->role_context.dumpserver.listen_addr.sin_family = AF_INET ;
-		if( p_env->role_context.dumpserver.listen_ip[0] == '\0' )
+		if( p_env->listen_ip[0] == '\0' )
 			p_env->role_context.dumpserver.listen_addr.sin_addr.s_addr = INADDR_ANY ;
 		else
-			p_env->role_context.dumpserver.listen_addr.sin_addr.s_addr = inet_addr(p_env->role_context.dumpserver.listen_ip) ;
-		p_env->role_context.dumpserver.listen_addr.sin_port = htons( (unsigned short)(p_env->role_context.dumpserver.listen_port) );
+			p_env->role_context.dumpserver.listen_addr.sin_addr.s_addr = inet_addr(p_env->listen_ip) ;
+		p_env->role_context.dumpserver.listen_addr.sin_port = htons( (unsigned short)(p_env->listen_port) );
 		nret = bind( p_env->role_context.dumpserver.listen_sock , (struct sockaddr *) & (p_env->role_context.dumpserver.listen_addr) , sizeof(struct sockaddr) ) ;
 		if( nret == -1 )
 		{
-			printf( "*** ERROR : bind[%s:%d][%d] failed , errno[%d]\n" , p_env->role_context.dumpserver.listen_ip , p_env->role_context.dumpserver.listen_port , p_env->role_context.dumpserver.listen_sock , errno );
+			printf( "*** ERROR : bind[%s:%d][%d] failed , errno[%d]\n" , p_env->listen_ip , p_env->listen_port , p_env->role_context.dumpserver.listen_sock , errno );
 			close( p_env->role_context.dumpserver.listen_sock );
 			return -1;
 		}
@@ -71,7 +106,7 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 		nret = listen( p_env->role_context.dumpserver.listen_sock , 10240 ) ;
 		if( nret == -1 )
 		{
-			printf( "*** ERROR : listen[%s:%d][%d] failed , errno[%d]\n" , p_env->role_context.dumpserver.listen_ip , p_env->role_context.dumpserver.listen_port , p_env->role_context.dumpserver.listen_sock , errno );
+			printf( "*** ERROR : listen[%s:%d][%d] failed , errno[%d]\n" , p_env->listen_ip , p_env->listen_port , p_env->role_context.dumpserver.listen_sock , errno );
 			close( p_env->role_context.dumpserver.listen_sock );
 			return -1;
 		}
@@ -95,6 +130,9 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			close( p_env->role_context.dumpserver.epoll_fd );
 			return -1;
 		}
+		
+		/* 初始化已连接会话链表 */
+		INIT_LIST_HEAD( & (p_env->role_context.dumpserver.accepted_session_list.this_node) );
 	}
 	
 	return 0;
@@ -104,6 +142,8 @@ int CleanEnvironment( struct LogPipeEnv *p_env )
 {
 	if( p_env->role == LOGPIPE_ROLE_COLLECTOR )
 	{
+		if( p_env->role_context.collector.connect_sock != -1 )
+			close( p_env->role_context.collector.connect_sock );
 		close( p_env->role_context.collector.inotify_fd );
 	}
 	else if( p_env->role == LOGPIPE_ROLE_DUMPSERVER )

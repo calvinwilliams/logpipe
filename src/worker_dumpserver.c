@@ -5,6 +5,54 @@
 /* 处理新增日志 */
 int OnProcessLogAppender( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session )
 {
+	char		*p = NULL ;
+	uint32_t	*file_name_len = NULL ;
+	uint32_t	file_name_len_ntohl ;
+	char		path_filename[ PATH_MAX + 1 ] ;
+	uint32_t	file_data_len ;
+	int		fd ;
+	
+	int		nret = 0 ;
+	
+	p = p_accepted_session->comm_buf + sizeof(uint32_t) ;
+	
+	DEBUGHEXLOG( p , 1 , "magic" )
+	if( (*p) != LOGPIPE_COMM_MAGIC[0] )
+	{
+		ERRORLOG( "comm magic[%d][%c] not match" , (*p) , (*p) )
+		return -1;
+	}
+	
+	p++;
+	
+	file_name_len = (uint32_t*)p ;
+	file_name_len_ntohl = ntohl( (*file_name_len) ) ;
+	DEBUGHEXLOG( p , sizeof(uint32_t) , "file name len[%d]" , file_name_len_ntohl )
+	
+	p += sizeof(uint32_t) ;
+	
+	memset( path_filename , 0x00 , sizeof(path_filename) );
+	snprintf( path_filename , sizeof(path_filename)-1 , "%s/%.*s" , p_env->role_context.dumpserver.dump_path , file_name_len_ntohl , p );
+	fd = open( path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
+	if( fd == -1 )
+	{
+		ERRORLOG( "open file[%s] failed , errno[%d]" , path_filename , errno )
+		return -1;
+	}
+	else
+	{
+		DEBUGLOG( "open file[%s] ok" , path_filename )
+	}
+	
+	p += file_name_len_ntohl ;
+	
+	file_data_len = p_accepted_session->comm_body_len - 1 - sizeof(file_name_len_ntohl) - file_name_len_ntohl ;
+	nret = write( fd , p , file_data_len ) ;
+	DEBUGHEXLOG( p , file_data_len , "write file[%s] [%d]bytes return[%d]" , path_filename , file_data_len , nret )
+	
+	close( fd );
+	DEBUGLOG( "close file[%s] ok" , path_filename )
+	
 	return 0;
 }
 
@@ -22,7 +70,7 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env )
 	p_accepted_session = (struct AcceptedSession *)malloc( sizeof(struct AcceptedSession) ) ;
 	if( p_accepted_session == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOG( "malloc failed , errno[%d]" , errno )
 		return 1;
 	}
 	memset( p_accepted_session , 0x00 , sizeof(struct AcceptedSession) );
@@ -32,11 +80,12 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env )
 	p_accepted_session->client_sock = accept( p_env->role_context.dumpserver.listen_sock , (struct sockaddr *) & (p_accepted_session->client_addr) , & accept_addr_len ) ;
 	if( p_accepted_session->client_sock == -1 )
 	{
-		ERRORLOG( "accept failed , errno[%d]" , errno );
+		ERRORLOG( "accept failed , errno[%d]" , errno )
 		free( p_accepted_session );
 		return 1;
 	}
 	
+	/* 设置套接字选项 */
 	{
 		int	opts ;
 		opts = fcntl( p_accepted_session->client_sock , F_GETFL ) ;
@@ -54,18 +103,18 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env )
 		setsockopt( p_accepted_session->client_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
 	}
 	
-	DEBUGLOG( "[%d]accept ok[%d] session[%p]" , p_env->role_context.dumpserver.listen_sock , p_accepted_session->client_sock , p_accepted_session );
+	DEBUGLOG( "[%d]accept ok[%d] session[%p]" , p_env->role_context.dumpserver.listen_sock , p_accepted_session->client_sock , p_accepted_session )
 	
 	/* 申请通讯接收缓冲区在会话结构中 */
-	p_accepted_session->comm_buf = (char*)malloc( COMMBUFFER_INIT_SIZE + 1 ) ;
+	p_accepted_session->comm_buf = (char*)malloc( LOGPIPE_COMM_BUFFER_INIT_SIZE + 1 ) ;
 	if( p_accepted_session->comm_buf == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOG( "malloc failed , errno[%d]" , errno )
 		free( p_accepted_session );
 		return 1;
 	}
-	memset( p_accepted_session->comm_buf , 0x00 , COMMBUFFER_INIT_SIZE + 1 );
-	p_accepted_session->comm_buf_size = COMMBUFFER_INIT_SIZE + 1 ;
+	memset( p_accepted_session->comm_buf , 0x00 , LOGPIPE_COMM_BUFFER_INIT_SIZE + 1 );
+	p_accepted_session->comm_buf_size = LOGPIPE_COMM_BUFFER_INIT_SIZE + 1 ;
 	p_accepted_session->comm_data_len = 0 ;
 	p_accepted_session->comm_body_len = 0 ;
 	
@@ -76,14 +125,14 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env )
 	nret = epoll_ctl( p_env->role_context.dumpserver.epoll_fd , EPOLL_CTL_ADD , p_accepted_session->client_sock , & event ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "epoll_ctl[%d] add[%d] failed , errno[%d]" , p_env->role_context.dumpserver.epoll_fd , p_accepted_session->client_sock , errno );
+		ERRORLOG( "epoll_ctl[%d] add[%d] failed , errno[%d]" , p_env->role_context.dumpserver.epoll_fd , p_accepted_session->client_sock , errno )
 		close( p_accepted_session->client_sock );
 		free( p_accepted_session );
 		return 1;
 	}
 	else
 	{
-		DEBUGLOG( "epoll_ctl[%d] add[%d] ok" , p_env->role_context.dumpserver.epoll_fd , p_accepted_session->client_sock );
+		DEBUGLOG( "epoll_ctl[%d] add[%d] ok" , p_env->role_context.dumpserver.epoll_fd , p_accepted_session->client_sock )
 	}
 	
 	list_add_tail( & (p_accepted_session->this_node) , & (p_env->role_context.dumpserver.accepted_session_list.this_node) );
@@ -96,7 +145,7 @@ void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accep
 {
 	if( p_accepted_session )
 	{
-		DEBUGLOG( "close socket[%d] session[%p]" , p_accepted_session->client_sock , p_accepted_session );
+		DEBUGLOG( "close socket[%d] session[%p]" , p_accepted_session->client_sock , p_accepted_session )
 		epoll_ctl( p_env->role_context.dumpserver.epoll_fd , EPOLL_CTL_DEL , p_accepted_session->client_sock , NULL );
 		close( p_accepted_session->client_sock );
 		list_del( & (p_accepted_session->this_node) );
@@ -119,18 +168,18 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 	{
 		char	*tmp = NULL ;
 		
-		tmp = (char*)realloc( p_accepted_session->comm_buf , p_accepted_session->comm_buf_size+COMMBUFFER_INCREASE_SIZE ) ;
+		tmp = (char*)realloc( p_accepted_session->comm_buf , p_accepted_session->comm_buf_size+LOGPIPE_COMM_BUFFER_INCREASE_SIZE ) ;
 		if( tmp == NULL )
 		{
-			ERRORLOG( "malloc failed , errno[%d]" , errno );
+			ERRORLOG( "malloc failed , errno[%d]" , errno )
 			return 1;
 		}
 		p_accepted_session->comm_buf = tmp ;
-		p_accepted_session->comm_buf_size += COMMBUFFER_INCREASE_SIZE ;
+		p_accepted_session->comm_buf_size += LOGPIPE_COMM_BUFFER_INCREASE_SIZE ;
 	}
 	
 	/* 非堵塞的读一把客户端连接套接字 */
-	DEBUGLOG( "read [%d] bytes at most ..." , p_accepted_session->comm_buf_size-1-p_accepted_session->comm_data_len );
+	DEBUGLOG( "read [%d] bytes at most ..." , p_accepted_session->comm_buf_size-1-p_accepted_session->comm_data_len )
 	len = read( p_accepted_session->client_sock , p_accepted_session->comm_buf+p_accepted_session->comm_data_len , p_accepted_session->comm_buf_size-1-p_accepted_session->comm_data_len ) ;
 	if( len == -1 )
 	{
@@ -144,44 +193,45 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 	}
 	else
 	{
-		DEBUGHEXLOG( p_accepted_session->comm_buf+p_accepted_session->comm_data_len , len , "recv [%d]bytes" , len );
+		DEBUGHEXLOG( p_accepted_session->comm_buf+p_accepted_session->comm_data_len , len , "recv [%d]bytes" , len )
 		p_accepted_session->comm_data_len += len ;
 	}
 	
 	/* 如果已接收到数据长度大于等于4字节 */
-	while( p_accepted_session->comm_data_len >= 4 )
+	while( p_accepted_session->comm_data_len >= sizeof(uint32_t) )
 	{
 		/* 如果4字节通讯头未解析，则解析之 */
 		if( p_accepted_session->comm_body_len == 0 )
 		{
 			p_accepted_session->comm_body_len = ntohl( *(uint32_t*)(p_accepted_session->comm_buf) ) ;
+			DEBUGLOG( "parse comm total length [%d]" , p_accepted_session->comm_body_len )
 			if( p_accepted_session->comm_body_len <= 0 )
 			{
-				ERRORLOG( "comm_body_len[%d] invalid" , p_accepted_session->comm_body_len );
+				ERRORLOG( "comm_body_len[%d] invalid" , p_accepted_session->comm_body_len )
 				return 1;
 			}
 		}
 		
 		/* 如果已读到的通讯数据大于等于当前通讯头+通讯体 */
-		if( p_accepted_session->comm_data_len >= 4+p_accepted_session->comm_body_len )
+		if( p_accepted_session->comm_data_len >= sizeof(uint32_t) + p_accepted_session->comm_body_len )
 		{
 			char		bak ;
 			
 			/* 按字符串截断，交由应用层处理 */
-			bak = p_accepted_session->comm_buf[4+p_accepted_session->comm_body_len] ;
-			p_accepted_session->comm_buf[4+p_accepted_session->comm_body_len] = '\0' ;
-			DEBUGHEXLOG( p_accepted_session->comm_buf , 4+p_accepted_session->comm_body_len , "processing [%ld]bytes" , 4+p_accepted_session->comm_body_len );
+			bak = p_accepted_session->comm_buf[sizeof(uint32_t)+p_accepted_session->comm_body_len] ;
+			p_accepted_session->comm_buf[sizeof(uint32_t)+p_accepted_session->comm_body_len] = '\0' ;
+			DEBUGHEXLOG( p_accepted_session->comm_buf , sizeof(uint32_t)+p_accepted_session->comm_body_len , "processing [%ld]bytes" , sizeof(uint32_t)+p_accepted_session->comm_body_len )
 			nret = OnProcessLogAppender( p_env , p_accepted_session ) ;
-			p_accepted_session->comm_buf[4+p_accepted_session->comm_body_len] = bak ;
+			p_accepted_session->comm_buf[sizeof(uint32_t)+p_accepted_session->comm_body_len] = bak ;
 			if( nret )
 			{
-				ERRORLOG( "OnProcessLogAppender failed[%d] , errno[%d]" , nret , errno );
+				ERRORLOG( "OnProcessLogAppender failed[%d] , errno[%d]" , nret , errno )
 				return 1;
 			}
 			
 			/* 修正尾部粘包 */
-			memmove( p_accepted_session->comm_buf , p_accepted_session->comm_buf+4+p_accepted_session->comm_body_len , p_accepted_session->comm_data_len-4-p_accepted_session->comm_body_len );
-			p_accepted_session->comm_data_len -= 4+p_accepted_session->comm_body_len ;
+			memmove( p_accepted_session->comm_buf , p_accepted_session->comm_buf+sizeof(uint32_t)+p_accepted_session->comm_body_len , p_accepted_session->comm_data_len-sizeof(uint32_t)-p_accepted_session->comm_body_len );
+			p_accepted_session->comm_data_len -= sizeof(uint32_t)+p_accepted_session->comm_body_len ;
 			p_accepted_session->comm_body_len = 0  ;
 		}
 		else
@@ -209,7 +259,7 @@ int worker_dumpserver( struct LogPipeEnv *p_env )
 		/* 等待epoll事件，或者1秒超时 */
 		INFOLOG( "epoll_wait[%d] ..." , p_env->role_context.dumpserver.epoll_fd );
 		memset( events , 0x00 , sizeof(events) );
-		epoll_nfds = epoll_wait( p_env->role_context.dumpserver.epoll_fd , events , MAX_EPOLL_EVENTS , 1000 ) ;
+		epoll_nfds = epoll_wait( p_env->role_context.dumpserver.epoll_fd , events , MAX_EPOLL_EVENTS , -1 ) ;
 		if( epoll_nfds == -1 )
 		{
 			if( errno == EINTR )

@@ -1,6 +1,11 @@
 #ifndef _H_LOGPIPE_
 #define _H_LOGPIPE_
 
+/* for testing
+logpipe --role S --listen-ip 192.168.6.21 --listen-port 9527 --dump-path $HOME/log2 --log-file /tmp/logpipe_dumpserver.log --log-level DEBUG --no-daemon
+logpipe --role C --listen-ip 192.168.6.21 --listen-port 9527 --monitor-path $HOME/log --log-file /tmp/logpipe_collector.log --log-level DEBUG --no-daemon
+*/
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,6 +40,9 @@ int asprintf(char **strp, const char *fmt, ...);
 struct TraceFile
 {
 	char				*path_filename ;
+	uint32_t			path_filename_len ;
+	char				*filename ;
+	uint32_t			filename_len ;
 	off_t				trace_offset ;
 	
 	int				inotify_file_wd ;
@@ -47,8 +55,14 @@ struct TraceFile
 
 #define LOGPIPE_INOTIFY_READ_BUFSIZE	16*1024*1024
 
-#define COMMBUFFER_INIT_SIZE		40960
-#define COMMBUFFER_INCREASE_SIZE	40960
+/*
+	|comm_total_length(4bytes)|"@"(1byte)|file_name_len(4bytes)|file_name|file_data|
+*/
+#define LOGPIPE_COMM_MAGIC		"@"
+#define LOGPIPE_COMM_BODY_BLOCK		4096
+
+#define LOGPIPE_COMM_BUFFER_INIT_SIZE		40960
+#define LOGPIPE_COMM_BUFFER_INCREASE_SIZE	40960
 
 /* 客户端连接会话结构 */
 struct AcceptedSession
@@ -57,9 +71,9 @@ struct AcceptedSession
 	int			client_sock ;
 	
 	char			*comm_buf ; /* 通讯接收缓冲区 */
-	int			comm_buf_size ; /* 缓冲区总大小 */
-	int			comm_data_len ; /* 缓冲区已接收到数据长度 */
-	int			comm_body_len ; /* 通讯头的值，也即通讯体的长度 */
+	uint32_t		comm_buf_size ; /* 缓冲区总大小 */
+	uint32_t		comm_data_len ; /* 缓冲区已接收到数据长度 */
+	uint32_t		comm_body_len ; /* 通讯头的值，也即通讯体的长度 */
 	
 	struct list_head	this_node ; /* 客户端已连接会话链表节点 */
 } ;
@@ -67,6 +81,8 @@ struct AcceptedSession
 struct LogPipeEnv
 {
 	char					role ;
+	char					listen_ip[ 30 + 1 ] ;
+	int					listen_port ;
 	union
 	{
 		struct LogCollector
@@ -76,12 +92,13 @@ struct LogPipeEnv
 			int			inotify_path_wd ;
 			struct rb_root		inotify_wd_rbtree ;
 			char			inotify_read_buffer[ LOGPIPE_INOTIFY_READ_BUFSIZE + 1 ] ;
+			struct sockaddr_in    	connect_addr ;
+			int			connect_sock ;
 		} collector ;
 		struct LogDumpServer
 		{
-			char			listen_ip[ 30 + 1 ] ;
-			int			listen_port ;
-			struct sockaddr_in      listen_addr ;
+			char			dump_path[ PATH_MAX + 1 ] ;
+			struct sockaddr_in    	listen_addr ;
 			int			listen_sock ;
 			int			epoll_fd ;
 			struct AcceptedSession	accepted_session_list ; /* 客户端已连接会话链表 */

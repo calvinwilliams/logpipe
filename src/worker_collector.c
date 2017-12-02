@@ -1,9 +1,187 @@
 #include "logpipe_in.h"
 
+static int RemoveFileWatcher( struct LogPipeEnv *p_env , struct TraceFile *p_trace_file );
+
+static int OutputFileAppender( struct LogPipeEnv *p_env , struct TraceFile *p_trace_file )
+{
+	int		fd ;
+	struct stat	file_stat ;
+	int		appender_len ;
+	uint32_t	comm_total_length_htonl ;
+	uint32_t	filename_len_htonl ;
+	char		block_buf[ LOGPIPE_COMM_BODY_BLOCK + 1 ] ;
+	int		block_len ;
+	int		sent_len ;
+	
+	int		nret = 0 ;
+	
+	DEBUGLOG( "catch file[%s] appender" , p_trace_file->path_filename )
+	
+	fd = open( p_trace_file->path_filename , O_RDONLY ) ;
+	if( fd == -1 )
+	{
+		ERRORLOG( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+		return -1;
+	}
+	
+	memset( & file_stat , 0x00 , sizeof(struct stat) );
+	nret = fstat( fd , & file_stat ) ;
+	if( nret == -1 )
+	{
+		ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+		close( fd );
+		return RemoveFileWatcher( p_env , p_trace_file );
+	}
+	
+	DEBUGLOG( "file_size[%d] trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )
+	if( file_stat.st_size < p_trace_file->trace_offset )
+	{
+		p_trace_file->trace_offset = file_stat.st_size ;
+	}
+	else if( file_stat.st_size > p_trace_file->trace_offset )
+	{
+		appender_len = file_stat.st_size - p_trace_file->trace_offset ;
+		
+		if( p_env->role_context.collector.connect_sock == -1 )
+		{
+			/* 创建套接字 */
+			p_env->role_context.collector.connect_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+			if( p_env->role_context.collector.connect_sock == -1 )
+			{
+				ERRORLOG( "socket failed , errno[%d]" , errno );
+				return 0;
+			}
+			
+			/* 设置套接字选项 */
+			{
+				int	onoff = 1 ;
+				setsockopt( p_env->role_context.collector.connect_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+			}
+			
+			{
+				int	onoff = 1 ;
+				setsockopt( p_env->role_context.collector.connect_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+			}
+			
+			/* 连接到服务端侦听端口 */
+			memset( & (p_env->role_context.collector.connect_addr) , 0x00 , sizeof(struct sockaddr_in) );
+			p_env->role_context.collector.connect_addr.sin_family = AF_INET ;
+			if( p_env->listen_ip[0] == '\0' )
+				p_env->role_context.collector.connect_addr.sin_addr.s_addr = INADDR_ANY ;
+			else
+				p_env->role_context.collector.connect_addr.sin_addr.s_addr = inet_addr(p_env->listen_ip) ;
+			p_env->role_context.collector.connect_addr.sin_port = htons( (unsigned short)(p_env->listen_port) );
+			nret = connect( p_env->role_context.collector.connect_sock , (struct sockaddr *) & (p_env->role_context.collector.connect_addr) , sizeof(struct sockaddr) ) ;
+			if( nret == -1 )
+			{
+				ERRORLOG( "connect[%s:%d] failed , errno[%d]" , p_env->listen_ip , p_env->listen_port , errno );
+				return 0;
+			}
+			else
+			{
+				INFOLOG( "connect[%s:%d] ok" , p_env->listen_ip , p_env->listen_port );
+			}
+		}
+		
+		comm_total_length_htonl = htonl(1+sizeof(filename_len_htonl)+p_trace_file->filename_len+appender_len) ;
+		nret = send( p_env->role_context.collector.connect_sock , & comm_total_length_htonl , sizeof(comm_total_length_htonl) , 0 ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "send comm total length failed , errno[%d]" , errno );
+			close( p_env->role_context.collector.connect_sock ); p_env->role_context.collector.connect_sock = -1 ;
+			return 0;
+		}
+		else
+		{
+			DEBUGHEXLOG( (char*) & comm_total_length_htonl , sizeof(comm_total_length_htonl) , "send comm total length ok , [%d]bytes" , sizeof(comm_total_length_htonl) );
+		}
+		
+		nret = send( p_env->role_context.collector.connect_sock , LOGPIPE_COMM_MAGIC , 1 , 0 ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "send magic failed , errno[%d]" , errno );
+			close( p_env->role_context.collector.connect_sock ); p_env->role_context.collector.connect_sock = -1 ;
+			return 0;
+		}
+		else
+		{
+			DEBUGHEXLOG( LOGPIPE_COMM_MAGIC , 1 , "send magic ok , [%d]bytes" , 1 );
+		}
+		
+		filename_len_htonl = htonl(p_trace_file->filename_len) ;
+		nret = send( p_env->role_context.collector.connect_sock , & filename_len_htonl , sizeof(filename_len_htonl) , 0 ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "send file name length failed , errno[%d]" , errno );
+			close( p_env->role_context.collector.connect_sock ); p_env->role_context.collector.connect_sock = -1 ;
+			return 0;
+		}
+		else
+		{
+			DEBUGHEXLOG( (char*) & filename_len_htonl , sizeof(filename_len_htonl) , "send file name length ok , [%d]bytes" , sizeof(filename_len_htonl) );
+		}
+		
+		nret = send( p_env->role_context.collector.connect_sock , p_trace_file->filename , p_trace_file->filename_len , 0 ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "send file name failed , errno[%d]" , errno );
+			close( p_env->role_context.collector.connect_sock ); p_env->role_context.collector.connect_sock = -1 ;
+			return 0;
+		}
+		else
+		{
+			DEBUGHEXLOG( p_trace_file->filename , p_trace_file->filename_len , "send file name ok , [%d]bytes" , p_trace_file->filename_len );
+		}
+		
+		lseek( fd , p_trace_file->trace_offset , SEEK_SET );
+		
+		sent_len = 0 ;
+		while( sent_len < appender_len )
+		{
+			if( appender_len > sizeof(block_buf) -1 )
+				block_len = sizeof(block_buf) -1 ;
+			else
+				block_len = appender_len ;
+			block_len = read( fd , block_buf , block_len ) ;
+			if( block_len == -1 )
+			{
+				ERRORLOG( "read[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+				close( fd );
+				return -1;
+			}
+			else
+			{
+				DEBUGLOG( "read[%s] ok , [%d]bytes" , p_trace_file->path_filename , block_len )
+			}
+			
+			nret = send( p_env->role_context.collector.connect_sock , block_buf , block_len , 0 ) ;
+			if( nret == -1 )
+			{
+				ERRORLOG( "send file data failed , errno[%d]" , errno );
+				close( p_env->role_context.collector.connect_sock ); p_env->role_context.collector.connect_sock = -1 ;
+				return 0;
+			}
+			else
+			{
+				DEBUGHEXLOG( block_buf , block_len , "send file data block ok , [%d]bytes" , block_len )
+			}
+			
+			sent_len += block_len ;
+		}
+		
+		p_trace_file->trace_offset = file_stat.st_size ;
+	}
+	
+	close( fd );
+	
+	return 0;
+}
+
 static int AddFileWatcher( struct LogPipeEnv *p_env , char *filename )
 {
 	struct TraceFile	*p_trace_file = NULL ;
-	int			fd ;
+	struct TraceFile	*p_trace_file_not_exist = NULL ;
+	struct stat		file_stat ;
 	static uint32_t		inotify_mask = IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED ;
 	
 	int			nret = 0 ;
@@ -22,23 +200,31 @@ static int AddFileWatcher( struct LogPipeEnv *p_env , char *filename )
 	}
 	memset( p_trace_file , 0x00 , sizeof(struct TraceFile) );
 	
-	nret = asprintf( & (p_trace_file->path_filename) , "%s/%s" , p_env->role_context.collector.monitor_path , filename );
-	if( nret == -1 )
+	p_trace_file->path_filename_len = asprintf( & (p_trace_file->path_filename) , "%s/%s" , p_env->role_context.collector.monitor_path , filename );
+	if( p_trace_file->path_filename_len == -1 )
 	{
 		ERRORLOG( "asprintf failed , errno[%d]" , errno )
 		free( p_trace_file );
 		return -1;
 	}
-	fd = open( p_trace_file->path_filename , O_RDONLY ) ;
-	if( fd == -1 )
+	
+	nret = stat( p_trace_file->path_filename , & file_stat ) ;
+	if( nret == -1 )
 	{
-		ERRORLOG( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+		WARNLOG( "file[%s] not found" , p_trace_file->path_filename )
+		free( p_trace_file->path_filename );
+		free( p_trace_file );
+		return 0;
+	}
+	
+	p_trace_file->filename_len = asprintf( & p_trace_file->filename , "%s" , filename );
+	if( p_trace_file->filename_len == -1 )
+	{
+		ERRORLOG( "asprintf failed , errno[%d]" , errno )
 		free( p_trace_file->path_filename );
 		free( p_trace_file );
 		return -1;
 	}
-	p_trace_file->trace_offset = lseek( fd , 0 , SEEK_END ) ;
-	close( fd );
 	
 	p_trace_file->inotify_file_wd = inotify_add_watch( p_env->role_context.collector.inotify_fd , p_trace_file->path_filename , inotify_mask ) ;
 	if( p_trace_file->inotify_file_wd == -1 )
@@ -53,15 +239,19 @@ static int AddFileWatcher( struct LogPipeEnv *p_env , char *filename )
 		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_env->role_context.collector.inotify_fd , p_trace_file->inotify_file_wd )
 	}
 	
-	nret = LinkTraceFileWdTreeNode( p_env , p_trace_file ) ;
-	if( nret )
+	p_trace_file_not_exist = QueryTraceFileWdTreeNode( p_env , p_trace_file ) ;
+	if( p_trace_file_not_exist == NULL )
 	{
-		ERRORLOG( "LinkTraceFileWdTreeNode[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-		INFOLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_env->role_context.collector.inotify_fd , p_trace_file->inotify_file_wd )
-		inotify_rm_watch( p_env->role_context.collector.inotify_fd , p_trace_file->inotify_file_wd );
-		free( p_trace_file->path_filename );
-		free( p_trace_file );
-		return -1;
+		nret = LinkTraceFileWdTreeNode( p_env , p_trace_file ) ;
+		if( nret )
+		{
+			ERRORLOG( "LinkTraceFileWdTreeNode[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+			INFOLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_env->role_context.collector.inotify_fd , p_trace_file->inotify_file_wd )
+			inotify_rm_watch( p_env->role_context.collector.inotify_fd , p_trace_file->inotify_file_wd );
+			free( p_trace_file->path_filename );
+			free( p_trace_file );
+			return -1;
+		}
 	}
 	
 	return 0;
@@ -111,98 +301,6 @@ static int ReadFilesToInotifyWdTree( struct LogPipeEnv *p_env )
 	}
 	
 	closedir( dir );
-	
-	return 0;
-}
-
-static int OutputFileAppender( struct LogPipeEnv *p_env , struct TraceFile *p_trace_file )
-{
-	int		fd ;
-	struct stat	file_stat ;
-	int		appender_len ;
-	static char	*buffer = NULL ;
-	static int	buf_size = 0 ;
-	int		buf_len ;
-	
-	int		nret = 0 ;
-	
-	DEBUGLOG( "catch file[%s] appender" , p_trace_file->path_filename )
-	
-	fd = open( p_trace_file->path_filename , O_RDONLY ) ;
-	if( fd == -1 )
-	{
-		ERRORLOG( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-		return -1;
-	}
-	
-	memset( & file_stat , 0x00 , sizeof(struct stat) );
-	nret = fstat( fd , & file_stat ) ;
-	if( nret == -1 )
-	{
-		ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-		close( fd );
-		return RemoveFileWatcher( p_env , p_trace_file );
-	}
-	
-	DEBUGLOG( "file_size[%d] trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )
-	if( file_stat.st_size < p_trace_file->trace_offset )
-	{
-		p_trace_file->trace_offset = file_stat.st_size ;
-	}
-	else if( file_stat.st_size > p_trace_file->trace_offset )
-	{
-		appender_len = file_stat.st_size - p_trace_file->trace_offset ;
-		if( buffer == NULL )
-		{
-			buf_size = appender_len + 1 ;
-			buffer = (char*)malloc( buf_size ) ;
-			if( buffer == NULL )
-			{
-				ERRORLOG( "malloc failed , errno[%d]" , errno )
-				close( fd );
-				return -1;
-			}
-			else
-			{
-				DEBUGLOG( "malloc buffer ok, [%d]bytes" , buf_size )
-			}
-		}
-		else if( buf_size-1 < appender_len )
-		{
-			int		new_buf_size ;
-			char		*new_buffer = NULL ;
-			
-			new_buf_size = appender_len + 1 ;
-			new_buffer = (char*)realloc( buffer , new_buf_size ) ;
-			if( new_buffer == NULL )
-			{
-				ERRORLOG( "realloc failed , errno[%d]" , errno )
-				close( fd );
-				return -1;
-			}
-			else
-			{
-				DEBUGLOG( "realloc buffer ok, [%d]bytes" , buf_size )
-			}
-			buffer = new_buffer ;
-			buf_size = new_buf_size ;
-		}
-		memset( buffer , 0x00 , buf_size );
-		
-		buf_len = read( fd , buffer , appender_len ) ;
-		if( buf_len != appender_len )
-		{
-			ERRORLOG( "read[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-			close( fd );
-			return -1;
-		}
-		else
-		{
-			DEBUGHEXLOG( buffer , appender_len , "output file appender , [%d]bytes" , appender_len )
-		}
-	}
-	
-	close( fd );
 	
 	return 0;
 }
