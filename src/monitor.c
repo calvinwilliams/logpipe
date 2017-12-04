@@ -20,7 +20,8 @@ int monitor( struct LogPipeEnv *p_env )
 	pid_t			pid ;
 	int			status ;
 	
-	SetLogFile( "%s" , p_env->log_pathfilename );
+	SetLogFile( p_env->conf.log.log_file );
+	SetLogLevel( p_env->log_level );
 	
 	/* 设置信号 */
 	if( ! p_env->no_daemon )
@@ -49,12 +50,7 @@ int monitor( struct LogPipeEnv *p_env )
 		else if( pid == 0 )
 		{
 			INFOLOG( "child : [%ld] fork [%ld]" , getppid() , getpid() )
-			if( p_env->role == LOGPIPE_ROLE_COLLECTOR )
-				return -worker_collector( p_env );
-			else if( p_env->role == LOGPIPE_ROLE_DUMPSERVER )
-				return -worker_dumpserver( p_env );
-			else
-				return -2;
+			return -worker( p_env );
 		}
 		else
 		{
@@ -99,6 +95,9 @@ _GOTO_WAITPID :
 		
 		/* 重新创建命令管道，创建工作进程 */
 	}
+	
+	/* 关闭事件总线 */
+	close( p_env->epoll_fd );
 	
 	return 0;
 }

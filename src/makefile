@@ -8,16 +8,21 @@
 ###### 源文件配置区
 #@ c_FILE
 c_FILE		=	\
+			IDL_logpipe_conf.dsc.c \
+			fasterjson.c \
 			list.c \
 			rbtree.c \
 			rbtree_ins.c \
 			LOGC.c \
 			util.c \
 			main.c \
+			config.c \
 			env.c \
 			monitor.c \
-			worker_collector.c \
-			worker_dumpserver.c \
+			worker.c \
+			comm.c \
+			file.c \
+			output.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall

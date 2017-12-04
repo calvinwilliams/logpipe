@@ -12,18 +12,14 @@ static void version()
 static void usage()
 {
 	printf( "USAGE : logpipe -v\n" );
-	printf( "        logpipe --role C --monitor-path (dir_path) --listen-ip (ip) --listen-port (port)\n" );
-	printf( "                --role S --listen-ip (ip) --listen-port (port)\n" );
-	printf( "                        --log-file (log_file) --log-level (DEBUG|INFO|WARN|ERROR|FATAL)\n" );
-	printf( "                        --no-daemon\n" );
+	printf( "        logpipe -i\n" );
+	printf( "        logpipe -f (config_file) [ --no-daemon ]\n" );
 	return;
 }
 
 static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *argv[] )
 {
 	int		c ;
-	
-	int		nret = 0 ;
 	
 	SetLogLevel( LOGLEVEL_WARN );
 	
@@ -34,79 +30,14 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 			version();
 			exit(0);
 		}
-		else if( STRCMP( argv[c] , == , "--role" ) && c + 1 < argc )
+		else if( STRCMP( argv[c] , == , "-i" ) )
 		{
-			if( STRCMP(argv[c+1],==,"C") )
-			{
-				p_env->role = LOGPIPE_ROLE_COLLECTOR ;
-			}
-			else if( STRCMP(argv[c+1],==,"P") )
-			{
-				p_env->role = LOGPIPE_ROLE_PIPER ;
-			}
-			else if( STRCMP(argv[c+1],==,"S") )
-			{
-				p_env->role = LOGPIPE_ROLE_DUMPSERVER ;
-			}
-			else
-			{
-				printf( "*** ERROR : parse invalid value '%s' of command parameter '--role'\n" , argv[c+1] );
-				return -1;
-			}
-			c++;
+			InitConfig();
+			exit(0);
 		}
-		else if( STRCMP( argv[c] , == , "--monitor-path" ) && c + 1 < argc )
+		else if( STRCMP( argv[c] , == , "-f" ) && c + 1 < argc )
 		{
-			strncpy( p_env->role_context.collector.monitor_path , argv[c+1] , sizeof(p_env->role_context.collector.monitor_path)-1 );
-			c++;
-		}
-		else if( STRCMP( argv[c] , == , "--dump-path" ) && c + 1 < argc )
-		{
-			strncpy( p_env->role_context.dumpserver.dump_path , argv[c+1] , sizeof(p_env->role_context.dumpserver.dump_path)-1 );
-			c++;
-		}
-		else if( STRCMP( argv[c] , == , "--listen-ip" ) && c + 1 < argc )
-		{
-			strncpy( p_env->listen_ip , argv[c+1] , sizeof(p_env->listen_ip)-1 );
-			c++;
-		}
-		else if( STRCMP( argv[c] , == , "--listen-port" ) && c + 1 < argc )
-		{
-			p_env->listen_port = atoi(argv[c+1]) ;
-			c++;
-		}
-		else if( STRCMP( argv[c] , == , "--log-file" ) && c + 1 < argc )
-		{
-			strncpy( p_env->log_pathfilename , argv[c+1] , sizeof(p_env->log_pathfilename)-1 );
-			c++;
-		}
-		else if( STRCMP( argv[c] , == , "--log-level" ) && c + 1 < argc )
-		{
-			if( STRCMP(argv[c+1],==,"DEBUG") )
-			{
-				SetLogLevel( LOGLEVEL_DEBUG );
-			}
-			else if( STRCMP(argv[c+1],==,"INFO") )
-			{
-				SetLogLevel( LOGLEVEL_INFO );
-			}
-			else if( STRCMP(argv[c+1],==,"WARN") )
-			{
-				SetLogLevel( LOGLEVEL_WARN );
-			}
-			else if( STRCMP(argv[c+1],==,"ERROR") )
-			{
-				SetLogLevel( LOGLEVEL_ERROR );
-			}
-			else if( STRCMP(argv[c+1],==,"FATAL") )
-			{
-				SetLogLevel( LOGLEVEL_FATAL );
-			}
-			else
-			{
-				printf( "*** ERROR : parse invalid value '%s' of command parameter '--log-level'\n" , argv[c+1] );
-				return -1;
-			}
+			strncpy( p_env->config_path_filename , argv[c+1] , sizeof(p_env->config_path_filename)-1 );
 			c++;
 		}
 		else if( STRCMP( argv[c] , == , "--no-daemon" ) )
@@ -119,93 +50,6 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 			usage();
 			exit(1);
 		}
-	}
-	
-	if( p_env->role == LOGPIPE_ROLE_COLLECTOR )
-	{
-		struct stat	dir_stat ;
-		
-		if( p_env->role_context.collector.monitor_path[0] == '\0' )
-		{
-			printf( "*** ERROR : need parameter '--monitor-path' for --role C\n" );
-			return -1;
-		}
-		
-		memset( & dir_stat , 0x00 , sizeof(struct stat) );
-		nret = stat( p_env->role_context.collector.monitor_path , & dir_stat ) ;
-		if( nret == -1 )
-		{
-			printf( "*** ERROR : path '%s' invalid\n" , p_env->role_context.collector.monitor_path );
-			return -1;
-		}
-		
-		if( ! S_ISDIR(dir_stat.st_mode) )
-		{
-			printf( "*** ERROR : path '%s' isn't a directory\n" , p_env->role_context.collector.monitor_path );
-			return -1;
-		}
-		
-		if( p_env->listen_ip[0] == '\0' )
-		{
-			printf( "*** ERROR : need parameter '--listen-ip' for --role S\n" );
-			return -1;
-		}
-		
-		if( p_env->listen_port <= 0 )
-		{
-			printf( "*** ERROR : need parameter '--listen-port' for --role S\n" );
-			return -1;
-		}
-		
-		printf( "role : LOGPIPE_ROLE_COLLECTOR\n" );
-		printf( "monitor_path : %s\n" , p_env->role_context.collector.monitor_path );
-		printf( "listen_ip : %s\n" , p_env->listen_ip );
-		printf( "listen_port : %d\n" , p_env->listen_port );
-	}
-	else if( p_env->role == LOGPIPE_ROLE_DUMPSERVER )
-	{
-		struct stat	dir_stat ;
-		
-		if( p_env->role_context.dumpserver.dump_path[0] == '\0' )
-		{
-			printf( "*** ERROR : need parameter '--dump-path' for --role C\n" );
-			return -1;
-		}
-		
-		memset( & dir_stat , 0x00 , sizeof(struct stat) );
-		nret = stat( p_env->role_context.dumpserver.dump_path , & dir_stat ) ;
-		if( nret == -1 )
-		{
-			printf( "*** ERROR : path '%s' invalid\n" , p_env->role_context.dumpserver.dump_path );
-			return -1;
-		}
-		
-		if( ! S_ISDIR(dir_stat.st_mode) )
-		{
-			printf( "*** ERROR : path '%s' isn't a directory\n" , p_env->role_context.dumpserver.dump_path );
-			return -1;
-		}
-		
-		if( p_env->listen_ip[0] == '\0' )
-		{
-			printf( "*** ERROR : need parameter '--listen-ip' for --role S\n" );
-			return -1;
-		}
-		
-		if( p_env->listen_port <= 0 )
-		{
-			printf( "*** ERROR : need parameter '--listen-port' for --role S\n" );
-			return -1;
-		}
-		
-		printf( "role : LOGPIPE_ROLE_DUMPSERVER\n" );
-		printf( "listen_ip : %s\n" , p_env->listen_ip );
-		printf( "listen_port : %d\n" , p_env->listen_port );
-	}
-	else
-	{
-		printf( "*** ERROR : role '%c' invalid\n" , p_env->role );
-		return -1;
 	}
 	
 	return 0;
@@ -234,6 +78,10 @@ int main( int argc , char *argv[] )
 	memset( p_env , 0x00 , sizeof(struct LogPipeEnv) );
 	
 	nret = ParseCommandParameter( p_env , argc , argv ) ;
+	if( nret )
+		return -nret;
+	
+	nret = LoadConfig( p_env ) ;
 	if( nret )
 		return -nret;
 	
