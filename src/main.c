@@ -1,7 +1,7 @@
 #include "logpipe_in.h"
 
-char	__LOGPIPE_VERSION_0_1_0[] = "0.1.0" ;
-char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_1_0 ;
+char	__LOGPIPE_VERSION_0_2_0[] = "0.2.0" ;
+char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_2_0 ;
 
 static void version()
 {

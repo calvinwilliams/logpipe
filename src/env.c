@@ -1,6 +1,6 @@
 #include "logpipe_in.h"
 
-static int ReadFilesToinotifyWdTree( struct InotifySession *p_inotify_session )
+static int ReadFilesToinotifyWdTree( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session )
 {
 	DIR			*dir = NULL ;
 	struct dirent		*ent = NULL ;
@@ -22,7 +22,7 @@ static int ReadFilesToinotifyWdTree( struct InotifySession *p_inotify_session )
 		
 		if( ent->d_type & DT_REG )
 		{
-			nret = AddFileWatcher( p_inotify_session , ent->d_name ) ;
+			nret = AddFileWatcher( p_env , p_inotify_session , ent->d_name ) ;
 			if( nret )
 			{
 				ERRORLOG( "AddFileWatcher[%s] failed , errno[%d]" , ent->d_name , errno )
@@ -73,7 +73,7 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			}
 			memset( p_inotify_session , 0x00 , sizeof(struct InotifySession) );
 			
-			p_inotify_session->session_type = LOGPIPE_SESSION_TYPE_MONITOR ;
+			p_inotify_session->session_type = LOGPIPE_SESSION_TYPE_INOTIFY ;
 			
 			strncpy( p_inotify_session->inotify_path , p_env->conf.input[i].inotify_path , sizeof(p_inotify_session->inotify_path)-1 );
 			
@@ -84,14 +84,14 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 				return -1;
 			}
 			
-			p_inotify_session->inotify_path_wd = inotify_add_watch( p_inotify_session->inotify_fd , p_inotify_session->inotify_path , (uint32_t)(IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED) ) ;
+			p_inotify_session->inotify_path_wd = inotify_add_watch( p_inotify_session->inotify_fd , p_inotify_session->inotify_path , (uint32_t)(IN_CREATE|IN_MOVED_TO|IN_DELETE_SELF|IN_MOVE_SELF) );
 			if( p_inotify_session->inotify_path_wd == -1 )
 			{
 				printf( "*** ERROR : inotify_add_watch[%s] failed , errno[%d]\n" , p_inotify_session->inotify_path , errno );
 				return -1;
 			}
 			
-			nret = ReadFilesToinotifyWdTree( p_inotify_session ) ;
+			nret = ReadFilesToinotifyWdTree( p_env , p_inotify_session ) ;
 			if( nret )
 			{
 				return nret;
@@ -149,6 +149,9 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			}
 			
 			/* 绑定套接字到侦听端口 */
+			strcpy( p_listen_session->listen_ip , p_env->conf.input[i].listen_ip );
+			p_listen_session->listen_port = p_env->conf.input[i].listen_port ;
+			
 			memset( & (p_listen_session->listen_addr) , 0x00 , sizeof(struct sockaddr_in) );
 			p_listen_session->listen_addr.sin_family = AF_INET ;
 			if( p_env->conf.input[i].listen_ip[0] == '\0' )
@@ -184,6 +187,8 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			
 			/* 初始化已连接会话链表 */
 			INIT_LIST_HEAD( & (p_listen_session->accepted_session_list.this_node) );
+			
+			list_add_tail( & (p_listen_session->this_node) , & (p_env->listen_session_list.this_node) );
 		}
 		else
 		{
@@ -205,7 +210,7 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			}
 			memset( p_dump_session , 0x00 , sizeof(struct DumpSession) );
 			
-			p_dump_session->session_type = LOGPIPE_SESSION_TYPE_MONITOR ;
+			p_dump_session->session_type = LOGPIPE_SESSION_TYPE_DUMP ;
 			
 			strncpy( p_dump_session->dump_path , p_env->conf.output[i].dump_path , sizeof(p_dump_session->dump_path)-1 );
 			
@@ -219,9 +224,9 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 				printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
 				return -1;
 			}
-			memset( p_forward_session , 0x00 , sizeof(struct ListenSession) );
+			memset( p_forward_session , 0x00 , sizeof(struct ForwardSession) );
 			
-			p_forward_session->session_type = LOGPIPE_SESSION_TYPE_LISTEN ;
+			p_forward_session->session_type = LOGPIPE_SESSION_TYPE_FORWARD ;
 			
 			/* 创建套接字 */
 			p_forward_session->forward_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
@@ -259,6 +264,8 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 				printf( "*** ERROR : connect[%s:%d] failed , errno[%d]\n" , p_env->conf.output[i].forward_ip , p_env->conf.output[i].forward_port , errno );
 				return -1;
 			}
+			
+			list_add_tail( & (p_forward_session->this_node) , & (p_env->forward_session_list.this_node) );
 		}
 		else
 		{
@@ -270,7 +277,7 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 	return 0;
 }
 
-int CleanEnvironment( struct LogPipeEnv *p_env )
+void CleanEnvironment( struct LogPipeEnv *p_env )
 {
 	struct list_head	*p_node = NULL ;
 	struct list_head	*p_next_node = NULL ;
@@ -332,6 +339,36 @@ int CleanEnvironment( struct LogPipeEnv *p_env )
 		list_del( p_node );
 	}
 	
-	return 0;
+	return;
+}
+
+void LogEnvironment( struct LogPipeEnv *p_env )
+{
+	struct InotifySession	*p_inotify_session = NULL ;
+	struct ListenSession	*p_listen_session = NULL ;
+	struct DumpSession	*p_dump_session = NULL ;
+	struct ForwardSession	*p_forward_session = NULL ;
+	
+	list_for_each_entry( p_inotify_session , & (p_env->inotify_session_list.this_node) , struct InotifySession , this_node )
+	{
+		INFOLOG( "input : inotify - inotify_path[%s] inotify_fd[%d] inotify_path_wd[%d]" , p_inotify_session->inotify_path , p_inotify_session->inotify_fd , p_inotify_session->inotify_path_wd )
+	}
+	
+	list_for_each_entry( p_listen_session , & (p_env->listen_session_list.this_node) , struct ListenSession , this_node )
+	{
+		INFOLOG( "input : listen - listen_ip[%s] listen_port[%d] listen_sock[%d]" , p_listen_session->listen_ip , p_listen_session->listen_port , p_listen_session->listen_sock )
+	}
+	
+	list_for_each_entry( p_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )
+	{
+		INFOLOG( "output : dump - dump_path[%s]" , p_dump_session->dump_path )
+	}
+	
+	list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node )
+	{
+		INFOLOG( "output : forward - forward_ip[%s] forward_port[%d] forward_sock[%d]" , p_forward_session->forward_ip , p_forward_session->forward_port , p_forward_session->forward_sock )
+	}
+	
+	return;
 }
 

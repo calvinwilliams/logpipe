@@ -15,8 +15,12 @@ int worker( struct LogPipeEnv *p_env )
 	
 	int			nret = 0 ;
 	
+	signal( SIGTERM , SIG_DFL );
+	
 	SetLogFile( p_env->conf.log.log_file );
 	SetLogLevel( p_env->log_level );
+	
+	LogEnvironment( p_env );
 	
 	while(1)
 	{
@@ -44,7 +48,7 @@ int worker( struct LogPipeEnv *p_env )
 		for( i = 0 , p_event = events ; i < epoll_nfds ; i++ , p_event++ )
 		{
 			p_session_header = (struct SessionHeader *)(p_event->data.ptr) ;
-			if( p_session_header->session_type == LOGPIPE_SESSION_TYPE_MONITOR )
+			if( p_session_header->session_type == LOGPIPE_SESSION_TYPE_INOTIFY )
 			{
 				p_inotify_session = (struct InotifySession *)(p_event->data.ptr) ;
 				

@@ -19,6 +19,7 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env , struct ListenSession *p_listen
 	}
 	memset( p_accepted_session , 0x00 , sizeof(struct AcceptedSession) );
 	
+	p_accepted_session->session_type = LOGPIPE_SESSION_TYPE_ACCEPTED ;
 	p_accepted_session->p_listen_session = p_listen_session ;
 	
 	/* 接受新连接 */
@@ -150,7 +151,7 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 		if( p_accepted_session->comm_body_len == 0 )
 		{
 			p_accepted_session->comm_body_len = ntohl( *(uint32_t*)(p_accepted_session->comm_buf) ) ;
-			DEBUGLOG( "parse comm total length [%d]" , p_accepted_session->comm_body_len )
+			DEBUGLOG( "parse comm total length [%d]bytes" , p_accepted_session->comm_body_len )
 			if( p_accepted_session->comm_body_len <= 0 )
 			{
 				ERRORLOG( "comm_body_len[%d] invalid" , p_accepted_session->comm_body_len )

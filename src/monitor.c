@@ -41,27 +41,27 @@ int monitor( struct LogPipeEnv *p_env )
 	while(1)
 	{
 		/* 创建工作进程 */
-		pid = fork() ;
-		if( pid == -1 )
+		p_env->worker_pid = fork() ;
+		if( p_env->worker_pid == -1 )
 		{
 			ERRORLOG( "fork failed , errno[%d]" , errno )
 			return -1;
 		}
-		else if( pid == 0 )
+		else if( p_env->worker_pid == 0 )
 		{
 			INFOLOG( "child : [%ld] fork [%ld]" , getppid() , getpid() )
 			return -worker( p_env );
 		}
 		else
 		{
-			INFOLOG( "parent : [%ld] fork [%ld]" , getpid() , pid )
+			INFOLOG( "parent : [%ld] fork [%ld]" , getpid() , p_env->worker_pid )
 		}
 		
 _GOTO_WAITPID :
 		
 		/* 堵塞等待工作进程结束 */
 		DEBUGLOG( "waitpid ..." )
-		pid = waitpid( pid , & status , 0 );
+		pid = waitpid( p_env->worker_pid , & status , 0 );
 		if( pid == -1 )
 		{
 			if( errno == EINTR )
@@ -95,6 +95,9 @@ _GOTO_WAITPID :
 		
 		/* 重新创建命令管道，创建工作进程 */
 	}
+	
+	/* 杀死子进程 */
+	kill( p_env->worker_pid , SIGTERM );
 	
 	/* 关闭事件总线 */
 	close( p_env->epoll_fd );

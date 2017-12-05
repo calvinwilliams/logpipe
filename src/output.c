@@ -348,7 +348,7 @@ int CommToOutput( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_
 	DEBUGHEXLOG( filename , filename_len_ntohl , "file name" )
 	
 	file_content = filename + filename_len_ntohl ;
-	appender_len = p_accepted_session->comm_body_len - 1 - sizeof(filename_len_htonl) - filename_len_ntohl ;
+	appender_len = p_accepted_session->comm_body_len - 1 - sizeof(uint32_t) - filename_len_ntohl ;
 	
 	/* 导出所有输出端 */
 	list_for_each_safe( p_node , p_next_node , & (p_env->dump_session_list.this_node) )

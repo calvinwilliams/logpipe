@@ -1,11 +1,10 @@
 #include "logpipe_in.h"
 
-int AddFileWatcher( struct InotifySession *p_inotify_session , char *filename )
+int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , char *filename )
 {
 	struct TraceFile	*p_trace_file = NULL ;
 	struct TraceFile	*p_trace_file_not_exist = NULL ;
 	struct stat		file_stat ;
-	static uint32_t		inotify_mask = IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED ;
 	
 	int			nret = 0 ;
 	
@@ -49,7 +48,7 @@ int AddFileWatcher( struct InotifySession *p_inotify_session , char *filename )
 		return -1;
 	}
 	
-	p_trace_file->inotify_file_wd = inotify_add_watch( p_inotify_session->inotify_fd , p_trace_file->path_filename , inotify_mask ) ;
+	p_trace_file->inotify_file_wd = inotify_add_watch( p_inotify_session->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED) ) ;
 	if( p_trace_file->inotify_file_wd == -1 )
 	{
 		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
@@ -77,10 +76,10 @@ int AddFileWatcher( struct InotifySession *p_inotify_session , char *filename )
 		}
 	}
 	
-	return 0;
+	return OutputFileAppender( p_env , p_inotify_session , p_trace_file );
 }
 
-int RemoveFileWatcher( struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
+int RemoveFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
 {
 	UnlinkTraceFileWdTreeNode( p_inotify_session , p_trace_file );
 	
@@ -92,7 +91,7 @@ int RemoveFileWatcher( struct InotifySession *p_inotify_session , struct TraceFi
 	return 0;
 }
 
-static int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
+int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
 {
 	int		fd ;
 	struct stat	file_stat ;
@@ -106,7 +105,7 @@ static int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession 
 	if( fd == -1 )
 	{
 		ERRORLOG( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-		return -1;
+		return RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
 	}
 	
 	memset( & file_stat , 0x00 , sizeof(struct stat) );
@@ -115,7 +114,7 @@ static int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession 
 	{
 		ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		close( fd );
-		return RemoveFileWatcher( p_inotify_session , p_trace_file );
+		return RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
 	}
 	
 	DEBUGLOG( "file_size[%d] trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )
@@ -132,7 +131,7 @@ static int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession 
 		{
 			ERRORLOG( "FileToOutputs failed[%d]" , nret )
 			close( fd );
-			return nret;
+			return RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
 		}
 		
 		p_trace_file->trace_offset = file_stat.st_size ;
@@ -179,7 +178,7 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 		{
 			if( ( p_inotify_event->mask & IN_CREATE ) || ( p_inotify_event->mask & IN_MOVED_TO ) )
 			{
-				nret = AddFileWatcher( p_inotify_session , p_inotify_event->name ) ;
+				nret = AddFileWatcher( p_env , p_inotify_session , p_inotify_event->name ) ;
 				if( nret )
 				{
 					ERRORLOG( "AddFileWatcher[%s] failed , errno[%d]" , p_inotify_event->name , errno )
@@ -219,7 +218,7 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 				}
 				else if( ( p_inotify_event->mask & IN_DELETE_SELF ) || ( p_inotify_event->mask & IN_MOVE_SELF ) )
 				{
-					nret = RemoveFileWatcher( p_inotify_session , p_trace_file ) ;
+					nret = RemoveFileWatcher( p_env , p_inotify_session , p_trace_file ) ;
 					if( nret )
 					{
 						ERRORLOG( "RemoveFileWatcher failed , errno[%d]" , errno )

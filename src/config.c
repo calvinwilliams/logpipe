@@ -24,7 +24,7 @@ void InitConfig()
 	conf.output[1].forward_port = 10101 ;
 	conf._output_count++;
 	
-	snprintf( conf.log.log_file , sizeof(conf.log.log_file)-1 , "%s/log3" , getenv("HOME") );
+	snprintf( conf.log.log_file , sizeof(conf.log.log_file)-1 , "%s/log3/logpipe.log" , getenv("HOME") );
 	strcpy( conf.log.log_level , "ERROR" );
 	
 	nret = DSCSERIALIZE_JSON_DUP_logpipe_conf( & conf , "GB18030" , & file_content , NULL , NULL ) ;
@@ -37,7 +37,7 @@ void InitConfig()
 	memset( config_path_filename , 0x00 , sizeof(config_path_filename) );
 	snprintf( config_path_filename , sizeof(config_path_filename)-1 , "%s/etc/logpipe.conf" , getenv("HOME") );
 	nret = access( config_path_filename , F_OK ) ;
-	if( nret == -1 )
+	if( nret == 0 )
 	{
 		printf( "*** ERROR : file[%s] exist\n" , config_path_filename );
 		free( file_content );
@@ -63,7 +63,7 @@ int LoadConfig( struct LogPipeEnv *p_env )
 	int		nret = 0 ;
 	
 	file_content = StrdupEntireFile( p_env->config_path_filename , NULL ) ;
-	if( file_content )
+	if( file_content == NULL )
 	{
 		printf( "*** ERROR : open file[%s] failed , errno[%d]\n" , p_env->config_path_filename , errno );
 		return -1;
