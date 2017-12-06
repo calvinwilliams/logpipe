@@ -144,6 +144,8 @@ int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession *p_inot
 
 int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session )
 {
+	int			inotify_read_nbytes ;
+	
 	long			read_len ;
 	struct inotify_event	*p_inotify_event = NULL ;
 	struct inotify_event	*p_overflow_inotify_event = NULL ;
@@ -151,6 +153,29 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 	struct TraceFile	*p_trace_file = NULL ;
 	
 	int			nret = 0 ;
+	
+	nret = ioctl( p_inotify_session->inotify_fd , FIONREAD , & inotify_read_nbytes );
+	if( nret )
+	{
+		FATALLOG( "ioctl failed , errno[%d]" , errno )
+		return -1;
+	}
+	
+	if( inotify_read_nbytes+1 > p_env->inotify_read_bufsize )
+	{
+		char	*tmp = NULL ;
+		
+		WARNLOG( "inotify read buffer resize [%d]bytes to [%dbytes" , p_env->inotify_read_bufsize , inotify_read_nbytes+1 )
+		p_env->inotify_read_bufsize = inotify_read_nbytes+1 ;
+		tmp = (char*)realloc( p_env->inotify_read_buffer , p_env->inotify_read_bufsize ) ;
+		if( tmp == NULL )
+		{
+			FATALLOG( "realloc failed , errno[%d]" , errno )
+			return -1;
+		}
+		p_env->inotify_read_buffer = tmp ;
+	}
+	memset( p_env->inotify_read_buffer , 0x00 , p_env->inotify_read_bufsize );
 	
 	DEBUGLOG( "read inotify ..." )
 	read_len = read( p_inotify_session->inotify_fd , p_env->inotify_read_buffer , sizeof(p_env->inotify_read_buffer)-1 ) ;
@@ -233,6 +258,21 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 		}
 		
 		p_inotify_event = (struct inotify_event *)( (char*)p_inotify_event + sizeof(struct inotify_event) + p_inotify_event->len ) ;
+	}
+	
+	if( p_env->inotify_read_bufsize != LOGPIPE_INOTIFY_READ_BUFSIZE )
+	{
+		char	*tmp = NULL ;
+		
+		WARNLOG( "inotify read buffer resize [%d]bytes to [%dbytes" , p_env->inotify_read_bufsize , LOGPIPE_INOTIFY_READ_BUFSIZE )
+		p_env->inotify_read_bufsize = LOGPIPE_INOTIFY_READ_BUFSIZE ;
+		tmp = (char*)realloc( p_env->inotify_read_buffer , p_env->inotify_read_bufsize ) ;
+		if( tmp == NULL )
+		{
+			FATALLOG( "realloc failed , errno[%d]" , errno )
+			return -1;
+		}
+		p_env->inotify_read_buffer = tmp ;
 	}
 	
 	return 0;

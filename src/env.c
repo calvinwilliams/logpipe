@@ -61,9 +61,9 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 	}
 	
 	/* 装载所有输入端 */
-	for( i = 0 ; i < p_env->conf._input_count ; i++ )
+	for( i = 0 ; i < p_env->conf._inputs_count ; i++ )
 	{
-		if( p_env->conf.input[i].inotify_path[0] )
+		if( STRNCMP( p_env->conf.inputs[i].input , == , LOGPIPE_IO_TYPE_FILE , sizeof(LOGPIPE_IO_TYPE_FILE)-1 ) )
 		{
 			p_inotify_session = (struct InotifySession *)malloc( sizeof(struct InotifySession) ) ;
 			if( p_inotify_session == NULL )
@@ -75,7 +75,7 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			
 			p_inotify_session->session_type = LOGPIPE_SESSION_TYPE_INOTIFY ;
 			
-			strncpy( p_inotify_session->inotify_path , p_env->conf.input[i].inotify_path , sizeof(p_inotify_session->inotify_path)-1 );
+			strncpy( p_inotify_session->inotify_path , p_env->conf.inputs[i].input+sizeof(LOGPIPE_IO_TYPE_FILE)-1-1 , sizeof(p_inotify_session->inotify_path)-1 );
 			
 			p_inotify_session->inotify_fd = inotify_init() ;
 			if( p_inotify_session->inotify_fd == -1 )
@@ -110,7 +110,7 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 				return -1;
 			}
 		}
-		else if( p_env->conf.input[i].listen_ip[0] && p_env->conf.input[i].listen_port > 0 )
+		else if( STRNCMP( p_env->conf.inputs[i].input , == , LOGPIPE_IO_TYPE_TCP , sizeof(LOGPIPE_IO_TYPE_TCP)-1 ) )
 		{
 			p_listen_session = (struct ListenSession *)malloc( sizeof(struct ListenSession) ) ;
 			if( p_listen_session == NULL )
@@ -149,20 +149,26 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			}
 			
 			/* 绑定套接字到侦听端口 */
-			strcpy( p_listen_session->listen_ip , p_env->conf.input[i].listen_ip );
-			p_listen_session->listen_port = p_env->conf.input[i].listen_port ;
+			memset( p_listen_session->listen_ip , 0x00 , sizeof(p_listen_session->listen_ip) );
+			p_listen_session->listen_port = 0 ;
+			sscanf( p_env->conf.inputs[i].input+sizeof(LOGPIPE_IO_TYPE_TCP)-1 , "%[^:]:%d" , p_listen_session->listen_ip , & (p_listen_session->listen_port) );
+			if( p_listen_session->listen_ip[0] == '\0' || p_listen_session->listen_port <= 0 )
+			{
+				printf( "*** ERROR : tcp config [%s] invalid\n" , p_env->conf.inputs[i].input );
+				return -1;
+			}
 			
 			memset( & (p_listen_session->listen_addr) , 0x00 , sizeof(struct sockaddr_in) );
 			p_listen_session->listen_addr.sin_family = AF_INET ;
-			if( p_env->conf.input[i].listen_ip[0] == '\0' )
+			if( p_listen_session->listen_ip[0] == '\0' )
 				p_listen_session->listen_addr.sin_addr.s_addr = INADDR_ANY ;
 			else
-				p_listen_session->listen_addr.sin_addr.s_addr = inet_addr(p_env->conf.input[i].listen_ip) ;
-			p_listen_session->listen_addr.sin_port = htons( (unsigned short)(p_env->conf.input[i].listen_port) );
+				p_listen_session->listen_addr.sin_addr.s_addr = inet_addr(p_listen_session->listen_ip) ;
+			p_listen_session->listen_addr.sin_port = htons( (unsigned short)(p_listen_session->listen_port) );
 			nret = bind( p_listen_session->listen_sock , (struct sockaddr *) & (p_listen_session->listen_addr) , sizeof(struct sockaddr) ) ;
 			if( nret == -1 )
 			{
-				printf( "*** ERROR : bind[%s:%d][%d] failed , errno[%d]\n" , p_env->conf.input[i].listen_ip , p_env->conf.input[i].listen_port , p_listen_session->listen_sock , errno );
+				printf( "*** ERROR : bind[%s:%d][%d] failed , errno[%d]\n" , p_listen_session->listen_ip , p_listen_session->listen_port , p_listen_session->listen_sock , errno );
 				return -1;
 			}
 			
@@ -170,18 +176,18 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			nret = listen( p_listen_session->listen_sock , 10240 ) ;
 			if( nret == -1 )
 			{
-				printf( "*** ERROR : listen[%s:%d][%d] failed , errno[%d]\n" , p_env->conf.input[i].listen_ip , p_env->conf.input[i].listen_port , p_listen_session->listen_sock , errno );
+				printf( "*** ERROR : listen[%s:%d][%d] failed , errno[%d]\n" , p_listen_session->listen_ip , p_listen_session->listen_port , p_listen_session->listen_sock , errno );
 				return -1;
 			}
 			
-			/* 加入侦听可读事件到epoll */
+			/* 加入可读事件到epoll */
 			memset( & event , 0x00 , sizeof(struct epoll_event) );
 			event.events = EPOLLIN | EPOLLERR ;
 			event.data.ptr = p_listen_session ;
 			nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_listen_session->listen_sock , & event ) ;
 			if( nret == -1 )
 			{
-				printf( "*** ERROR : epoll_ctl[%d] add listen_session[%s:%d] failed , errno[%d]\n" , p_env->epoll_fd , p_env->conf.input[i].listen_ip , p_env->conf.input[i].listen_port , errno );
+				printf( "*** ERROR : epoll_ctl[%d] add listen_session[%s:%d] EPOLLIN failed , errno[%d]\n" , p_env->epoll_fd , p_listen_session->listen_ip , p_listen_session->listen_port , errno );
 				return -1;
 			}
 			
@@ -192,15 +198,15 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 		}
 		else
 		{
-			printf( "*** ERROR : input[%d].* invalid\n" , i );
+			printf( "*** ERROR : input[%s] invalid\n" , p_env->conf.inputs[i].input );
 			return -1;
 		}
 	}
 	
 	/* 装载所有输出端 */
-	for( i = 0 ; i < p_env->conf._output_count ; i++ )
+	for( i = 0 ; i < p_env->conf._outputs_count ; i++ )
 	{
-		if( p_env->conf.output[i].dump_path[0] )
+		if( STRNCMP( p_env->conf.outputs[i].output , == , LOGPIPE_IO_TYPE_FILE , sizeof(LOGPIPE_IO_TYPE_FILE)-1 ) )
 		{
 			p_dump_session = (struct DumpSession *)malloc( sizeof(struct DumpSession) ) ;
 			if( p_dump_session == NULL )
@@ -212,11 +218,11 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			
 			p_dump_session->session_type = LOGPIPE_SESSION_TYPE_DUMP ;
 			
-			strncpy( p_dump_session->dump_path , p_env->conf.output[i].dump_path , sizeof(p_dump_session->dump_path)-1 );
+			strncpy( p_dump_session->dump_path , p_env->conf.outputs[i].output+sizeof(LOGPIPE_IO_TYPE_FILE)-1-1 , sizeof(p_dump_session->dump_path)-1 );
 			
 			list_add_tail( & (p_dump_session->this_node) , & (p_env->dump_session_list.this_node) );
 		}
-		else if( p_env->conf.output[i].forward_ip[0] && p_env->conf.output[i].forward_port > 0 )
+		else if( STRNCMP( p_env->conf.outputs[i].output , == , LOGPIPE_IO_TYPE_TCP , sizeof(LOGPIPE_IO_TYPE_TCP)-1 ) )
 		{
 			p_forward_session = (struct ForwardSession *)malloc( sizeof(struct ForwardSession) ) ;
 			if( p_forward_session == NULL )
@@ -248,20 +254,26 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			}
 			
 			/* 绑定套接字到侦听端口 */
-			strcpy( p_forward_session->forward_ip , p_env->conf.output[i].forward_ip );
-			p_forward_session->forward_port = p_env->conf.output[i].forward_port ;
+			memset( p_forward_session->forward_ip , 0x00 , sizeof(p_forward_session->forward_ip) );
+			p_forward_session->forward_port = 0 ;
+			sscanf( p_env->conf.outputs[i].output+sizeof(LOGPIPE_IO_TYPE_TCP)-1 , "%[^:]:%d" , p_forward_session->forward_ip , & (p_forward_session->forward_port) );
+			if( p_forward_session->forward_ip[0] == '\0' || p_forward_session->forward_port <= 0 )
+			{
+				printf( "*** ERROR : tcp config [%s] invalid\n" , p_env->conf.outputs[i].output );
+				return -1;
+			}
 			
 			memset( & (p_forward_session->forward_addr) , 0x00 , sizeof(struct sockaddr_in) );
 			p_forward_session->forward_addr.sin_family = AF_INET ;
-			if( p_env->conf.output[i].forward_ip[0] == '\0' )
+			if( p_forward_session->forward_ip[0] == '\0' )
 				p_forward_session->forward_addr.sin_addr.s_addr = INADDR_ANY ;
 			else
-				p_forward_session->forward_addr.sin_addr.s_addr = inet_addr(p_env->conf.output[i].forward_ip) ;
-			p_forward_session->forward_addr.sin_port = htons( (unsigned short)(p_env->conf.output[i].forward_port) );
+				p_forward_session->forward_addr.sin_addr.s_addr = inet_addr(p_forward_session->forward_ip) ;
+			p_forward_session->forward_addr.sin_port = htons( (unsigned short)(p_forward_session->forward_port) );
 			nret = connect( p_forward_session->forward_sock , (struct sockaddr *) & (p_forward_session->forward_addr) , sizeof(struct sockaddr) ) ;
 			if( nret == -1 )
 			{
-				printf( "*** ERROR : connect[%s:%d] failed , errno[%d]\n" , p_env->conf.output[i].forward_ip , p_env->conf.output[i].forward_port , errno );
+				printf( "*** ERROR : connect[%s:%d] failed , errno[%d]\n" , p_forward_session->forward_ip , p_forward_session->forward_port , errno );
 				return -1;
 			}
 			
@@ -269,10 +281,20 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 		}
 		else
 		{
-			printf( "*** ERROR : output[%d].* invalid\n" , i );
+			printf( "*** ERROR : output[%s] invalid\n" , p_env->conf.outputs[i].output );
 			return -1;
 		}
 	}
+	
+	/* 分配堆内存用于inotify读缓冲 */
+	p_env->inotify_read_bufsize = LOGPIPE_INOTIFY_READ_BUFSIZE ;
+	p_env->inotify_read_buffer = (char*)malloc( p_env->inotify_read_bufsize ) ;
+	if( p_env->inotify_read_buffer == NULL )
+	{
+		printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
+		return -1;
+	}
+	memset( p_env->inotify_read_buffer , 0x00 , p_env->inotify_read_bufsize );
 	
 	return 0;
 }

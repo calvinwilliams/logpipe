@@ -95,20 +95,16 @@ typedef struct
 {
 	struct
 	{
-		char	inotify_path[ 256 + 1 ] ;
-		char	listen_ip[ 20 + 1 ] ;
-		int	listen_port ;
-	} input [ 10 ] ;
-	int	_input_count ;
-	int	_input_size ;
+		char	input[ 256 + 1 ] ;
+	} inputs [ 10 ] ;
+	int	_inputs_count ;
+	int	_inputs_size ;
 	struct
 	{
-		char	dump_path[ 256 + 1 ] ;
-		char	forward_ip[ 20 + 1 ] ;
-		int	forward_port ;
-	} output [ 10 ] ;
-	int	_output_count ;
-	int	_output_size ;
+		char	output[ 256 + 1 ] ;
+	} outputs [ 10 ] ;
+	int	_outputs_count ;
+	int	_outputs_size ;
 	struct
 	{
 		char	log_file[ 256 + 1 ] ;

@@ -75,38 +75,43 @@ static int ReconnectForwardSocket( struct LogPipeEnv *p_env , struct ForwardSess
 {
 	int		nret = 0 ;
 	
-	/* 创建套接字 */
-	p_forward_session->forward_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
-	if( p_forward_session->forward_sock == -1 )
+	while(1)
 	{
-		ERRORLOG( "socket failed , errno[%d]" , errno );
-		sleep(10);
-		return -1;
-	}
-	
-	/* 设置套接字选项 */
-	{
-		int	onoff = 1 ;
-		setsockopt( p_forward_session->forward_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
-	}
-	
-	{
-		int	onoff = 1 ;
-		setsockopt( p_forward_session->forward_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
-	}
-	
-	/* 连接到服务端侦听端口 */
-	nret = connect( p_forward_session->forward_sock , (struct sockaddr *) & (p_forward_session->forward_addr) , sizeof(struct sockaddr) ) ;
-	if( nret == -1 )
-	{
-		ERRORLOG( "connect[%s:%d] failed , errno[%d]" , p_forward_session->forward_ip , p_forward_session->forward_port , errno );
-		close( p_forward_session->forward_sock );
-		sleep(10);
-		return -1;
-	}
-	else
-	{
-		INFOLOG( "connect[%s:%d] ok" , p_forward_session->forward_ip , p_forward_session->forward_port );
+		/* 创建套接字 */
+		p_forward_session->forward_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+		if( p_forward_session->forward_sock == -1 )
+		{
+			ERRORLOG( "socket failed , errno[%d]" , errno );
+			sleep(10);
+			return -1;
+		}
+		
+		/* 设置套接字选项 */
+		{
+			int	onoff = 1 ;
+			setsockopt( p_forward_session->forward_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+		}
+		
+		{
+			int	onoff = 1 ;
+			setsockopt( p_forward_session->forward_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+		}
+		
+		/* 连接到服务端侦听端口 */
+		nret = connect( p_forward_session->forward_sock , (struct sockaddr *) & (p_forward_session->forward_addr) , sizeof(struct sockaddr) ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "connect[%s:%d] failed , errno[%d]" , p_forward_session->forward_ip , p_forward_session->forward_port , errno );
+			close( p_forward_session->forward_sock );
+			sleep(1);
+			continue;
+		}
+		else
+		{
+			INFOLOG( "connect[%s:%d] ok" , p_forward_session->forward_ip , p_forward_session->forward_port );
+		}
+		
+		break;
 	}
 	
 	return 0;
@@ -154,22 +159,18 @@ static int SendingForwardSocket( struct LogPipeEnv *p_env , struct ForwardSessio
 		comm_total_length = 1 + sizeof(filename_len_htonl) + filename_len + appender_len ;
 		comm_total_length_htonl = htonl( comm_total_length ) ;
 		
-		while( p_forward_session->forward_sock == -1 )
-			ReconnectForwardSocket( p_env , p_forward_session );
+_GOTO_RETRY_SEND :
+		
+		ReconnectForwardSocket( p_env , p_forward_session );
 		
 		/* 发送通讯总长度 */
-		
-_GOTO_SEND_COMM_TOTAL_LENGTH :
-		
 		nret = send( p_forward_session->forward_sock , & comm_total_length_htonl , sizeof(comm_total_length_htonl) , 0 ) ;
 		if( nret == -1 )
 		{
 			ERRORLOG( "send comm total length failed , errno[%d]" , errno );
 			close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-			sleep(10);
-			while( p_forward_session->forward_sock == -1 )
-				ReconnectForwardSocket( p_env , p_forward_session );
-			goto _GOTO_SEND_COMM_TOTAL_LENGTH;
+			sleep(1);
+			goto _GOTO_RETRY_SEND;
 		}
 		else
 		{
@@ -177,18 +178,13 @@ _GOTO_SEND_COMM_TOTAL_LENGTH :
 		}
 		
 		/* 发送魔法字节 */
-		
-_GOTO_SEND_MAGIC :
-		
 		nret = send( p_forward_session->forward_sock , LOGPIPE_COMM_MAGIC , 1 , 0 ) ;
 		if( nret == -1 )
 		{
 			ERRORLOG( "send magic failed , errno[%d]" , errno );
 			close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-			sleep(10);
-			while( p_forward_session->forward_sock == -1 )
-				ReconnectForwardSocket( p_env , p_forward_session );
-			goto _GOTO_SEND_MAGIC;
+			sleep(1);
+			goto _GOTO_RETRY_SEND;
 		}
 		else
 		{
@@ -196,19 +192,14 @@ _GOTO_SEND_MAGIC :
 		}
 		
 		/* 发送文件名长度 */
-		
-_GOTO_SEND_FILE_NAME_LENGTH :
-		
 		filename_len_htonl = htonl(filename_len) ;
 		nret = send( p_forward_session->forward_sock , & filename_len_htonl , sizeof(filename_len_htonl) , 0 ) ;
 		if( nret == -1 )
 		{
 			ERRORLOG( "send file name length failed , errno[%d]" , errno );
 			close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-			sleep(10);
-			while( p_forward_session->forward_sock == -1 )
-				ReconnectForwardSocket( p_env , p_forward_session );
-			goto _GOTO_SEND_FILE_NAME_LENGTH;
+			sleep(1);
+			goto _GOTO_RETRY_SEND;
 		}
 		else
 		{
@@ -216,18 +207,13 @@ _GOTO_SEND_FILE_NAME_LENGTH :
 		}
 		
 		/* 发送文件名 */
-		
-_GOTO_SEND_FILE_NAME :
-		
 		nret = send( p_forward_session->forward_sock , filename , filename_len , 0 ) ;
 		if( nret == -1 )
 		{
 			ERRORLOG( "send file name failed , errno[%d]" , errno );
 			close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-			sleep(10);
-			while( p_forward_session->forward_sock == -1 )
-				ReconnectForwardSocket( p_env , p_forward_session );
-			goto _GOTO_SEND_FILE_NAME;
+			sleep(1);
+			goto _GOTO_RETRY_SEND;
 		}
 		else
 		{
@@ -246,6 +232,7 @@ _GOTO_SEND_FILE_NAME :
 			if( block_len == -1 )
 			{
 				ERRORLOG( "read[%s] failed , errno[%d]" , filename , errno )
+				close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
 				return -1;
 			}
 			else
@@ -253,17 +240,13 @@ _GOTO_SEND_FILE_NAME :
 				DEBUGLOG( "read[%s] ok , [%d]bytes" , filename , block_len )
 			}
 			
-_GOTO_SEND_FILE_DATA :
-			
 			nret = send( p_forward_session->forward_sock , block_buf , block_len , 0 ) ;
 			if( nret == -1 )
 			{
 				ERRORLOG( "send file data failed , errno[%d]" , errno );
 				close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-				sleep(10);
-				while( p_forward_session->forward_sock == -1 )
-					ReconnectForwardSocket( p_env , p_forward_session );
-				goto _GOTO_SEND_FILE_DATA;
+				sleep(1);
+				goto _GOTO_RETRY_SEND;
 			}
 			else
 			{

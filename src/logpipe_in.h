@@ -25,6 +25,7 @@ extern "C" {
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
+#include <sys/ioctl.h>
 
 int asprintf(char **strp, const char *fmt, ...);
 
@@ -34,17 +35,8 @@ int asprintf(char **strp, const char *fmt, ...);
 
 #include "IDL_logpipe_conf.dsc.h"
 
-struct TraceFile
-{
-	char				*path_filename ;
-	uint32_t			path_filename_len ;
-	char				*filename ;
-	uint32_t			filename_len ;
-	off_t				trace_offset ;
-	
-	int				inotify_file_wd ;
-	struct rb_node			inotify_file_wd_rbnode ;
-} ;
+#define LOGPIPE_IO_TYPE_FILE		"file://"
+#define LOGPIPE_IO_TYPE_TCP		"tcp://"
 
 #define LOGPIPE_SESSION_TYPE_INOTIFY	'M'
 #define LOGPIPE_SESSION_TYPE_LISTEN	'L'
@@ -71,6 +63,19 @@ struct TraceFile
 struct SessionHeader
 {
 	unsigned char		session_type ;
+} ;
+
+/* 跟踪文件会话结构 */
+struct TraceFile
+{
+	char				*path_filename ;
+	uint32_t			path_filename_len ;
+	char				*filename ;
+	uint32_t			filename_len ;
+	off_t				trace_offset ;
+	
+	int				inotify_file_wd ;
+	struct rb_node			inotify_file_wd_rbnode ;
 } ;
 
 /* 目录监控端会话结构 */
@@ -163,7 +168,8 @@ struct LogPipeEnv
 	struct DumpSession	dump_session_list ; /* 归集落地端会话链表 */
 	struct ForwardSession	forward_session_list ; /* 转发端会话链表 */
 	
-	char			inotify_read_buffer[ LOGPIPE_INOTIFY_READ_BUFSIZE + 1 ] ;
+	char			*inotify_read_buffer ;
+	int			inotify_read_bufsize ;
 } ;
 
 int LinkTraceFileWdTreeNode( struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file );

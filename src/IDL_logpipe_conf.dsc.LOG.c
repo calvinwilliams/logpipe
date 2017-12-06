@@ -16,19 +16,15 @@
 int FUNCNAME_DSCLOG_logpipe_conf( logpipe_conf *pst )
 {
 	int	index[10] = { 0 } ; index[0]++; index[0] = 0 ;
-		PREFIX_DSCLOG_logpipe_conf "logpipe_conf._input_count[%d]" NEWLINE_DSCLOG_logpipe_conf , pst->_input_count );
-		for( index[1] = 0 ; index[1] < pst->_input_count ; index[1]++ )
+		PREFIX_DSCLOG_logpipe_conf "logpipe_conf._inputs_count[%d]" NEWLINE_DSCLOG_logpipe_conf , pst->_inputs_count );
+		for( index[1] = 0 ; index[1] < pst->_inputs_count ; index[1]++ )
 		{
-		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.input[index[1]].inotify_path[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->input[index[1]].inotify_path );
-		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.input[index[1]].listen_ip[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->input[index[1]].listen_ip );
-		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.input[index[1]].listen_port[%d]" NEWLINE_DSCLOG_logpipe_conf , pst->input[index[1]].listen_port );
+		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.inputs[index[1]].input[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->inputs[index[1]].input );
 		}
-		PREFIX_DSCLOG_logpipe_conf "logpipe_conf._output_count[%d]" NEWLINE_DSCLOG_logpipe_conf , pst->_output_count );
-		for( index[1] = 0 ; index[1] < pst->_output_count ; index[1]++ )
+		PREFIX_DSCLOG_logpipe_conf "logpipe_conf._outputs_count[%d]" NEWLINE_DSCLOG_logpipe_conf , pst->_outputs_count );
+		for( index[1] = 0 ; index[1] < pst->_outputs_count ; index[1]++ )
 		{
-		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.output[index[1]].dump_path[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->output[index[1]].dump_path );
-		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.output[index[1]].forward_ip[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->output[index[1]].forward_ip );
-		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.output[index[1]].forward_port[%d]" NEWLINE_DSCLOG_logpipe_conf , pst->output[index[1]].forward_port );
+		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.outputs[index[1]].output[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->outputs[index[1]].output );
 		}
 		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.log.log_file[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->log.log_file );
 		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.log.log_level[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->log.log_level );

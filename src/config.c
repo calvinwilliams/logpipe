@@ -10,19 +10,17 @@ void InitConfig()
 	
 	DSCINIT_logpipe_conf( & conf );
 	
-	snprintf( conf.input[0].inotify_path , sizeof(conf.input[0].inotify_path)-1 , "%s/log" , getenv("HOME") );
-	conf._input_count++;
+	snprintf( conf.inputs[0].input , sizeof(conf.inputs[0].input)-1 , "file://%s/log" , getenv("HOME") );
+	conf._inputs_count++;
 	
-	strcpy( conf.input[1].listen_ip , "127.0.0.1" );
-	conf.input[1].listen_port = 10101 ;
-	conf._input_count++;
+	strcpy( conf.inputs[1].input , "tcp://127.0.0.1:10101" );
+	conf._inputs_count++;
 	
-	snprintf( conf.output[0].dump_path , sizeof(conf.output[0].dump_path)-1 , "%s/log2" , getenv("HOME") );
-	conf._output_count++;
+	snprintf( conf.outputs[0].output , sizeof(conf.outputs[0].output)-1 , "file://%s/log2" , getenv("HOME") );
+	conf._outputs_count++;
 	
-	strcpy( conf.output[1].forward_ip , "127.0.0.1" );
-	conf.output[1].forward_port = 10101 ;
-	conf._output_count++;
+	strcpy( conf.outputs[1].output , "tcp://127.0.0.1:10101" );
+	conf._outputs_count++;
 	
 	snprintf( conf.log.log_file , sizeof(conf.log.log_file)-1 , "%s/log3/logpipe.log" , getenv("HOME") );
 	strcpy( conf.log.log_level , "ERROR" );

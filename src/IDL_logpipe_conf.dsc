@@ -1,17 +1,13 @@
 STRUCT	logpipe_conf
 {
-	STRUCT	input	ARRAY	10
+	STRUCT	inputs	ARRAY	10
 	{
-		STRING	256	inotify_path
-		STRING	20	listen_ip
-		INT	4	listen_port
+		STRING	256	input
 	}
 	
-	STRUCT	output	ARRAY	10
+	STRUCT	outputs	ARRAY	10
 	{
-		STRING	256	dump_path
-		STRING	20	forward_ip
-		INT	4	forward_port
+		STRING	256	output
 	}
 	
 	STRUCT	log
