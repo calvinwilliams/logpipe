@@ -20,8 +20,8 @@ c_FILE		=	\
 			env.c \
 			monitor.c \
 			worker.c \
-			comm.c \
 			file.c \
+			comm.c \
 			output.c \
 
 ###### 目标文件、安装目录配置区

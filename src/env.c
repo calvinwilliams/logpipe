@@ -286,7 +286,7 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 		}
 	}
 	
-	/* 分配堆内存用于inotify读缓冲 */
+	/* 分配堆内存用于inotify读缓冲区 */
 	p_env->inotify_read_bufsize = LOGPIPE_INOTIFY_READ_BUFSIZE ;
 	p_env->inotify_read_buffer = (char*)malloc( p_env->inotify_read_bufsize ) ;
 	if( p_env->inotify_read_buffer == NULL )
@@ -332,7 +332,6 @@ void CleanEnvironment( struct LogPipeEnv *p_env )
 		list_for_each_safe( p_node2 , p_next_node2 , & (p_listen_session->accepted_session_list.this_node) )
 		{
 			close( p_accepted_session->accepted_sock );
-			free( p_accepted_session->comm_buf );
 			free( p_accepted_session );
 			
 			list_del( p_node2 );
@@ -360,6 +359,9 @@ void CleanEnvironment( struct LogPipeEnv *p_env )
 		
 		list_del( p_node );
 	}
+	
+	/* 释放inotify读缓冲区 */
+	free( p_env->inotify_read_buffer );
 	
 	return;
 }

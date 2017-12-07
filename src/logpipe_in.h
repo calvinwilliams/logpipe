@@ -51,13 +51,12 @@ int asprintf(char **strp, const char *fmt, ...);
 #define LOGPIPE_INOTIFY_READ_BUFSIZE	16*1024*1024
 
 /*
-	|comm_total_length(4bytes)|"@"(1byte)|file_name_len(4bytes)|file_name|file_data|
+	|comm_head_length(4bytes)|"@"(1byte)|filename_len(2bytes)|file_name|file_data|
 */
 #define LOGPIPE_COMM_MAGIC		"@"
 #define LOGPIPE_COMM_BODY_BLOCK		4096
 
-#define LOGPIPE_COMM_BUFFER_INIT_SIZE		40960
-#define LOGPIPE_COMM_BUFFER_INCREASE_SIZE	40960
+#define LOGPIPE_COMM_BUFFER_SIZE	4096
 
 /* 会话结构头 */
 struct SessionHeader
@@ -68,14 +67,14 @@ struct SessionHeader
 /* 跟踪文件会话结构 */
 struct TraceFile
 {
-	char				*path_filename ;
-	uint32_t			path_filename_len ;
-	char				*filename ;
-	uint32_t			filename_len ;
-	off_t				trace_offset ;
+	char			*path_filename ;
+	uint16_t		path_filename_len ;
+	char			*filename ;
+	uint16_t		filename_len ;
+	off_t			trace_offset ;
 	
-	int				inotify_file_wd ;
-	struct rb_node			inotify_file_wd_rbnode ;
+	int			inotify_file_wd ;
+	struct rb_node		inotify_file_wd_rbnode ;
 } ;
 
 /* 目录监控端会话结构 */
@@ -101,10 +100,10 @@ struct AcceptedSession
 	struct sockaddr_in      accepted_addr ;
 	int			accepted_sock ;
 	
-	char			*comm_buf ; /* 通讯接收缓冲区 */
-	uint32_t		comm_buf_size ; /* 缓冲区总大小 */
+	char			comm_buffer[ LOGPIPE_COMM_BUFFER_SIZE ] ; /* 通讯接收缓冲区 */
 	uint32_t		comm_data_len ; /* 缓冲区已接收到数据长度 */
 	uint32_t		comm_body_len ; /* 通讯头的值，也即通讯体的长度 */
+	uint32_t		comm_remain_len ; /* 通讯数据遗留长度 */
 	
 	struct list_head	this_node ;
 } ;
@@ -131,6 +130,8 @@ struct DumpSession
 	unsigned char		session_type ;
 	
 	char			dump_path[ PATH_MAX + 1 ] ;
+	
+	int			tmp_fd ;
 	
 	struct list_head	this_node ;
 } ;
@@ -195,15 +196,14 @@ int worker( struct LogPipeEnv *p_env );
 
 int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , char *filename );
 int RemoveFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file );
-int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file );
+int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file );
 int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session );
 
 int OnAcceptingSocket( struct LogPipeEnv *p_env , struct ListenSession *p_listen_session );
 void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session );
 int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session );
 
-int FileToOutputs( struct LogPipeEnv *p_env , struct TraceFile *p_trace_file , int in , int appender_len );
-int CommToOutput( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session );
+int ToOutput( struct LogPipeEnv *p_env , char *filename , uint16_t filename_len , int in , int appender_len );
 
 #ifdef __cplusplus
 }

@@ -34,13 +34,6 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env , struct ListenSession *p_listen
 	
 	/* 设置套接字选项 */
 	{
-		int	opts ;
-		opts = fcntl( p_accepted_session->accepted_sock , F_GETFL ) ;
-		opts |= O_NONBLOCK ;
-		fcntl( p_accepted_session->accepted_sock , F_SETFL , opts ) ;
-	}
-	
-	{
 		int	onoff = 1 ;
 		setsockopt( p_accepted_session->accepted_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
 	}
@@ -51,19 +44,6 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env , struct ListenSession *p_listen
 	}
 	
 	DEBUGLOG( "[%d]accept ok[%d] session[%p]" , p_listen_session->listen_sock , p_accepted_session->accepted_sock , p_accepted_session )
-	
-	/* 申请通讯接收缓冲区在会话结构中 */
-	p_accepted_session->comm_buf = (char*)malloc( LOGPIPE_COMM_BUFFER_INIT_SIZE + 1 ) ;
-	if( p_accepted_session->comm_buf == NULL )
-	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno )
-		free( p_accepted_session );
-		return 1;
-	}
-	memset( p_accepted_session->comm_buf , 0x00 , LOGPIPE_COMM_BUFFER_INIT_SIZE + 1 );
-	p_accepted_session->comm_buf_size = LOGPIPE_COMM_BUFFER_INIT_SIZE + 1 ;
-	p_accepted_session->comm_data_len = 0 ;
-	p_accepted_session->comm_body_len = 0 ;
 	
 	/* 加入新连接套接字到epoll */
 	memset( & event , 0x00 , sizeof(struct epoll_event) );
@@ -96,7 +76,6 @@ void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accep
 		epoll_ctl( p_env->epoll_fd , EPOLL_CTL_DEL , p_accepted_session->accepted_sock , NULL );
 		close( p_accepted_session->accepted_sock );
 		list_del( & (p_accepted_session->this_node) );
-		free( p_accepted_session->comm_buf );
 		free( p_accepted_session );
 	}
 	
@@ -106,85 +85,80 @@ void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accep
 /* 通讯接收数据 */
 int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session )
 {
-	int			len ;
+	uint32_t		comm_head_len_ntohl ;
+	uint32_t		*comm_head_len_htonl = NULL ;
+	char			*magic = NULL ;
+	uint16_t		*filename_len_htons = NULL ;
+	char			comm_buffer[ sizeof(uint32_t) + 1 + sizeof(uint16_t) ] ;
+	
+	uint16_t		filename_len_ntohs ;
+	char			filename[ PATH_MAX + 1 ] ;
+	int			appender_len ;
 	
 	int			nret = 0 ;
 	
-	/* 如果通讯接收缓冲区满了，扩张该缓冲区 */
-	if( p_accepted_session->comm_data_len == p_accepted_session->comm_buf_size-1 )
+	DEBUGLOG( "receiving comm head and magic and filename len ..." , p_accepted_session->accepted_sock )
+	nret = read( p_accepted_session->accepted_sock , comm_buffer , sizeof(comm_buffer) ) ;
+	if( nret == -1 )
 	{
-		char	*tmp = NULL ;
-		
-		tmp = (char*)realloc( p_accepted_session->comm_buf , p_accepted_session->comm_buf_size+LOGPIPE_COMM_BUFFER_INCREASE_SIZE ) ;
-		if( tmp == NULL )
-		{
-			ERRORLOG( "malloc failed , errno[%d]" , errno )
-			return 1;
-		}
-		p_accepted_session->comm_buf = tmp ;
-		p_accepted_session->comm_buf_size += LOGPIPE_COMM_BUFFER_INCREASE_SIZE ;
-	}
-	
-	/* 非堵塞的读一把客户端连接套接字 */
-	DEBUGLOG( "read [%d] bytes at most ..." , p_accepted_session->comm_buf_size-1-p_accepted_session->comm_data_len )
-	len = read( p_accepted_session->accepted_sock , p_accepted_session->comm_buf+p_accepted_session->comm_data_len , p_accepted_session->comm_buf_size-1-p_accepted_session->comm_data_len ) ;
-	if( len == -1 )
-	{
-		ERRORLOG( "recv failed[%d] , errno[%d]" , len , errno );
+		ERRORLOG( "receiving comm head and magic and filename len failed[%d] , errno[%d]" , nret , errno );
 		return 1;
 	}
-	else if( len == 0 )
+	else if( nret == 0 )
 	{
-		INFOLOG( "remote socket closed" );
+		INFOLOG( "remote socket closed on receiving comm head and magic and filename len" );
 		return 1;
 	}
 	else
 	{
-		DEBUGHEXLOG( p_accepted_session->comm_buf+p_accepted_session->comm_data_len , len , "recv [%d]bytes" , len )
-		p_accepted_session->comm_data_len += len ;
+		DEBUGHEXLOG( comm_buffer , sizeof(comm_buffer) , "comm head and magic and filename len [%d]bytes" , nret )
 	}
 	
-	/* 如果已接收到数据长度大于等于4字节 */
-	while( p_accepted_session->comm_data_len >= sizeof(uint32_t) )
+	comm_head_len_htonl = (uint32_t*)comm_buffer ;
+	comm_head_len_ntohl = ntohl( (*comm_head_len_htonl) ) ;
+	
+	magic = comm_buffer + sizeof(uint32_t) ;
+	if( magic[0] != LOGPIPE_COMM_MAGIC[0] )
 	{
-		/* 如果4字节通讯头未解析，则解析之 */
-		if( p_accepted_session->comm_body_len == 0 )
-		{
-			p_accepted_session->comm_body_len = ntohl( *(uint32_t*)(p_accepted_session->comm_buf) ) ;
-			DEBUGLOG( "parse comm total length [%d]bytes" , p_accepted_session->comm_body_len )
-			if( p_accepted_session->comm_body_len <= 0 )
-			{
-				ERRORLOG( "comm_body_len[%d] invalid" , p_accepted_session->comm_body_len )
-				return 1;
-			}
-		}
-		
-		/* 如果已读到的通讯数据大于等于当前通讯头+通讯体 */
-		if( p_accepted_session->comm_data_len >= sizeof(uint32_t) + p_accepted_session->comm_body_len )
-		{
-			char		bak ;
-			
-			/* 按字符串截断，交由应用层处理 */
-			bak = p_accepted_session->comm_buf[sizeof(uint32_t)+p_accepted_session->comm_body_len] ;
-			p_accepted_session->comm_buf[sizeof(uint32_t)+p_accepted_session->comm_body_len] = '\0' ;
-			DEBUGHEXLOG( p_accepted_session->comm_buf , sizeof(uint32_t)+p_accepted_session->comm_body_len , "processing [%ld]bytes" , sizeof(uint32_t)+p_accepted_session->comm_body_len )
-			nret = CommToOutput( p_env , p_accepted_session ) ;
-			p_accepted_session->comm_buf[sizeof(uint32_t)+p_accepted_session->comm_body_len] = bak ;
-			if( nret )
-			{
-				ERRORLOG( "CommToOutput failed[%d]" , nret )
-				return 1;
-			}
-			
-			/* 修正尾部粘包 */
-			memmove( p_accepted_session->comm_buf , p_accepted_session->comm_buf+sizeof(uint32_t)+p_accepted_session->comm_body_len , p_accepted_session->comm_data_len-sizeof(uint32_t)-p_accepted_session->comm_body_len );
-			p_accepted_session->comm_data_len -= sizeof(uint32_t)+p_accepted_session->comm_body_len ;
-			p_accepted_session->comm_body_len = 0  ;
-		}
-		else
-		{
-			break;
-		}
+		ERRORLOG( "magic[%c][%d] invalid" , (*magic) , (*magic) );
+		return 1;
+	}
+	
+	filename_len_htons = (uint16_t*)(comm_buffer+sizeof(uint32_t)+1) ;
+	filename_len_ntohs = ntohs(*filename_len_htons) ;
+	
+	if( filename_len_ntohs > PATH_MAX )
+	{
+		ERRORLOG( "filename length[%d] too long" , filename_len_ntohs );
+		return -1;
+	}
+	
+	DEBUGLOG( "receiving filename ..." , p_accepted_session->accepted_sock )
+	memset( filename , 0x00 , sizeof(filename) );
+	nret = read( p_accepted_session->accepted_sock , filename , filename_len_ntohs ) ;
+	if( nret == -1 )
+	{
+		ERRORLOG( "receiving filename failed[%d] , errno[%d]" , nret , errno );
+		return 1;
+	}
+	else if( nret == 0 )
+	{
+		INFOLOG( "remote socket closed on receiving filename" );
+		return 1;
+	}
+	else
+	{
+		DEBUGHEXLOG( filename , nret , "filename [%d]bytes" , nret )
+	}
+	
+	appender_len = comm_head_len_ntohl - sizeof(filename_len_ntohs) - filename_len_ntohs - 1 ;
+	
+	/* 导出所有输出端 */
+	nret = ToOutput( p_env , filename , filename_len_ntohs , p_accepted_session->accepted_sock , appender_len ) ;
+	if( nret )
+	{
+		ERRORLOG( "ToOutput failed[%d]" , nret )
+		return nret;
 	}
 	
 	return 0;

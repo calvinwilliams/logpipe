@@ -76,7 +76,7 @@ int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_
 		}
 	}
 	
-	return OutputFileAppender( p_env , p_inotify_session , p_trace_file );
+	return OnReadingFile( p_env , p_inotify_session , p_trace_file );
 }
 
 int RemoveFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
@@ -91,13 +91,13 @@ int RemoveFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inoti
 	return 0;
 }
 
-int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
+int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
 {
-	int		fd ;
-	struct stat	file_stat ;
-	int		appender_len ;
+	int			fd ;
+	struct stat		file_stat ;
+	int			appender_len ;
 	
-	int		nret = 0 ;
+	int			nret = 0 ;
 	
 	DEBUGLOG( "catch file[%s] appender" , p_trace_file->path_filename )
 	
@@ -126,12 +126,14 @@ int OutputFileAppender( struct LogPipeEnv *p_env , struct InotifySession *p_inot
 	{
 		appender_len = file_stat.st_size - p_trace_file->trace_offset ;
 		
-		nret = FileToOutputs( p_env , p_trace_file , fd , appender_len ) ;
+		lseek( fd , p_trace_file->trace_offset , SEEK_SET );
+		
+		/* 导出所有输出端 */
+		nret = ToOutput( p_env , p_trace_file->filename , p_trace_file->filename_len , fd , appender_len ) ;
 		if( nret )
 		{
-			ERRORLOG( "FileToOutputs failed[%d]" , nret )
-			close( fd );
-			return RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
+			ERRORLOG( "ToOutput failed[%d]" , nret )
+			return nret;
 		}
 		
 		p_trace_file->trace_offset = file_stat.st_size ;
@@ -234,10 +236,10 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 			{
 				if( p_inotify_event->mask & IN_CLOSE_WRITE )
 				{
-					nret = OutputFileAppender( p_env , p_inotify_session , p_trace_file ) ;
+					nret = OnReadingFile( p_env , p_inotify_session , p_trace_file ) ;
 					if( nret )
 					{
-						ERRORLOG( "OutputFileAppender failed , errno[%d]" , errno )
+						ERRORLOG( "OnReadingFile failed , errno[%d]" , errno )
 						return -1;
 					}
 				}
@@ -278,60 +280,3 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 	return 0;
 }
 
-#if 0
-
-/* 落地新增日志 */
-int OnDumpLog( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session )
-{
-	char		*p = NULL ;
-	uint32_t	*file_name_len = NULL ;
-	uint32_t	file_name_len_ntohl ;
-	char		path_filename[ PATH_MAX + 1 ] ;
-	uint32_t	file_data_len ;
-	int		fd ;
-	
-	int		nret = 0 ;
-	
-	p = p_accepted_session->comm_buf + sizeof(uint32_t) ;
-	
-	DEBUGHEXLOG( p , 1 , "magic" )
-	if( (*p) != LOGPIPE_COMM_MAGIC[0] )
-	{
-		ERRORLOG( "comm magic[%d][%c] not match" , (*p) , (*p) )
-		return -1;
-	}
-	
-	p++;
-	
-	file_name_len = (uint32_t*)p ;
-	file_name_len_ntohl = ntohl( (*file_name_len) ) ;
-	DEBUGHEXLOG( p , sizeof(uint32_t) , "file name len[%d]" , file_name_len_ntohl )
-	
-	p += sizeof(uint32_t) ;
-	
-	memset( path_filename , 0x00 , sizeof(path_filename) );
-	snprintf( path_filename , sizeof(path_filename)-1 , "%s/%.*s" , p_env->role_context.dumpserver.dump_path , file_name_len_ntohl , p );
-	fd = open( path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
-	if( fd == -1 )
-	{
-		ERRORLOG( "open file[%s] failed , errno[%d]" , path_filename , errno )
-		return -1;
-	}
-	else
-	{
-		DEBUGLOG( "open file[%s] ok" , path_filename )
-	}
-	
-	p += file_name_len_ntohl ;
-	
-	file_data_len = p_accepted_session->comm_body_len - 1 - sizeof(file_name_len_ntohl) - file_name_len_ntohl ;
-	nret = write( fd , p , file_data_len ) ;
-	DEBUGHEXLOG( p , file_data_len , "write file[%s] [%d]bytes return[%d]" , path_filename , file_data_len , nret )
-	
-	close( fd );
-	DEBUGLOG( "close file[%s] ok" , path_filename )
-	
-	return 0;
-}
-
-#endif

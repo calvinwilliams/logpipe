@@ -14,7 +14,6 @@ static void usage()
 	printf( "USAGE : logpipe -v\n" );
 	printf( "        logpipe -i\n" );
 	printf( "        logpipe -f (config_file) [ --no-daemon ]\n" );
-	printf( "                                 [ -- ]\n" );
 	return;
 }
 
