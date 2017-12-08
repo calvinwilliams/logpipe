@@ -107,6 +107,10 @@ typedef struct
 	int	_outputs_size ;
 	struct
 	{
+		int	file_rotate_max_size ;
+	} rotate ;
+	struct
+	{
 		char	log_file[ 256 + 1 ] ;
 		char	log_level[ 10 + 1 ] ;
 	} log ;

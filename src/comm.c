@@ -94,24 +94,25 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 	uint16_t		filename_len_ntohs ;
 	char			filename[ PATH_MAX + 1 ] ;
 	int			appender_len ;
+	int			len ;
 	
 	int			nret = 0 ;
 	
 	DEBUGLOG( "receiving comm head and magic and filename len ..." , p_accepted_session->accepted_sock )
-	nret = read( p_accepted_session->accepted_sock , comm_buffer , sizeof(comm_buffer) ) ;
-	if( nret == -1 )
+	len = readn( p_accepted_session->accepted_sock , comm_buffer , sizeof(comm_buffer) ) ;
+	if( len == -1 )
 	{
-		ERRORLOG( "receiving comm head and magic and filename len failed[%d] , errno[%d]" , nret , errno );
+		ERRORLOG( "receiving comm head and magic and filename len failed , errno[%d]" , errno );
 		return 1;
 	}
-	else if( nret == 0 )
+	else if( len == 0 )
 	{
 		INFOLOG( "remote socket closed on receiving comm head and magic and filename len" );
 		return 1;
 	}
 	else
 	{
-		DEBUGHEXLOG( comm_buffer , sizeof(comm_buffer) , "comm head and magic and filename len [%d]bytes" , nret )
+		DEBUGHEXLOG( comm_buffer , len , "received comm head and magic and filename len [%d]bytes" , len )
 	}
 	
 	comm_head_len_htonl = (uint32_t*)comm_buffer ;
@@ -135,30 +136,29 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 	
 	DEBUGLOG( "receiving filename ..." , p_accepted_session->accepted_sock )
 	memset( filename , 0x00 , sizeof(filename) );
-	nret = read( p_accepted_session->accepted_sock , filename , filename_len_ntohs ) ;
-	if( nret == -1 )
+	len = readn( p_accepted_session->accepted_sock , filename , filename_len_ntohs ) ;
+	if( len == -1 )
 	{
-		ERRORLOG( "receiving filename failed[%d] , errno[%d]" , nret , errno );
+		ERRORLOG( "receiving filename failed , errno[%d]" , errno );
 		return 1;
 	}
-	else if( nret == 0 )
+	else if( len == 0 )
 	{
 		INFOLOG( "remote socket closed on receiving filename" );
 		return 1;
 	}
 	else
 	{
-		DEBUGHEXLOG( filename , nret , "filename [%d]bytes" , nret )
+		DEBUGHEXLOG( filename , len , "received filename [%d]bytes" , len )
 	}
 	
-	appender_len = comm_head_len_ntohl - sizeof(filename_len_ntohs) - filename_len_ntohs - 1 ;
+	appender_len = comm_head_len_ntohl - 1 - sizeof(filename_len_ntohs) - filename_len_ntohs ;
 	
 	/* 导出所有输出端 */
-	nret = ToOutput( p_env , filename , filename_len_ntohs , p_accepted_session->accepted_sock , appender_len ) ;
+	nret = ToOutputs( p_env , filename , filename_len_ntohs , p_accepted_session->accepted_sock , appender_len ) ;
 	if( nret )
 	{
-		ERRORLOG( "ToOutput failed[%d]" , nret )
-		return nret;
+		ERRORLOG( "ToOutputs failed[%d]" , nret )
 	}
 	
 	return 0;

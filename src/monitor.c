@@ -17,7 +17,7 @@ int monitor( struct LogPipeEnv *p_env )
 {
 	struct sigaction	act ;
 	
-	pid_t			pid ;
+	pid_t			pid , pid2 ;
 	int			status ;
 	
 	SetLogFile( p_env->conf.log.log_file );
@@ -38,31 +38,33 @@ int monitor( struct LogPipeEnv *p_env )
 	act.sa_flags = SA_RESTART ;
 	signal( SIGCLD , SIG_DFL );
 	
+	p_env->is_monitor = 1 ;
 	while(1)
 	{
 		/* 创建工作进程 */
-		p_env->worker_pid = fork() ;
-		if( p_env->worker_pid == -1 )
+		pid = fork() ;
+		if( pid == -1 )
 		{
 			ERRORLOG( "fork failed , errno[%d]" , errno )
 			return -1;
 		}
-		else if( p_env->worker_pid == 0 )
+		else if( pid == 0 )
 		{
 			INFOLOG( "child : [%ld] fork [%ld]" , getppid() , getpid() )
+			p_env->is_monitor = 0 ;
 			return -worker( p_env );
 		}
 		else
 		{
-			INFOLOG( "parent : [%ld] fork [%ld]" , getpid() , p_env->worker_pid )
+			INFOLOG( "parent : [%ld] fork [%ld]" , getpid() , pid )
 		}
 		
 _GOTO_WAITPID :
 		
 		/* 堵塞等待工作进程结束 */
 		DEBUGLOG( "waitpid ..." )
-		pid = waitpid( p_env->worker_pid , & status , 0 );
-		if( pid == -1 )
+		pid2 = waitpid( pid , & status , 0 );
+		if( pid2 == -1 )
 		{
 			if( errno == EINTR )
 			{
@@ -79,6 +81,10 @@ _GOTO_WAITPID :
 			
 			ERRORLOG( "waitpid failed , errno[%d]" , errno )
 			return -1;
+		}
+		else if( pid2 != pid )
+		{
+			FATALLOG( "unexpect other child[%d]" , pid2 )
 		}
 		
 		/* 检查工作进程是否正常结束 */
@@ -97,7 +103,7 @@ _GOTO_WAITPID :
 	}
 	
 	/* 杀死子进程 */
-	kill( p_env->worker_pid , SIGTERM );
+	kill( pid , SIGTERM );
 	
 	/* 关闭事件总线 */
 	close( p_env->epoll_fd );

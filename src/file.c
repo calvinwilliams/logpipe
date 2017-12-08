@@ -8,7 +8,7 @@ int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_
 	
 	int			nret = 0 ;
 	
-	if( filename[0] == '.' )
+	if( filename[0] == '.' || filename[0] == '_' )
 	{
 		INFOLOG( "file[%s] has ignored" , filename )
 		return 0;
@@ -38,6 +38,8 @@ int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_
 		free( p_trace_file );
 		return 0;
 	}
+	
+	p_trace_file->pathname = p_inotify_session->inotify_path ;
 	
 	p_trace_file->filename_len = asprintf( & p_trace_file->filename , "%s" , filename );
 	if( p_trace_file->filename_len == -1 )
@@ -91,6 +93,36 @@ int RemoveFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inoti
 	return 0;
 }
 
+int RoratingFile( char *pathname , char *filename , int filename_len )
+{
+	time_t		tt ;
+	struct tm	tm ;
+	char		old_filename[ PATH_MAX + 1 ] ;
+	char		new_filename[ PATH_MAX + 1 ] ;
+	
+	int		nret = 0 ;
+	
+	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%.*s" , pathname , filename_len , filename );
+	
+	time( & tt );
+	memset( & tm , 0x00 , sizeof(struct tm) );
+	localtime_r( & tt , & tm );
+	memset( new_filename , 0x00 , sizeof(new_filename) );
+	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec );
+	nret = rename( old_filename , new_filename ) ;
+	if( nret )
+	{
+		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
+		return -1;
+	}
+	else
+	{
+		INFOLOG( "rename [%s] to [%s] ok" , old_filename , new_filename )
+	}
+	
+	return 0;
+}
+
 int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
 {
 	int			fd ;
@@ -117,6 +149,21 @@ int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_s
 		return RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
 	}
 	
+	if( p_env->conf.rotate.file_rotate_max_size >= 0 && file_stat.st_size >= p_env->conf.rotate.file_rotate_max_size )
+	{
+		INFOLOG( "file_stat.st_size[%d] > p_env->conf.rotate.file_rotate_max_size[%d]" , file_stat.st_size , p_env->conf.rotate.file_rotate_max_size )
+		RoratingFile( p_trace_file->pathname , p_trace_file->filename , p_trace_file->filename_len );
+		
+		memset( & file_stat , 0x00 , sizeof(struct stat) );
+		nret = fstat( fd , & file_stat ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+			close( fd );
+			return RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
+		}
+	}
+	
 	DEBUGLOG( "file_size[%d] trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )
 	if( file_stat.st_size < p_trace_file->trace_offset )
 	{
@@ -129,17 +176,23 @@ int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_s
 		lseek( fd , p_trace_file->trace_offset , SEEK_SET );
 		
 		/* 导出所有输出端 */
-		nret = ToOutput( p_env , p_trace_file->filename , p_trace_file->filename_len , fd , appender_len ) ;
+		nret = ToOutputs( p_env , p_trace_file->filename , p_trace_file->filename_len , fd , appender_len ) ;
 		if( nret )
 		{
-			ERRORLOG( "ToOutput failed[%d]" , nret )
-			return nret;
+			ERRORLOG( "ToOutputs failed[%d]" , nret )
+			close( fd );
+			return 0;
 		}
 		
 		p_trace_file->trace_offset = file_stat.st_size ;
 	}
 	
 	close( fd );
+	
+	if( p_env->conf.rotate.file_rotate_max_size >= 0 && file_stat.st_size >= p_env->conf.rotate.file_rotate_max_size )
+	{
+		RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
+	}
 	
 	return 0;
 }
@@ -148,7 +201,7 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 {
 	int			inotify_read_nbytes ;
 	
-	long			read_len ;
+	long			len ;
 	struct inotify_event	*p_inotify_event = NULL ;
 	struct inotify_event	*p_overflow_inotify_event = NULL ;
 	struct TraceFile	trace_file ;
@@ -179,20 +232,20 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 	}
 	memset( p_env->inotify_read_buffer , 0x00 , p_env->inotify_read_bufsize );
 	
-	DEBUGLOG( "read inotify ..." )
-	read_len = read( p_inotify_session->inotify_fd , p_env->inotify_read_buffer , sizeof(p_env->inotify_read_buffer)-1 ) ;
-	if( read_len == -1 )
+	DEBUGLOG( "read inotify[%d] ..." , p_inotify_session->inotify_fd )
+	len = read( p_inotify_session->inotify_fd , p_env->inotify_read_buffer , LOGPIPE_INOTIFY_READ_BUFSIZE-1 ) ;
+	if( len == -1 )
 	{
-		ERRORLOG( "read failed , errno[%d]" , errno )
+		ERRORLOG( "read inotify[%d] failed , errno[%d]" , p_inotify_session->inotify_fd , errno )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "read inotify ok , [%d]bytes" , read_len )
+		INFOLOG( "read inotify[%d] ok , [%d]bytes" , p_inotify_session->inotify_fd , len )
 	}
 	
 	p_inotify_event = (struct inotify_event *)(p_env->inotify_read_buffer) ;
-	p_overflow_inotify_event = (struct inotify_event *)(p_env->inotify_read_buffer+read_len) ;
+	p_overflow_inotify_event = (struct inotify_event *)(p_env->inotify_read_buffer+len) ;
 	while( p_inotify_event < p_overflow_inotify_event )
 	{
 		DEBUGLOG( "inotify event wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
@@ -239,7 +292,7 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 					nret = OnReadingFile( p_env , p_inotify_session , p_trace_file ) ;
 					if( nret )
 					{
-						ERRORLOG( "OnReadingFile failed , errno[%d]" , errno )
+						ERRORLOG( "OnReadingFile failed[%d] , errno[%d]" , nret , errno )
 						return -1;
 					}
 				}

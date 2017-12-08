@@ -26,6 +26,7 @@ int FUNCNAME_DSCLOG_logpipe_conf( logpipe_conf *pst )
 		{
 		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.outputs[index[1]].output[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->outputs[index[1]].output );
 		}
+		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.rotate.file_rotate_max_size[%d]" NEWLINE_DSCLOG_logpipe_conf , pst->rotate.file_rotate_max_size );
 		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.log.log_file[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->log.log_file );
 		PREFIX_DSCLOG_logpipe_conf "logpipe_conf.log.log_level[%s]" NEWLINE_DSCLOG_logpipe_conf , pst->log.log_level );
 	return 0;

@@ -22,6 +22,8 @@ void InitConfig()
 	strcpy( conf.outputs[1].output , "tcp://127.0.0.1:10101" );
 	conf._outputs_count++;
 	
+	conf.rotate.file_rotate_max_size = -1 ;
+	
 	snprintf( conf.log.log_file , sizeof(conf.log.log_file)-1 , "%s/log3/logpipe.log" , getenv("HOME") );
 	strcpy( conf.log.log_level , "ERROR" );
 	

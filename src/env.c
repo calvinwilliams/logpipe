@@ -234,25 +234,6 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			
 			p_forward_session->session_type = LOGPIPE_SESSION_TYPE_FORWARD ;
 			
-			/* 创建套接字 */
-			p_forward_session->forward_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
-			if( p_forward_session->forward_sock == -1 )
-			{
-				printf( "*** ERROR : socket failed , errno[%d]\n" , errno );
-				return -1;
-			}
-			
-			/* 设置套接字选项 */
-			{
-				int	onoff = 1 ;
-				setsockopt( p_forward_session->forward_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
-			}
-			
-			{
-				int	onoff = 1 ;
-				setsockopt( p_forward_session->forward_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
-			}
-			
 			/* 绑定套接字到侦听端口 */
 			memset( p_forward_session->forward_ip , 0x00 , sizeof(p_forward_session->forward_ip) );
 			p_forward_session->forward_port = 0 ;
@@ -270,11 +251,14 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 			else
 				p_forward_session->forward_addr.sin_addr.s_addr = inet_addr(p_forward_session->forward_ip) ;
 			p_forward_session->forward_addr.sin_port = htons( (unsigned short)(p_forward_session->forward_port) );
-			nret = connect( p_forward_session->forward_sock , (struct sockaddr *) & (p_forward_session->forward_addr) , sizeof(struct sockaddr) ) ;
-			if( nret == -1 )
+			
+			/* 连接下一个服务端 */
+			p_forward_session->forward_sock = -1 ;
+			nret = ConnectForwardSocket( p_env , p_forward_session ) ;
+			if( nret < 0 )
 			{
-				printf( "*** ERROR : connect[%s:%d] failed , errno[%d]\n" , p_forward_session->forward_ip , p_forward_session->forward_port , errno );
-				return -1;
+				printf( "*** ERROR : ConnectForwardSocket[%s:%d] failed , errno[%d]\n" , p_forward_session->forward_ip , p_forward_session->forward_port , errno );
+				return nret;
 			}
 			
 			list_add_tail( & (p_forward_session->this_node) , & (p_env->forward_session_list.this_node) );
@@ -316,28 +300,32 @@ void CleanEnvironment( struct LogPipeEnv *p_env )
 	{
 		p_inotify_session = list_entry( p_node , struct InotifySession , this_node ) ;
 		
-		close( p_inotify_session->inotify_fd );
-		free( p_inotify_session );
-		
 		list_del( p_node );
+		
+		if( p_env->is_monitor )
+		{
+			close( p_inotify_session->inotify_fd );
+			DEBUGLOG( "close inotify fd[%d]" , p_inotify_session->inotify_fd )
+		}
+		free( p_inotify_session );
 	}
 	
 	list_for_each_safe( p_node , p_next_node , & (p_env->listen_session_list.this_node) )
 	{
 		p_listen_session = list_entry( p_node , struct ListenSession , this_node ) ;
 		
+		list_del( p_node );
+		
 		close( p_listen_session->listen_sock );
 		free( p_listen_session );
 		
 		list_for_each_safe( p_node2 , p_next_node2 , & (p_listen_session->accepted_session_list.this_node) )
 		{
+			list_del( p_node2 );
+			
 			close( p_accepted_session->accepted_sock );
 			free( p_accepted_session );
-			
-			list_del( p_node2 );
 		}
-		
-		list_del( p_node );
 	}
 	
 	/* 卸载所有输出端 */
@@ -345,19 +333,19 @@ void CleanEnvironment( struct LogPipeEnv *p_env )
 	{
 		p_dump_session = list_entry( p_node , struct DumpSession , this_node ) ;
 		
-		free( p_dump_session );
-		
 		list_del( p_node );
+		
+		free( p_dump_session );
 	}
 	
 	list_for_each_safe( p_node , p_next_node , & (p_env->forward_session_list.this_node) )
 	{
 		p_forward_session = list_entry( p_node , struct ForwardSession , this_node ) ;
 		
+		list_del( p_node );
+		
 		close( p_forward_session->forward_sock );
 		free( p_forward_session );
-		
-		list_del( p_node );
 	}
 	
 	/* 释放inotify读缓冲区 */

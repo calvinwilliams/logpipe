@@ -10,6 +10,11 @@ STRUCT	logpipe_conf
 		STRING	256	output
 	}
 	
+	STRUCT	rotate
+	{
+		INT	4	file_rotate_max_size
+	}
+	
 	STRUCT	log
 	{
 		STRING	256	log_file

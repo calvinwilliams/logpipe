@@ -8,7 +8,7 @@ int worker( struct LogPipeEnv *p_env )
 	int			epoll_nfds ;
 	int			i ;
 	struct epoll_event	*p_event = NULL ;
-	struct SessionHeader	*p_session_header = NULL ;
+	struct Session		*p_session = NULL ;
 	struct InotifySession	*p_inotify_session = NULL ;
 	struct AcceptedSession	*p_accepted_session = NULL ;
 	struct ListenSession	*p_listen_session = NULL ;
@@ -47,10 +47,10 @@ int worker( struct LogPipeEnv *p_env )
 		
 		for( i = 0 , p_event = events ; i < epoll_nfds ; i++ , p_event++ )
 		{
-			p_session_header = (struct SessionHeader *)(p_event->data.ptr) ;
-			if( p_session_header->session_type == LOGPIPE_SESSION_TYPE_INOTIFY )
+			p_session = (struct Session *)(p_event->data.ptr) ;
+			if( p_session->session_type == LOGPIPE_SESSION_TYPE_INOTIFY )
 			{
-				p_inotify_session = (struct InotifySession *)(p_event->data.ptr) ;
+				p_inotify_session = (struct InotifySession *)p_session ;
 				
 				/* 可读事件 */
 				if( p_event->events & EPOLLIN )
@@ -77,9 +77,9 @@ int worker( struct LogPipeEnv *p_env )
 					exit(4);
 				}
 			}
-			else if( p_session_header->session_type == LOGPIPE_SESSION_TYPE_LISTEN )
+			else if( p_session->session_type == LOGPIPE_SESSION_TYPE_LISTEN )
 			{
-				p_listen_session = (struct ListenSession *)(p_event->data.ptr) ;
+				p_listen_session = (struct ListenSession *)p_session ;
 				
 				/* 可读事件 */
 				if( p_event->events & EPOLLIN )
@@ -112,9 +112,9 @@ int worker( struct LogPipeEnv *p_env )
 					return -1;
 				}
 			}
-			else if( p_session_header->session_type == LOGPIPE_SESSION_TYPE_ACCEPTED )
+			else if( p_session->session_type == LOGPIPE_SESSION_TYPE_ACCEPTED )
 			{
-				p_accepted_session = (struct AcceptedSession *)(p_event->data.ptr) ;
+				p_accepted_session = (struct AcceptedSession *)p_session ;
 				
 				/* 可读事件 */
 				if( p_event->events & EPOLLIN )
@@ -138,7 +138,7 @@ int worker( struct LogPipeEnv *p_env )
 				/* 可写事件 */
 				else if( p_event->events & EPOLLOUT )
 				{
-					FATALLOG( "unexpect accepted session event[0x%X]" , p_event->events )
+					FATALLOG( "unexpect accepted session EPOLLOUT event" )
 					OnClosingSocket( p_env , p_accepted_session );
 				}
 				/* 出错事件 */
@@ -156,7 +156,7 @@ int worker( struct LogPipeEnv *p_env )
 			}
 			else
 			{
-				FATALLOG( "Unknow session type[%c]" , p_session_header->session_type )
+				FATALLOG( "Unknow session type[%c]" , p_session->session_type )
 				exit(4);
 			}
 		}

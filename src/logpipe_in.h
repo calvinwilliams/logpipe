@@ -59,7 +59,7 @@ int asprintf(char **strp, const char *fmt, ...);
 #define LOGPIPE_COMM_BUFFER_SIZE	4096
 
 /* 会话结构头 */
-struct SessionHeader
+struct Session
 {
 	unsigned char		session_type ;
 } ;
@@ -69,6 +69,7 @@ struct TraceFile
 {
 	char			*path_filename ;
 	uint16_t		path_filename_len ;
+	char			*pathname ;
 	char			*filename ;
 	uint16_t		filename_len ;
 	off_t			trace_offset ;
@@ -99,11 +100,6 @@ struct AcceptedSession
 	
 	struct sockaddr_in      accepted_addr ;
 	int			accepted_sock ;
-	
-	char			comm_buffer[ LOGPIPE_COMM_BUFFER_SIZE ] ; /* 通讯接收缓冲区 */
-	uint32_t		comm_data_len ; /* 缓冲区已接收到数据长度 */
-	uint32_t		comm_body_len ; /* 通讯头的值，也即通讯体的长度 */
-	uint32_t		comm_remain_len ; /* 通讯数据遗留长度 */
 	
 	struct list_head	this_node ;
 } ;
@@ -161,7 +157,7 @@ struct LogPipeEnv
 	
 	int			epoll_fd ;
 	
-	pid_t			worker_pid ;
+	int			is_monitor ;
 	
 	struct InotifySession	inotify_session_list ; /* 目录监控端会话链表 */
 	struct ListenSession	listen_session_list ; /* 侦听端会话链表 */
@@ -181,6 +177,8 @@ void DestroyTraceFileTree( struct InotifySession *p_inotify_session );
 int WriteEntireFile( char *pathfilename , char *file_content , int file_len );
 char *StrdupEntireFile( char *pathfilename , int *p_file_len );
 int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag );
+ssize_t writen(int fd, const void *vptr, size_t n);
+ssize_t readn(int fd, void *vptr, size_t n);
 
 void InitConfig();
 int LoadConfig( struct LogPipeEnv *p_env );
@@ -196,6 +194,7 @@ int worker( struct LogPipeEnv *p_env );
 
 int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , char *filename );
 int RemoveFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file );
+int RoratingFile( char *pathname , char *filename , int filename_len );
 int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file );
 int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session );
 
@@ -203,7 +202,8 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env , struct ListenSession *p_listen
 void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session );
 int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session );
 
-int ToOutput( struct LogPipeEnv *p_env , char *filename , uint16_t filename_len , int in , int appender_len );
+int ConnectForwardSocket( struct LogPipeEnv *p_env , struct ForwardSession *p_forward_session );
+int ToOutputs( struct LogPipeEnv *p_env , char *filename , uint16_t filename_len , int in , int appender_len );
 
 #ifdef __cplusplus
 }
