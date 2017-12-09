@@ -38,6 +38,7 @@ CFLAGS		=	$(_CFLAGS) \
 
 ###### 链接选项
 LFLAGS		=	$(_LFLAGS) \
+			-lz \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=

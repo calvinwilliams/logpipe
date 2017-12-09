@@ -27,6 +27,8 @@ extern "C" {
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 
+#include "zlib.h"
+
 int asprintf(char **strp, const char *fmt, ...);
 
 #include "list.h"
@@ -49,7 +51,14 @@ int asprintf(char **strp, const char *fmt, ...);
 /* communication protocol :
 	|'@'(1byte)|filename_len(2bytes)|file_name|file_block_len(2bytes)|file_block_data|...(other file blocks)...|\0\0\0\0|
 */
-#define LOGPIPE_COMM_MAGIC		'@'
+
+#define LOGPIPE_COMM_HEAD_LENGTH		6
+#define LOGPIPE_COMM_HEAD_MAGIC_OFFSET		0
+#define LOGPIPE_COMM_HEAD_MAGIC			'@'
+#define LOGPIPE_COMM_HEAD_COMPRESS_OFFSET	1
+#define LOGPIPE_COMM_HEAD_COMPRESS_ALGORITHM_S	"deflate"
+#define LOGPIPE_COMM_HEAD_COMPRESS_ALGORITHM	'Z'
+
 #define LOGPIPE_COMM_FILE_BLOCK_BUFSIZE		100*1024
 
 /* 会话结构头 */
@@ -148,6 +157,7 @@ struct LogPipeEnv
 	
 	logpipe_conf		conf ;
 	int			log_level ;
+	char			compress_algorithm ;
 	
 	int			epoll_fd ;
 	
@@ -197,7 +207,7 @@ void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accep
 int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session );
 
 int ConnectForwardSocket( struct LogPipeEnv *p_env , struct ForwardSession *p_forward_session );
-int ToOutputs( struct LogPipeEnv *p_env , char *comm_buffer , int comm_buffer_len , char *filename , uint16_t filename_len , int in , int append_len );
+int ToOutputs( struct LogPipeEnv *p_env , char *comm_buf , int comm_buf_len , char *filename , uint16_t filename_len , int in , int append_len , char compress_algorithm );
 
 #ifdef __cplusplus
 }

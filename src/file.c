@@ -149,7 +149,7 @@ int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_s
 		return RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
 	}
 	
-	if( p_env->conf.rotate.file_rotate_max_size >= 0 && file_stat.st_size >= p_env->conf.rotate.file_rotate_max_size )
+	if( p_env->conf.rotate.file_rotate_max_size > 0 && file_stat.st_size >= p_env->conf.rotate.file_rotate_max_size )
 	{
 		INFOLOG( "file_stat.st_size[%d] > p_env->conf.rotate.file_rotate_max_size[%d]" , file_stat.st_size , p_env->conf.rotate.file_rotate_max_size )
 		RoratingFile( p_trace_file->pathname , p_trace_file->filename , p_trace_file->filename_len );
@@ -176,7 +176,7 @@ int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_s
 		lseek( fd , p_trace_file->trace_offset , SEEK_SET );
 		
 		/* 导出所有输出端 */
-		nret = ToOutputs( p_env , NULL , -1 , p_trace_file->filename , p_trace_file->filename_len , fd , append_len ) ;
+		nret = ToOutputs( p_env , NULL , -1 , p_trace_file->filename , p_trace_file->filename_len , fd , append_len , p_env->compress_algorithm ) ;
 		if( nret )
 		{
 			ERRORLOG( "ToOutputs failed[%d]" , nret )
@@ -189,7 +189,7 @@ int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_s
 	
 	close( fd );
 	
-	if( p_env->conf.rotate.file_rotate_max_size >= 0 && file_stat.st_size >= p_env->conf.rotate.file_rotate_max_size )
+	if( p_env->conf.rotate.file_rotate_max_size > 0 && file_stat.st_size >= p_env->conf.rotate.file_rotate_max_size )
 	{
 		RemoveFileWatcher( p_env , p_inotify_session , p_trace_file );
 	}

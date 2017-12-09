@@ -85,15 +85,14 @@ void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accep
 /* 通讯接收数据 */
 int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session )
 {
-	char			*magic = NULL ;
 	uint16_t		*filename_len_htons = NULL ;
-	char			comm_buf[ 1 + sizeof(uint16_t) + PATH_MAX ] ;
+	char			comm_buf[ LOGPIPE_COMM_HEAD_LENGTH + sizeof(uint16_t) + PATH_MAX ] ;
 	uint16_t		filename_len ;
 	int			len ;
 	
 	int			nret = 0 ;
 	
-	len = readn( p_accepted_session->accepted_sock , comm_buf , 1+sizeof(uint16_t) ) ;
+	len = readn( p_accepted_session->accepted_sock , comm_buf , LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "recv comm magic and filename len failed , errno[%d]" , errno );
@@ -101,7 +100,7 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 	}
 	else if( len == 0 )
 	{
-		INFOLOG( "remote socket closed on recv comm magic and filename len" );
+		WARNLOG( "remote socket closed on recv comm magic and filename len" );
 		return 1;
 	}
 	else
@@ -110,14 +109,19 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 		DEBUGHEXLOG( comm_buf , len , "comm magic and filename len [%d]bytes" , len )
 	}
 	
-	magic = comm_buf ;
-	if( (*magic) != LOGPIPE_COMM_MAGIC )
+	if( comm_buf[LOGPIPE_COMM_HEAD_MAGIC_OFFSET] != LOGPIPE_COMM_HEAD_MAGIC )
 	{
-		ERRORLOG( "magic[%c][%d] invalid" , (*magic) , (*magic) );
+		ERRORLOG( "magic[%c][%d] invalid" , comm_buf[LOGPIPE_COMM_HEAD_MAGIC_OFFSET] , comm_buf[LOGPIPE_COMM_HEAD_MAGIC_OFFSET] );
 		return 1;
 	}
 	
-	filename_len_htons = (uint16_t*)(comm_buf+1) ;
+	if( comm_buf[LOGPIPE_COMM_HEAD_COMPRESS_OFFSET] != LOGPIPE_COMM_HEAD_COMPRESS_ALGORITHM && comm_buf[LOGPIPE_COMM_HEAD_COMPRESS_OFFSET] != '\0' )
+	{
+		ERRORLOG( "compress_algorithm[%c][%d] invalid" , comm_buf[LOGPIPE_COMM_HEAD_COMPRESS_OFFSET] , comm_buf[LOGPIPE_COMM_HEAD_COMPRESS_OFFSET] );
+		return 1;
+	}
+	
+	filename_len_htons = (uint16_t*)(comm_buf+LOGPIPE_COMM_HEAD_LENGTH) ;
 	filename_len = ntohs(*filename_len_htons) ;
 	
 	if( filename_len > PATH_MAX )
@@ -126,7 +130,7 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 		return -1;
 	}
 	
-	len = readn( p_accepted_session->accepted_sock , comm_buf+1+sizeof(uint16_t) , filename_len ) ;
+	len = readn( p_accepted_session->accepted_sock , comm_buf+LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t) , filename_len ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "recv filename failed , errno[%d]" , errno );
@@ -134,17 +138,17 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 	}
 	else if( len == 0 )
 	{
-		INFOLOG( "remote socket closed on recv filename" );
+		WARNLOG( "remote socket closed on recv filename" );
 		return 1;
 	}
 	else
 	{
 		INFOLOG( "recv filename from socket ok , [%d]bytes" , len )
-		DEBUGHEXLOG( comm_buf+1+sizeof(uint16_t) , len , "filename [%d]bytes" , len )
+		DEBUGHEXLOG( comm_buf+LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t) , len , "filename [%d]bytes" , len )
 	}
 	
 	/* 导出所有输出端 */
-	nret = ToOutputs( p_env , comm_buf , 1+sizeof(uint16_t)+filename_len , comm_buf+1+sizeof(uint16_t) , filename_len , p_accepted_session->accepted_sock , -1 ) ;
+	nret = ToOutputs( p_env , comm_buf , LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t)+filename_len , comm_buf+LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t) , filename_len , p_accepted_session->accepted_sock , -1 , comm_buf[LOGPIPE_COMM_HEAD_COMPRESS_OFFSET] ) ;
 	if( nret )
 	{
 		ERRORLOG( "ToOutputs failed[%d]" , nret )

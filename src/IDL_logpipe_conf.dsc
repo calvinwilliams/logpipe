@@ -12,7 +12,12 @@ STRUCT	logpipe_conf
 	
 	STRUCT	rotate
 	{
-		INT	4	file_rotate_max_size
+		UINT	4	file_rotate_max_size
+	}
+	
+	STRUCT	comm
+	{
+		STRING	64	compress_algorithm
 	}
 	
 	STRUCT	log

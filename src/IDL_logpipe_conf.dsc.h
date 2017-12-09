@@ -107,8 +107,12 @@ typedef struct
 	int	_outputs_size ;
 	struct
 	{
-		int	file_rotate_max_size ;
+		unsigned int	file_rotate_max_size ;
 	} rotate ;
+	struct
+	{
+		char	compress_algorithm[ 64 + 1 ] ;
+	} comm ;
 	struct
 	{
 		char	log_file[ 256 + 1 ] ;

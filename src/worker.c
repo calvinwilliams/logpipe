@@ -12,6 +12,7 @@ int worker( struct LogPipeEnv *p_env )
 	struct InotifySession	*p_inotify_session = NULL ;
 	struct AcceptedSession	*p_accepted_session = NULL ;
 	struct ListenSession	*p_listen_session = NULL ;
+	struct ForwardSession	*p_forward_session = NULL ;
 	
 	int			nret = 0 ;
 	
@@ -19,6 +20,18 @@ int worker( struct LogPipeEnv *p_env )
 	
 	SetLogFile( p_env->conf.log.log_file );
 	SetLogLevel( p_env->log_level );
+	
+	/* 连接所有转发端 */
+	list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node )
+	{
+		p_forward_session->forward_sock = -1 ;
+		nret = ConnectForwardSocket( p_env , p_forward_session ) ;
+		if( nret < 0 )
+		{
+			ERRORLOG( "ConnectForwardSocket[%s:%d] failed , errno[%d]" , p_forward_session->forward_ip , p_forward_session->forward_port , errno );
+			return -1;
+		}
+	}
 	
 	LogEnvironment( p_env );
 	

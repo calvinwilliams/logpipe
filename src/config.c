@@ -22,7 +22,9 @@ void InitConfig()
 	strcpy( conf.outputs[1].output , "tcp://127.0.0.1:10101" );
 	conf._outputs_count++;
 	
-	conf.rotate.file_rotate_max_size = -1 ;
+	conf.rotate.file_rotate_max_size = 0 ;
+	
+	strcpy( conf.comm.compress_algorithm , "deflate" );
 	
 	snprintf( conf.log.log_file , sizeof(conf.log.log_file)-1 , "%s/log3/logpipe.log" , getenv("HOME") );
 	strcpy( conf.log.log_level , "ERROR" );
@@ -75,6 +77,20 @@ int LoadConfig( struct LogPipeEnv *p_env )
 	if( nret )
 	{
 		printf( "*** ERROR : DSCDESERIALIZE_JSON_logpipe_conf failed[%d] , errno[%d]\n" , nret , errno );
+		return -1;
+	}
+	
+	if( STRCMP( p_env->conf.comm.compress_algorithm , == , LOGPIPE_COMM_HEAD_COMPRESS_ALGORITHM_S ) )
+	{
+		p_env->compress_algorithm = 'Z' ;
+	}
+	else if( STRCMP( p_env->conf.comm.compress_algorithm , == , "" ) )
+	{
+		p_env->compress_algorithm = 0 ;
+	}
+	else
+	{
+		printf( "*** ERROR : comm.compress_algorithm[%s] invalid\n" , p_env->conf.comm.compress_algorithm );
 		return -1;
 	}
 	

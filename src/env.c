@@ -252,15 +252,6 @@ int InitEnvironment( struct LogPipeEnv *p_env )
 				p_forward_session->forward_addr.sin_addr.s_addr = inet_addr(p_forward_session->forward_ip) ;
 			p_forward_session->forward_addr.sin_port = htons( (unsigned short)(p_forward_session->forward_port) );
 			
-			/* 连接下一个服务端 */
-			p_forward_session->forward_sock = -1 ;
-			nret = ConnectForwardSocket( p_env , p_forward_session ) ;
-			if( nret < 0 )
-			{
-				printf( "*** ERROR : ConnectForwardSocket[%s:%d] failed , errno[%d]\n" , p_forward_session->forward_ip , p_forward_session->forward_port , errno );
-				return nret;
-			}
-			
 			list_add_tail( & (p_forward_session->this_node) , & (p_env->forward_session_list.this_node) );
 		}
 		else
