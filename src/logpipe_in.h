@@ -50,7 +50,7 @@ int asprintf(char **strp, const char *fmt, ...);
 	|'@'(1byte)|filename_len(2bytes)|file_name|file_block_len(2bytes)|file_block_data|...(other file blocks)...|\0\0\0\0|
 */
 #define LOGPIPE_COMM_MAGIC		'@'
-#define LOGPIPE_COMM_FILE_BLOCK		100*1024
+#define LOGPIPE_COMM_FILE_BLOCK_BUFSIZE		100*1024
 
 /* 会话结构头 */
 struct Session

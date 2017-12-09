@@ -57,7 +57,7 @@ int ToOutputs( struct LogPipeEnv *p_env , char *comm_buffer , int comm_buffer_le
 	struct ForwardSession	*p_forward_session = NULL ;
 	
 	int			remain_len ;
-	char			block_buf[ LOGPIPE_COMM_FILE_BLOCK + 1 ] ;
+	char			block_buf[ LOGPIPE_COMM_FILE_BLOCK_BUFSIZE + 1 ] ;
 	uint32_t		block_len ;
 	uint32_t		block_len_htonl ;
 	int			len ;
