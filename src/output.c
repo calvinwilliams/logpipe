@@ -40,20 +40,31 @@ int ConnectForwardSocket( struct LogPipeEnv *p_env , struct ForwardSession *p_fo
 	}
 }
 
-int ToOutputs( struct LogPipeEnv *p_env , char *filename , uint16_t filename_len , int in , int appender_len )
+#define CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET \
+	list_for_each_entry( p_close_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node ) \
+	{ \
+		close( p_close_dump_session->tmp_fd ); \
+	} \
+	list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node ) \
+	{ \
+		close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ; \
+	} \
+
+int ToOutputs( struct LogPipeEnv *p_env , char *comm_buffer , int comm_buffer_len , char *filename , uint16_t filename_len , int in , int append_len )
 {
 	struct DumpSession	*p_dump_session = NULL ;
 	struct DumpSession	*p_close_dump_session = NULL ;
 	struct ForwardSession	*p_forward_session = NULL ;
 	
-	int			sent_len ;
-	char			block_buf[ LOGPIPE_COMM_BODY_BLOCK + 1 ] ;
-	int			block_len ;
+	int			remain_len ;
+	char			block_buf[ LOGPIPE_COMM_FILE_BLOCK + 1 ] ;
+	uint16_t		block_len ;
+	uint16_t		block_len_htons ;
 	int			len ;
 	
 	int			nret = 0 ;
 	
-	INFOLOG( "filename[%.*s] filename_len[%d] in[%d] appender_len[%d]" , filename_len , filename , filename_len , in , appender_len )
+	INFOLOG( "comm_buffer[%p] comm_buffer_len[%d] filename[%.*s] filename_len[%d] in[%d] append_len[%d]" , comm_buffer , comm_buffer_len , filename_len , filename , filename_len , in , append_len )
 	
 	list_for_each_entry( p_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )
 	{
@@ -81,23 +92,6 @@ int ToOutputs( struct LogPipeEnv *p_env , char *filename , uint16_t filename_len
 	
 	list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node )
 	{
-		uint32_t		comm_head_len_ntohl ;
-		uint32_t		*comm_head_len_htonl = NULL ;
-		char			*magic = NULL ;
-		uint16_t		*filename_len_htons = NULL ;
-		char			comm_buffer[ sizeof(uint32_t) + 1 + sizeof(uint16_t) ] ;
-		
-		comm_head_len_ntohl = 1 + sizeof(uint16_t) + filename_len + appender_len ;
-		
-		comm_head_len_htonl = (uint32_t*)comm_buffer ;
-		(*comm_head_len_htonl) = htonl( comm_head_len_ntohl ) ;
-		
-		magic = comm_buffer + sizeof(uint32_t) ;
-		(*magic) = LOGPIPE_COMM_MAGIC[0] ;
-		
-		filename_len_htons = (uint16_t*)(comm_buffer+sizeof(uint32_t)+1) ;
-		(*filename_len_htons) = htons(filename_len) ;
-		
 _GOTO_RETRY_SEND :
 		
 		while( p_forward_session->forward_sock == -1 )
@@ -107,105 +101,187 @@ _GOTO_RETRY_SEND :
 				return nret;
 		}
 		
-		/* 发送通讯头 */
-		len = writen( p_forward_session->forward_sock , comm_buffer , sizeof(comm_buffer) ) ;
-		if( len == -1 )
+		if( comm_buffer == NULL )
 		{
-			ERRORLOG( "send comm head and magic and filename len failed , errno[%d]" , errno );
-			close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-			sleep(1);
-			goto _GOTO_RETRY_SEND;
+			char			*magic = NULL ;
+			uint16_t		*filename_len_htons = NULL ;
+			char			comm_buffer[ 1 + sizeof(uint16_t) + PATH_MAX ] ;
+			
+			magic = comm_buffer ;
+			(*magic) = LOGPIPE_COMM_MAGIC ;
+			
+			if( filename_len > PATH_MAX )
+			{
+				ERRORLOG( "filename length[%d] too long" , filename_len )
+				CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET
+				return 0;
+			}
+			
+			filename_len_htons = (uint16_t*)(comm_buffer+1) ;
+			(*filename_len_htons) = htons(filename_len) ;
+			
+			strncpy( comm_buffer+1+sizeof(uint16_t) , filename , filename_len );
+			
+			/* 发送通讯头和文件名 */
+			len = writen( p_forward_session->forward_sock , comm_buffer , 1+sizeof(uint16_t)+filename_len ) ;
+			if( len == -1 )
+			{
+				ERRORLOG( "send comm magic and filename failed , errno[%d]" , errno );
+				close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
+				sleep(1);
+				goto _GOTO_RETRY_SEND;
+			}
+			else
+			{
+				INFOLOG( "send comm magic and filename ok , [%d]bytes" , filename_len );
+				DEBUGHEXLOG( comm_buffer , len , "comm and magic and filename [%d]bytes" , len );
+			}
 		}
 		else
 		{
-			DEBUGHEXLOG( comm_buffer , len , "send comm head and magic and filename len ok , [%d]bytes" , len );
-		}
-		
-		/* 发送文件名 */
-		len = writen( p_forward_session->forward_sock , filename , filename_len ) ;
-		if( len == -1 )
-		{
-			ERRORLOG( "send file name failed , errno[%d]" , errno );
-			close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-			sleep(1);
-			goto _GOTO_RETRY_SEND;
-		}
-		else
-		{
-			DEBUGHEXLOG( filename , len , "send filename ok , [%d]bytes" , len );
+			/* 发送通讯头和文件名 */
+			len = writen( p_forward_session->forward_sock , comm_buffer , comm_buffer_len ) ;
+			if( len == -1 )
+			{
+				ERRORLOG( "send comm buffer failed , errno[%d]" , errno );
+				close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
+				sleep(1);
+				goto _GOTO_RETRY_SEND;
+			}
+			else
+			{
+				INFOLOG( "send comm buffer ok , [%d]bytes" , comm_buffer_len );
+				DEBUGHEXLOG( comm_buffer , len , "comm buffer [%d]bytes" , len );
+			}
 		}
 	}
 	
-	for( sent_len = 0 ; sent_len < appender_len ; )
+	remain_len = append_len ;
+	
+	while(1)
 	{
-		if( appender_len > sizeof(block_buf) - 1 )
-			block_len = sizeof(block_buf) - 1 ;
-		else
-			block_len = appender_len ;
-		len = readn( in , block_buf , block_len ) ;
-		if( len == -1 )
+		if( comm_buffer == NULL )
 		{
-			ERRORLOG( "read[%s] failed , errno[%d]" , filename , errno )
-			list_for_each_entry( p_close_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )
+			if( remain_len > sizeof(block_buf) - 1 )
+				block_len = sizeof(block_buf) - 1 ;
+			else
+				block_len = remain_len ;
+			
+			if( block_len > 0 )
 			{
-				close( p_close_dump_session->tmp_fd );
+				len = readn( in , block_buf , block_len ) ;
+				if( len == -1 )
+				{
+					ERRORLOG( "read file failed , errno[%d]" , errno )
+					CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET
+					return -1;
+				}
+				else
+				{
+					INFOLOG( "read file ok , [%d]bytes" , block_len )
+					DEBUGHEXLOG( block_buf , len , "file block [%d]bytes" , len )
+				}
 			}
-			list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node )
-			{
-				close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-			}
-			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "read[%s] ok , [%d]bytes" , filename , block_len )
-		}
-		
-		list_for_each_entry( p_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )
-		{
-			len = writen( p_dump_session->tmp_fd , block_buf , block_len ) ;
+			len = readn( in , & block_len_htons , sizeof(uint16_t) ) ;
 			if( len == -1 )
 			{
-				ERRORLOG( "write file[%s/%s] failed , errno[%d]" , p_dump_session->dump_path , filename , errno )
-				list_for_each_entry( p_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )
-				{
-					close( p_dump_session->tmp_fd );
-				}
-				list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node )
-				{
-					close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-				}
+				ERRORLOG( "recv block len from socket failed , errno[%d]" , errno )
+				CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET
 				return -1;
 			}
 			else
 			{
-				DEBUGLOG( "write file[%s/%s] ok , [%d]bytes" , p_dump_session->dump_path , filename , block_len )
+				INFOLOG( "recv block len from socket ok , [%d]bytes" , sizeof(uint16_t) )
+				DEBUGHEXLOG( (char*) & block_len_htons , len , "block len [%d]bytes" , len )
+			}
+			
+			block_len = ntohs( block_len_htons ) ;
+			if( block_len > 0 )
+			{
+				len = readn( in , block_buf , block_len ) ;
+				if( len == -1 )
+				{
+					ERRORLOG( "recv block data from socket failed , errno[%d]" , errno )
+					CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET
+					return -1;
+				}
+				else
+				{
+					INFOLOG( "recv block data from socket ok , [%d]bytes" , block_len )
+					DEBUGHEXLOG( block_buf , len , "block data [%d]bytes" , len )
+				}
+			}
+		}
+		
+		if( block_len > 0 )
+		{
+			list_for_each_entry( p_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )
+			{
+				len = writen( p_dump_session->tmp_fd , block_buf , block_len ) ;
+				if( len == -1 )
+				{
+					ERRORLOG( "write block data to file failed , errno[%d]" , errno )
+					CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET
+					return -1;
+				}
+				else
+				{
+					INFOLOG( "write block data to file ok , [%d]bytes" , block_len )
+					DEBUGHEXLOG( block_buf , len , "block data [%d]bytes" , len )
+				}
 			}
 		}
 		
 		list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node )
 		{
-			len = writen( p_forward_session->forward_sock , block_buf , block_len ) ;
+			block_len_htons = htons( block_len ) ;
+			
+			len = writen( p_forward_session->forward_sock , & block_len_htons , sizeof(uint16_t) ) ;
 			if( len == -1 )
 			{
-				ERRORLOG( "write forward socket failed , errno[%d]" , errno )
-				list_for_each_entry( p_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )
-				{
-					close( p_dump_session->tmp_fd );
-				}
-				list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node )
-				{
-					close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
-				}
+				ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
+				CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET
 				return -1;
 			}
 			else
 			{
-				DEBUGLOG( "write forward socket ok , [%d]bytes" , len )
+				INFOLOG( "send block len to socket ok , [%d]bytes" , sizeof(uint16_t) )
+				DEBUGHEXLOG( (char*) & block_len_htons , len , "block len [%d]bytes" , len )
+			}
+			
+			if( block_len > 0 )
+			{
+				len = writen( p_forward_session->forward_sock , block_buf , block_len ) ;
+				if( len == -1 )
+				{
+					ERRORLOG( "send block data to socket failed , errno[%d]" , errno )
+					CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET
+					return -1;
+				}
+				else
+				{
+					INFOLOG( "send block data to socket ok , [%d]bytes" , block_len )
+					DEBUGHEXLOG( block_buf , block_len , "block data [%d]bytes" , len )
+				}
 			}
 		}
 		
-		sent_len += appender_len ;
+		if( comm_buffer == NULL )
+		{
+			if( remain_len == 0 )
+				break;
+		}
+		else
+		{
+			if( block_len == 0 )
+				break;
+		}
+		
+		if( comm_buffer == NULL )
+			remain_len -= block_len ;
 	}
 	
 	list_for_each_entry( p_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )

@@ -50,13 +50,11 @@ int asprintf(char **strp, const char *fmt, ...);
 
 #define LOGPIPE_INOTIFY_READ_BUFSIZE	16*1024*1024
 
-/*
-	|comm_head_length(4bytes)|"@"(1byte)|filename_len(2bytes)|file_name|file_data|
+/* communication protocol :
+	|'@'(1byte)|filename_len(2bytes)|file_name|file_block_len(2bytes)|file_block_data|...(other file blocks)...|\0\0\0\0|
 */
-#define LOGPIPE_COMM_MAGIC		"@"
-#define LOGPIPE_COMM_BODY_BLOCK		4096
-
-#define LOGPIPE_COMM_BUFFER_SIZE	4096
+#define LOGPIPE_COMM_MAGIC		'@'
+#define LOGPIPE_COMM_FILE_BLOCK		40960
 
 /* 会话结构头 */
 struct Session
@@ -203,7 +201,7 @@ void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accep
 int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session );
 
 int ConnectForwardSocket( struct LogPipeEnv *p_env , struct ForwardSession *p_forward_session );
-int ToOutputs( struct LogPipeEnv *p_env , char *filename , uint16_t filename_len , int in , int appender_len );
+int ToOutputs( struct LogPipeEnv *p_env , char *comm_buffer , int comm_buffer_len , char *filename , uint16_t filename_len , int in , int append_len );
 
 #ifdef __cplusplus
 }

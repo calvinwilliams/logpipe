@@ -127,11 +127,11 @@ int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_s
 {
 	int			fd ;
 	struct stat		file_stat ;
-	int			appender_len ;
+	int			append_len ;
 	
 	int			nret = 0 ;
 	
-	DEBUGLOG( "catch file[%s] appender" , p_trace_file->path_filename )
+	DEBUGLOG( "catch file[%s] append" , p_trace_file->path_filename )
 	
 	fd = open( p_trace_file->path_filename , O_RDONLY ) ;
 	if( fd == -1 )
@@ -171,12 +171,12 @@ int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_s
 	}
 	else if( file_stat.st_size > p_trace_file->trace_offset )
 	{
-		appender_len = file_stat.st_size - p_trace_file->trace_offset ;
+		append_len = file_stat.st_size - p_trace_file->trace_offset ;
 		
 		lseek( fd , p_trace_file->trace_offset , SEEK_SET );
 		
 		/* 导出所有输出端 */
-		nret = ToOutputs( p_env , p_trace_file->filename , p_trace_file->filename_len , fd , appender_len ) ;
+		nret = ToOutputs( p_env , NULL , -1 , p_trace_file->filename , p_trace_file->filename_len , fd , append_len ) ;
 		if( nret )
 		{
 			ERRORLOG( "ToOutputs failed[%d]" , nret )
