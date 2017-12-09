@@ -44,17 +44,13 @@ int asprintf(char **strp, const char *fmt, ...);
 #define LOGPIPE_SESSION_TYPE_DUMP	'D'
 #define LOGPIPE_SESSION_TYPE_FORWARD	'F'
 
-#define LOGPIPE_ROLE_COLLECTOR		'C'
-#define LOGPIPE_ROLE_PIPER		'P'
-#define LOGPIPE_ROLE_DUMPSERVER		'S'
-
 #define LOGPIPE_INOTIFY_READ_BUFSIZE	16*1024*1024
 
 /* communication protocol :
 	|'@'(1byte)|filename_len(2bytes)|file_name|file_block_len(2bytes)|file_block_data|...(other file blocks)...|\0\0\0\0|
 */
 #define LOGPIPE_COMM_MAGIC		'@'
-#define LOGPIPE_COMM_FILE_BLOCK		40960
+#define LOGPIPE_COMM_FILE_BLOCK		100*1024
 
 /* 会话结构头 */
 struct Session

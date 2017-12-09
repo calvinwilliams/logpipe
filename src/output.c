@@ -58,8 +58,8 @@ int ToOutputs( struct LogPipeEnv *p_env , char *comm_buffer , int comm_buffer_le
 	
 	int			remain_len ;
 	char			block_buf[ LOGPIPE_COMM_FILE_BLOCK + 1 ] ;
-	uint16_t		block_len ;
-	uint16_t		block_len_htons ;
+	uint32_t		block_len ;
+	uint32_t		block_len_htonl ;
 	int			len ;
 	
 	int			nret = 0 ;
@@ -185,7 +185,7 @@ _GOTO_RETRY_SEND :
 		}
 		else
 		{
-			len = readn( in , & block_len_htons , sizeof(uint16_t) ) ;
+			len = readn( in , & block_len_htonl , sizeof(block_len_htonl) ) ;
 			if( len == -1 )
 			{
 				ERRORLOG( "recv block len from socket failed , errno[%d]" , errno )
@@ -194,11 +194,11 @@ _GOTO_RETRY_SEND :
 			}
 			else
 			{
-				INFOLOG( "recv block len from socket ok , [%d]bytes" , sizeof(uint16_t) )
-				DEBUGHEXLOG( (char*) & block_len_htons , len , "block len [%d]bytes" , len )
+				INFOLOG( "recv block len from socket ok , [%d]bytes" , sizeof(block_len_htonl) )
+				DEBUGHEXLOG( (char*) & block_len_htonl , len , "block len [%d]bytes" , len )
 			}
 			
-			block_len = ntohs( block_len_htons ) ;
+			block_len = ntohl( block_len_htonl ) ;
 			if( block_len > 0 )
 			{
 				len = readn( in , block_buf , block_len ) ;
@@ -237,9 +237,9 @@ _GOTO_RETRY_SEND :
 		
 		list_for_each_entry( p_forward_session , & (p_env->forward_session_list.this_node) , struct ForwardSession , this_node )
 		{
-			block_len_htons = htons( block_len ) ;
+			block_len_htonl = htonl( block_len ) ;
 			
-			len = writen( p_forward_session->forward_sock , & block_len_htons , sizeof(uint16_t) ) ;
+			len = writen( p_forward_session->forward_sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
 			if( len == -1 )
 			{
 				ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
@@ -248,8 +248,8 @@ _GOTO_RETRY_SEND :
 			}
 			else
 			{
-				INFOLOG( "send block len to socket ok , [%d]bytes" , sizeof(uint16_t) )
-				DEBUGHEXLOG( (char*) & block_len_htons , len , "block len [%d]bytes" , len )
+				INFOLOG( "send block len to socket ok , [%d]bytes" , sizeof(block_len_htonl) )
+				DEBUGHEXLOG( (char*) & block_len_htonl , len , "block len [%d]bytes" , len )
 			}
 			
 			if( block_len > 0 )
