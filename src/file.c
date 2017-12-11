@@ -322,7 +322,7 @@ int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotif
 	{
 		char	*tmp = NULL ;
 		
-		WARNLOG( "inotify read buffer resize [%d]bytes to [%dbytes" , p_env->inotify_read_bufsize , LOGPIPE_INOTIFY_READ_BUFSIZE )
+		WARNLOG( "inotify read buffer resize [%d]bytes to [%d]bytes" , p_env->inotify_read_bufsize , LOGPIPE_INOTIFY_READ_BUFSIZE )
 		p_env->inotify_read_bufsize = LOGPIPE_INOTIFY_READ_BUFSIZE ;
 		tmp = (char*)realloc( p_env->inotify_read_buffer , p_env->inotify_read_bufsize ) ;
 		if( tmp == NULL )
