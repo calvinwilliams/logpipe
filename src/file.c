@@ -5,6 +5,7 @@ int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_
 	struct TraceFile	*p_trace_file = NULL ;
 	struct TraceFile	*p_trace_file_not_exist = NULL ;
 	struct stat		file_stat ;
+	int			len ;
 	
 	int			nret = 0 ;
 	
@@ -22,13 +23,14 @@ int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_
 	}
 	memset( p_trace_file , 0x00 , sizeof(struct TraceFile) );
 	
-	p_trace_file->path_filename_len = asprintf( & (p_trace_file->path_filename) , "%s/%s" , p_inotify_session->inotify_path , filename );
-	if( p_trace_file->path_filename_len == -1 )
+	len = asprintf( & (p_trace_file->path_filename) , "%s/%s" , p_inotify_session->inotify_path , filename ) ;
+	if( len == -1 )
 	{
 		ERRORLOG( "asprintf failed , errno[%d]" , errno )
 		free( p_trace_file );
 		return -1;
 	}
+	p_trace_file->path_filename_len = len ;
 	
 	nret = stat( p_trace_file->path_filename , & file_stat ) ;
 	if( nret == -1 )
@@ -41,14 +43,15 @@ int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_
 	
 	p_trace_file->pathname = p_inotify_session->inotify_path ;
 	
-	p_trace_file->filename_len = asprintf( & p_trace_file->filename , "%s" , filename );
-	if( p_trace_file->filename_len == -1 )
+	len = asprintf( & p_trace_file->filename , "%s" , filename );
+	if( len == -1 )
 	{
 		ERRORLOG( "asprintf failed , errno[%d]" , errno )
 		free( p_trace_file->path_filename );
 		free( p_trace_file );
 		return -1;
 	}
+	p_trace_file->filename_len = len ;
 	
 	p_trace_file->inotify_file_wd = inotify_add_watch( p_inotify_session->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED) ) ;
 	if( p_trace_file->inotify_file_wd == -1 )
