@@ -13,7 +13,7 @@ static void sig_set_flag( int sig_no )
 	return;
 }
 
-int monitor( struct LogPipeEnv *p_env )
+int monitor( struct LogpipeEnv *p_env )
 {
 	struct sigaction	act ;
 	
@@ -113,6 +113,6 @@ _GOTO_WAITPID :
 
 int _monitor( void *pv )
 {
-	return monitor( (struct LogPipeEnv*)pv );
+	return monitor( (struct LogpipeEnv*)pv );
 }
 

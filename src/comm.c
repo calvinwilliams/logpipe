@@ -1,7 +1,7 @@
 #include "logpipe_in.h"
 
 /* 接受新连接 */
-int OnAcceptingSocket( struct LogPipeEnv *p_env , struct ListenSession *p_listen_session )
+int OnAcceptingSocket( struct LogpipeEnv *p_env , struct ListenSession *p_listen_session )
 {
 	struct AcceptedSession	*p_accepted_session = NULL ;
 	socklen_t		accept_addr_len ;
@@ -68,7 +68,7 @@ int OnAcceptingSocket( struct LogPipeEnv *p_env , struct ListenSession *p_listen
 }
 
 /* 关闭连接 */
-void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session )
+void OnClosingSocket( struct LogpipeEnv *p_env , struct AcceptedSession *p_accepted_session )
 {
 	if( p_accepted_session )
 	{
@@ -83,7 +83,7 @@ void OnClosingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accep
 }
 
 /* 通讯接收数据 */
-int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_accepted_session )
+int OnReceivingSocket( struct LogpipeEnv *p_env , struct AcceptedSession *p_accepted_session )
 {
 	uint16_t		*filename_len_htons = NULL ;
 	char			comm_buf[ LOGPIPE_COMM_HEAD_LENGTH + sizeof(uint16_t) + PATH_MAX ] ;

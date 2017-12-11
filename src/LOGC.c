@@ -130,11 +130,11 @@ int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *fo
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
 	
 	/* 输出行日志 */
-	if( g_log_pathfilename[0] == '\0' )
+	if( g_log_pathfilename[0] == '#' )
 	{
 		WRITE( 1 , log_buffer , log_buflen );
 	}
-	else
+	else if( g_log_pathfilename[0] )
 	{
 		int		fd ;
 		

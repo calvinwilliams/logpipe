@@ -1,6 +1,8 @@
 #include "logpipe_in.h"
 
-int ConnectForwardSocket( struct LogPipeEnv *p_env , struct ForwardSession *p_forward_session )
+#if 0
+
+int ConnectForwardSocket( struct LogpipeEnv *p_env , struct ForwardSession *p_forward_session )
 {
 	int		nret = 0 ;
 	
@@ -52,7 +54,7 @@ int ConnectForwardSocket( struct LogPipeEnv *p_env , struct ForwardSession *p_fo
 		close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ; \
 	} \
 
-int ToOutputs( struct LogPipeEnv *p_env , char *comm_buf , int comm_buf_len , char *filename , uint16_t filename_len , int in , int append_len , char compress_algorithm )
+int ToOutputs( struct LogpipeEnv *p_env , char *comm_buf , int comm_buf_len , char *filename , uint16_t filename_len , int in , int append_len , char compress_algorithm )
 {
 	struct DumpSession	*p_dump_session = NULL ;
 	struct DumpSession	*p_close_dump_session = NULL ;
@@ -455,3 +457,83 @@ _GOTO_RETRY_SEND :
 	return 0;
 }
 
+#endif
+
+#define BLOCK_BUFSIZE		100*1024
+
+int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , uint16_t filename_len , char *filename )
+{
+	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
+	
+	char				block_buf[ BLOCK_BUFSIZE + 1 ] ;
+	uint32_t			block_len ;
+	uint32_t			block_len_htonl ;
+	
+	int				nret = 0 ;
+	
+	/* 执行所有输出端写前函数 */
+	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_outputs_plugin_list->this_node) , struct LogpipeOutputPlugin , this_node )
+	{
+		nret = p_logpipe_output_plugin->funcBeforeWriteLogpipeOutput( p_env , & (p_logpipe_output_plugin->context) ) ;
+		if( nret )
+		{
+			ERRORLOG( "[%s]p_logpipe_output_plugin->funcBeforeWriteLogpipeOutput failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "[%s]p_logpipe_output_plugin->funcBeforeWriteLogpipeOutput ok" , p_logpipe_output_plugin->so_path_filename );
+		}
+	}
+	
+	while(1)
+	{
+		/* 执行输入端读函数 */
+		nret = p_logpipe_input_plugin->funcReadLogpipeInput( p_env , & (p_logpipe_input_plugin->context) , & block_len , block_buf , sizeof(block_buf) ) ;
+		if( nret > 0 )
+		{
+			INFOLOG( "[%s]p_logpipe_input_plugin->funcReadLogpipeInput done" , p_logpipe_input_plugin->so_path_filename );
+		}
+		else if( nret < 0 )
+		{
+			ERRORLOG( "[%s]p_logpipe_input_plugin->funcReadLogpipeInput failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "[%s]p_logpipe_input_plugin->funcReadLogpipeInput ok" , p_logpipe_input_plugin->so_path_filename );
+		}
+		
+		/* 执行所有输出端写函数 */
+		list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_outputs_plugin_list->this_node) , struct LogpipeOutputPlugin , this_node )
+		{
+			nret = p_logpipe_output_plugin->funcWriteLogpipeOutput( p_env , & (p_logpipe_output_plugin->context) ) ;
+			if( nret )
+			{
+				ERRORLOG( "[%s]p_logpipe_output_plugin->funcWriteLogpipeOutput failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+				return -1;
+			}
+			else
+			{
+				INFOLOG( "[%s]p_logpipe_output_plugin->funcWriteLogpipeOutput ok" , p_logpipe_output_plugin->so_path_filename );
+			}
+		}
+	}
+	
+	/* 执行所有输出端写后函数 */
+	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_outputs_plugin_list->this_node) , struct LogpipeOutputPlugin , this_node )
+	{
+		nret = p_logpipe_output_plugin->funcAfterWriteLogpipeOutput( p_env , & (p_logpipe_output_plugin->context) ) ;
+		if( nret )
+		{
+			ERRORLOG( "[%s]p_logpipe_output_plugin->funcAfterWriteLogpipeOutput failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "[%s]p_logpipe_output_plugin->funcAfterWriteLogpipeOutput ok" , p_logpipe_output_plugin->so_path_filename );
+		}
+	}
+	
+	return 0;
+}

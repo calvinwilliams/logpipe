@@ -115,6 +115,65 @@ int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag
 	return 0;
 }
 
+/* 新增插件配置项 */
+int AddPluginConfigItem( struct LogpipePluginConfigItem *config , char *key , int key_len , char *value , int value_len )
+{
+	struct LogpipePluginConfigItem	*item = NULL ;
+	
+	item = (struct LogpipePluginConfigItem *)malloc( sizeof(struct LogpipePluginConfigItem) ) ;
+	if( item == NULL )
+		return -1;
+	memset( item , 0x00 , sizeof(struct LogpipePluginConfigItem) );
+	
+	item->key = strndup( key , key_len ) ;
+	if( item->key == NULL )
+	{
+		free( item );
+		return -12;
+	}
+	
+	item->value = strndup( value , value_len ) ;
+	if( item->value == NULL )
+	{
+		free( item->key );
+		free( item );
+		return -13;
+	}
+	
+	list_add_tail( & (item->this_node) , & (config->this_node) );
+	
+	return 0;
+}
+
+/* 查询插件配置项 */
+char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key )
+{
+	struct LogpipePluginConfigItem	*item = NULL ;
+	
+	list_for_each_entry( item , config , struct LogpipePluginConfigItem , this_node )
+	{
+		if( STRCMP( key , == , item->key ) )
+			return item->value;
+	}
+	
+	return NULL;
+}
+
+/* 删除所有插件配置项 */
+void RemoveAllPluginConfigItem( struct LogpipePluginConfigItem *config )
+{
+	struct LogpipePluginConfigItem	*item = NULL ;
+	struct LogpipePluginConfigItem	*next_item = NULL ;
+	
+	list_for_each_entry_safe( item , next_item , config , struct LogpipePluginConfigItem , this_node )
+	{
+		list_del( & (item->this_node) );
+		free( item );
+	}
+	
+	return;
+}
+
 /* 写定长字节块到描述字 */
 ssize_t writen(int fd, const void *vptr, size_t n)
 {

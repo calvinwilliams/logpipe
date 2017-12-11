@@ -1,6 +1,6 @@
 #include "logpipe_in.h"
 
-int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , char *filename )
+int AddFileWatcher( struct LogpipeEnv *p_env , struct InotifySession *p_inotify_session , char *filename )
 {
 	struct TraceFile	*p_trace_file = NULL ;
 	struct TraceFile	*p_trace_file_not_exist = NULL ;
@@ -84,7 +84,7 @@ int AddFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_
 	return OnReadingFile( p_env , p_inotify_session , p_trace_file );
 }
 
-int RemoveFileWatcher( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
+int RemoveFileWatcher( struct LogpipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
 {
 	UnlinkTraceFileWdTreeNode( p_inotify_session , p_trace_file );
 	
@@ -126,7 +126,7 @@ int RoratingFile( char *pathname , char *filename , int filename_len )
 	return 0;
 }
 
-int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
+int OnReadingFile( struct LogpipeEnv *p_env , struct InotifySession *p_inotify_session , struct TraceFile *p_trace_file )
 {
 	int			fd ;
 	struct stat		file_stat ;
@@ -200,7 +200,7 @@ int OnReadingFile( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_s
 	return 0;
 }
 
-int OnInotifyHandler( struct LogPipeEnv *p_env , struct InotifySession *p_inotify_session )
+int OnInotifyHandler( struct LogpipeEnv *p_env , struct InotifySession *p_inotify_session )
 {
 	int			inotify_read_nbytes ;
 	

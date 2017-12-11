@@ -2,7 +2,7 @@
 
 #define MAX_EPOLL_EVENTS	10000
 
-int worker( struct LogPipeEnv *p_env )
+int worker( struct LogpipeEnv *p_env )
 {
 	struct epoll_event	events[ MAX_EPOLL_EVENTS ] ;
 	int			epoll_nfds ;
@@ -32,8 +32,6 @@ int worker( struct LogPipeEnv *p_env )
 			return -1;
 		}
 	}
-	
-	LogEnvironment( p_env );
 	
 	while(1)
 	{

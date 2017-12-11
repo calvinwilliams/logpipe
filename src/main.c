@@ -17,7 +17,7 @@ static void usage()
 	return;
 }
 
-static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *argv[] )
+static int ParseCommandParameter( struct LogpipeEnv *p_env , int argc , char *argv[] )
 {
 	int		c ;
 	
@@ -46,7 +46,7 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 		}
 		else
 		{
-			printf( "*** ERROR : invalid command parameter '%s'\n" , argv[c] );
+			printf( "ERROR : invalid command parameter '%s'\n" , argv[c] );
 			usage();
 			exit(1);
 		}
@@ -57,7 +57,7 @@ static int ParseCommandParameter( struct LogPipeEnv *p_env , int argc , char *ar
 
 int main( int argc , char *argv[] )
 {
-	struct LogPipeEnv	*p_env = NULL ;
+	struct LogpipeEnv	*p_env = NULL ;
 	
 	int			nret = 0 ;
 	
@@ -69,13 +69,16 @@ int main( int argc , char *argv[] )
 		exit(0);
 	}
 	
-	p_env = (struct LogPipeEnv *)malloc( sizeof(struct LogPipeEnv) ) ;
+	SetLogFile( "#" );
+	SetLogLevel( LOGLEVEL_DEBUG );
+	
+	p_env = (struct LogpipeEnv *)malloc( sizeof(struct LogpipeEnv) ) ;
 	if( p_env == NULL )
 	{
-		printf( "*** ERROR : malloc failed , errno[%d]\n" , errno );
+		ERRORLOG( "ERROR : malloc failed , errno[%d]" , errno );
 		return 1;
 	}
-	memset( p_env , 0x00 , sizeof(struct LogPipeEnv) );
+	memset( p_env , 0x00 , sizeof(struct LogpipeEnv) );
 	
 	nret = ParseCommandParameter( p_env , argc , argv ) ;
 	if( nret )
