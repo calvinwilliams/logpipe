@@ -106,7 +106,7 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 	else
 	{
 		INFOLOG( "recv comm magic and filename len ok , [%d]bytes" , len )
-		DEBUGHEXLOG( comm_buf , len , "comm magic and filename len [%d]bytes" , len )
+		DEBUGHEXLOG( comm_buf , len , NULL )
 	}
 	
 	if( comm_buf[LOGPIPE_COMM_HEAD_MAGIC_OFFSET] != LOGPIPE_COMM_HEAD_MAGIC )
@@ -144,7 +144,7 @@ int OnReceivingSocket( struct LogPipeEnv *p_env , struct AcceptedSession *p_acce
 	else
 	{
 		INFOLOG( "recv filename from socket ok , [%d]bytes" , len )
-		DEBUGHEXLOG( comm_buf+LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t) , len , "filename [%d]bytes" , len )
+		DEBUGHEXLOG( comm_buf+LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t) , len , NULL )
 	}
 	
 	/* 导出所有输出端 */

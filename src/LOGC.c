@@ -271,7 +271,10 @@ int WriteHexLogBaseV( int log_level , char *c_filename , long c_fileline , char 
 		return -1;
 	
 	/* 输出行日志 */
-	WriteLogBaseV( log_level , c_filename , c_fileline , format , valist );
+	if( format )
+	{
+		WriteLogBaseV( log_level , c_filename , c_fileline , format , valist );
+	}
 	
 	/* 填充十六进制块日志 */
 	memset( hexlog_buffer , 0x00 , sizeof(hexlog_buffer) );

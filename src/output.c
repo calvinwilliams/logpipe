@@ -134,15 +134,15 @@ _GOTO_RETRY_SEND :
 			len = writen( p_forward_session->forward_sock , comm_buf , LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t)+filename_len ) ;
 			if( len == -1 )
 			{
-				ERRORLOG( "send comm magic and filename failed , errno[%d]" , errno );
+				ERRORLOG( "send comm magic and filename failed , errno[%d]" , errno )
 				close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
 				sleep(1);
 				goto _GOTO_RETRY_SEND;
 			}
 			else
 			{
-				INFOLOG( "send comm magic and filename ok , [%d]bytes" , LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t)+filename_len );
-				DEBUGHEXLOG( comm_buf , len , "comm and magic and filename [%d]bytes" , len );
+				INFOLOG( "send comm magic and filename ok , [%d]bytes" , LOGPIPE_COMM_HEAD_LENGTH+sizeof(uint16_t)+filename_len )
+				DEBUGHEXLOG( comm_buf , len , NULL )
 			}
 		}
 		else
@@ -151,15 +151,15 @@ _GOTO_RETRY_SEND :
 			len = writen( p_forward_session->forward_sock , comm_buf , comm_buf_len ) ;
 			if( len == -1 )
 			{
-				ERRORLOG( "send comm buffer failed , errno[%d]" , errno );
+				ERRORLOG( "send comm buffer failed , errno[%d]" , errno )
 				close( p_forward_session->forward_sock ); p_forward_session->forward_sock = -1 ;
 				sleep(1);
 				goto _GOTO_RETRY_SEND;
 			}
 			else
 			{
-				INFOLOG( "send comm buffer ok , [%d]bytes" , comm_buf_len );
-				DEBUGHEXLOG( comm_buf , len , "comm buffer [%d]bytes" , len );
+				INFOLOG( "send comm buffer ok , [%d]bytes" , comm_buf_len )
+				DEBUGHEXLOG( comm_buf , len , NULL )
 			}
 		}
 	}
@@ -187,7 +187,7 @@ _GOTO_RETRY_SEND :
 				else
 				{
 					INFOLOG( "read file ok , [%d]bytes" , block_in_len )
-					DEBUGHEXLOG( block_in_buf , len , "file block [%d]bytes" , len )
+					DEBUGHEXLOG( block_in_buf , len , NULL )
 				}
 			}
 			
@@ -211,7 +211,7 @@ _GOTO_RETRY_SEND :
 			else
 			{
 				INFOLOG( "recv block len from socket ok , [%d]bytes" , sizeof(block_in_len_htonl) )
-				DEBUGHEXLOG( (char*) & block_in_len_htonl , len , "block len [%d]bytes" , len )
+				DEBUGHEXLOG( (char*) & block_in_len_htonl , len , NULL )
 			}
 			
 			block_in_len = ntohl( block_in_len_htonl ) ;
@@ -232,7 +232,7 @@ _GOTO_RETRY_SEND :
 				else
 				{
 					INFOLOG( "recv block data from socket ok , [%d]bytes" , block_in_len )
-					DEBUGHEXLOG( block_in_buf , len , "block data [%d]bytes" , len )
+					DEBUGHEXLOG( block_in_buf , len , NULL )
 				}
 			}
 		}
@@ -253,7 +253,7 @@ _GOTO_RETRY_SEND :
 					else
 					{
 						INFOLOG( "write block data to file ok , [%d]bytes" , block_in_len )
-						DEBUGHEXLOG( block_in_buf , len , "block data [%d]bytes" , len )
+						DEBUGHEXLOG( block_in_buf , len , NULL )
 					}
 				}
 			}
@@ -305,7 +305,7 @@ _GOTO_RETRY_SEND :
 						else
 						{
 							INFOLOG( "write uncompress block data to file ok , [%d]bytes" , block_out_len )
-							DEBUGHEXLOG( block_out_buf , len , "block data [%d]bytes" , len )
+							DEBUGHEXLOG( block_out_buf , len , NULL )
 						}
 					}
 				}
@@ -329,7 +329,7 @@ _GOTO_RETRY_SEND :
 				else
 				{
 					INFOLOG( "send block len to socket ok , [%d]bytes" , sizeof(block_in_len_htonl) )
-					DEBUGHEXLOG( (char*) & block_in_len_htonl , len , "block len [%d]bytes" , len )
+					DEBUGHEXLOG( (char*) & block_in_len_htonl , len , NULL )
 				}
 				
 				if( block_in_len > 0 )
@@ -344,7 +344,7 @@ _GOTO_RETRY_SEND :
 					else
 					{
 						INFOLOG( "send block data to socket ok , [%d]bytes" , block_in_len )
-						DEBUGHEXLOG( block_in_buf , block_in_len , "block data [%d]bytes" , len )
+						DEBUGHEXLOG( block_in_buf , block_in_len , NULL )
 					}
 				}
 			}
@@ -392,7 +392,7 @@ _GOTO_RETRY_SEND :
 					else
 					{
 						INFOLOG( "send block len to socket ok , [%d]bytes" , sizeof(block_out_len_htonl) )
-						DEBUGHEXLOG( (char*) & block_in_len_htonl , len , "block len [%d]bytes" , len )
+						DEBUGHEXLOG( (char*) & block_in_len_htonl , len , NULL )
 					}
 					
 					len = writen( p_forward_session->forward_sock , block_out_buf , block_out_len ) ;
@@ -406,7 +406,7 @@ _GOTO_RETRY_SEND :
 					else
 					{
 						INFOLOG( "send block data to socket ok , [%d]bytes" , block_out_len )
-						DEBUGHEXLOG( block_out_buf , len , "block data [%d]bytes" , len )
+						DEBUGHEXLOG( block_out_buf , len , NULL )
 					}
 				}
 			}
