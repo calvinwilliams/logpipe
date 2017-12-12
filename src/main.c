@@ -1,7 +1,7 @@
 #include "logpipe_in.h"
 
-char	__LOGPIPE_VERSION_0_4_0[] = "0.4.0" ;
-char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_4_0 ;
+char	__LOGPIPE_VERSION_0_5_0[] = "0.5.0" ;
+char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_5_0 ;
 
 static void version()
 {
@@ -20,8 +20,6 @@ static void usage()
 static int ParseCommandParameter( struct LogpipeEnv *p_env , int argc , char *argv[] )
 {
 	int		c ;
-	
-	SetLogLevel( LOGLEVEL_WARN );
 	
 	for( c = 1 ; c < argc ; c++ )
 	{
@@ -70,10 +68,13 @@ int main( int argc , char *argv[] )
 	p_env = (struct LogpipeEnv *)malloc( sizeof(struct LogpipeEnv) ) ;
 	if( p_env == NULL )
 	{
-		ERRORLOG( "ERROR : malloc failed , errno[%d]" , errno );
+		ERRORLOG( "malloc failed , errno[%d]" , errno )
 		return 1;
 	}
 	memset( p_env , 0x00 , sizeof(struct LogpipeEnv) );
+	
+	INIT_LIST_HEAD( & (p_env->logpipe_input_plugins_list.this_node) );
+	INIT_LIST_HEAD( & (p_env->logpipe_output_plugins_list.this_node) );
 	
 	nret = ParseCommandParameter( p_env , argc , argv ) ;
 	if( nret )
@@ -82,6 +83,17 @@ int main( int argc , char *argv[] )
 	nret = LoadConfig( p_env ) ;
 	if( nret )
 		return -nret;
+	
+	if( list_empty( & (p_env->logpipe_input_plugins_list.this_node) ) )
+	{
+		ERRORLOG( "no inputs" )
+		return 1;
+	}
+	if( list_empty( & (p_env->logpipe_output_plugins_list.this_node) ) )
+	{
+		ERRORLOG( "no outputs" )
+		return 1;
+	}
 	
 	nret = InitEnvironment( p_env ) ;
 	if( nret )

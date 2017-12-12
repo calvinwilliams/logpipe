@@ -1,5 +1,7 @@
 #include "logpipe_api.h"
 
+char	*__LOGPIPE_INPUT_TCP_VERSION = "0.1.0" ;
+
 struct LogpipeInputPlugin_tcp_accepted
 {
 	struct sockaddr_in   	 accepted_addr ;
@@ -135,7 +137,7 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	p_plugin_env = (struct LogpipeInputPlugin_tcp *)malloc( sizeof(struct LogpipeInputPlugin_tcp) ) ;
 	if( p_plugin_env == NULL )
 	{
-		printf( "ERROR : malloc failed , errno[%d]\n" , errno );
+		ERRORLOG( "malloc failed , errno[%d]" , errno );
 		return -1;
 	}
 	memset( p_plugin_env , 0x00 , sizeof(struct LogpipeInputPlugin_tcp) );
@@ -181,7 +183,7 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	nret = bind( p_plugin_env->listen_sock , (struct sockaddr *) & (p_plugin_env->listen_addr) , sizeof(struct sockaddr) ) ;
 	if( nret == -1 )
 	{
-		printf( "ERROR : bind[%s:%d][%d] failed , errno[%d]\n" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->listen_sock , errno );
+		ERRORLOG( "bind[%s:%d][%d] failed , errno[%d]" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->listen_sock , errno );
 		return -1;
 	}
 	
@@ -189,8 +191,12 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	nret = listen( p_plugin_env->listen_sock , 10240 ) ;
 	if( nret == -1 )
 	{
-		printf( "ERROR : listen[%s:%d][%d] failed , errno[%d]\n" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->listen_sock , errno );
+		ERRORLOG( "listen[%s:%d][%d] failed , errno[%d]" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->listen_sock , errno );
 		return -1;
+	}
+	else
+	{
+		INFOLOG( "listen[%s:%d][%d] ok" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->listen_sock )
 	}
 	
 	/* 设置插件环境上下文 */

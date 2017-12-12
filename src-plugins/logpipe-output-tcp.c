@@ -4,6 +4,8 @@
 	|'@'(1byte)|filename_len(2bytes)|file_name|file_block_len(2bytes)|file_block_data|...(other file blocks)...|\0\0\0\0|
 */
 
+char	*__LOGPIPE_OUTPUT_TCP_VERSION = "0.1.0" ;
+
 struct LogpipeOutputPlugin_tcp
 {
 	struct LogpipeEnv		*p_env ;
@@ -45,14 +47,14 @@ static int ConnectForwardSocket( struct LogpipeOutputPlugin_tcp *p_plugin_env )
 	nret = connect( p_plugin_env->forward_sock , (struct sockaddr *) & (p_plugin_env->forward_addr) , sizeof(struct sockaddr) ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "connect[%s:%d] failed , errno[%d]" , p_plugin_env->ip , p_plugin_env->port , errno );
+		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->forward_sock , errno );
 		close( p_plugin_env->forward_sock ); p_plugin_env->forward_sock = -1 ;
 		sleep(1);
 		return 1;
 	}
 	else
 	{
-		INFOLOG( "connect[%s:%d] ok , sock[%d]" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->forward_sock );
+		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->forward_sock );
 		return 0;
 	}
 }

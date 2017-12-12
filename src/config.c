@@ -93,7 +93,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
-	list_add_tail( & (p_logpipe_input_plugin->this_node) , & (p_env->logpipe_inputs_plugin_list.this_node) );
+	list_add_tail( & (p_logpipe_input_plugin->this_node) , & (p_env->logpipe_input_plugins_list.this_node) );
 	
 	return 0;
 }
@@ -161,7 +161,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 		return -1;
 	}
 	
-	list_add_tail( & (p_logpipe_output_plugin->this_node) , & (p_env->logpipe_outputs_plugin_list.this_node) );
+	list_add_tail( & (p_logpipe_output_plugin->this_node) , & (p_env->logpipe_output_plugins_list.this_node) );
 	
 	return 0;
 }
@@ -197,13 +197,13 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 	}
 	else if( (type&FASTERJSON_NODE_LEAVE) && (type&FASTERJSON_NODE_BRANCH) )
 	{
-		if( jpath_len == sizeof(LOGPIPE_CONFIG_INPUTS_)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_INPUTS_ , jpath_len ) )
+		if( jpath_len == sizeof(LOGPIPE_CONFIG_INPUTS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_INPUTS , jpath_len ) )
 		{
 			nret = LoadLogpipeInputPlugin( p_env , p_logpipe_input_plugin ) ;
 			if( nret )
 				return nret;
 		}
-		else if( jpath_len == sizeof(LOGPIPE_CONFIG_OUTPUTS_)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_OUTPUTS_ , jpath_len ) )
+		else if( jpath_len == sizeof(LOGPIPE_CONFIG_OUTPUTS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_OUTPUTS , jpath_len ) )
 		{
 			nret = LoadLogpipeOutputPlugin( p_env , p_logpipe_output_plugin ) ;
 			if( nret )
@@ -225,7 +225,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 				return -1;
 			}
 		}
-		else if( jpath_len == sizeof(LOGPIPE_CONFIG_INPUTS_)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_INPUTS_ , jpath_len ) )
+		else if( MEMCMP( jpath , == , LOGPIPE_CONFIG_INPUTS_ , sizeof(LOGPIPE_CONFIG_INPUTS_)-1 ) )
 		{
 			nret = AddPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) , node , node_len , content , content_len ) ;
 			if( nret )
@@ -234,7 +234,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 				return -1;
 			}
 		}
-		else if( jpath_len == sizeof(LOGPIPE_CONFIG_OUTPUTS_)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_OUTPUTS_ , jpath_len ) )
+		else if( MEMCMP( jpath , == , LOGPIPE_CONFIG_OUTPUTS_ , sizeof(LOGPIPE_CONFIG_OUTPUTS_)-1 ) )
 		{
 			nret = AddPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) , node , node_len , content , content_len ) ;
 			if( nret )

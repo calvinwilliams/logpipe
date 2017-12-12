@@ -10,7 +10,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	int				nret = 0 ;
 	
 	/* 执行所有输出端写前函数 */
-	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_outputs_plugin_list.this_node) , struct LogpipeOutputPlugin , this_node )
+	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
 		nret = p_logpipe_output_plugin->pfuncBeforeWriteLogpipeOutput( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->context) , filename_len , filename ) ;
 		if( nret )
@@ -43,7 +43,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		
 		/* 执行所有输出端写函数 */
-		list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_outputs_plugin_list.this_node) , struct LogpipeOutputPlugin , this_node )
+		list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 		{
 			nret = p_logpipe_output_plugin->pfuncWriteLogpipeOutput( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->context) , block_len , block_buf ) ;
 			if( nret )
@@ -59,7 +59,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	
 	/* 执行所有输出端写后函数 */
-	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_outputs_plugin_list.this_node) , struct LogpipeOutputPlugin , this_node )
+	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
 		nret = p_logpipe_output_plugin->pfuncAfterWriteLogpipeOutput( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->context) ) ;
 		if( nret )

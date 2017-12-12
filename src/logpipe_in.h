@@ -68,8 +68,8 @@ struct LogpipeEnv
 	char				log_file[ PATH_MAX + 1 ] ;
 	int				log_level ;
 	
-	struct LogpipeInputPlugin	logpipe_inputs_plugin_list ;
-	struct LogpipeOutputPlugin	logpipe_outputs_plugin_list ;
+	struct LogpipeInputPlugin	logpipe_input_plugins_list ;
+	struct LogpipeOutputPlugin	logpipe_output_plugins_list ;
 	
 	int				epoll_fd ;
 	

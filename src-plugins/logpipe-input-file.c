@@ -2,6 +2,8 @@
 
 #include "zlib.h"
 
+char	*__LOGPIPE_INPUT_FILE_VERSION = "0.1.0" ;
+
 /* 跟踪文件信息结构 */
 struct TraceFile
 {
@@ -241,7 +243,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin_
 		if( nret )
 		{
 			ERRORLOG( "LinkTraceFileWdTreeNode[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-			INFOLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_env->inotify_fd , p_trace_file->inotify_file_wd )
+			INFOLOG( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_env->inotify_fd , p_trace_file->inotify_file_wd )
 			inotify_rm_watch( p_plugin_env->inotify_fd , p_trace_file->inotify_file_wd );
 			free( p_trace_file->path_filename );
 			free( p_trace_file );
@@ -262,7 +264,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 	dir = opendir( p_plugin_env->path ) ;
 	if( dir == NULL )
 	{
-		printf( "ERROR : opendir[%s] failed , errno[%d]\n" , p_plugin_env->path , errno );
+		ERRORLOG( "opendir[%s] failed , errno[%d]\n" , p_plugin_env->path , errno );
 		return -1;
 	}
 	
@@ -277,7 +279,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 			nret = AddFileWatcher( p_env , p_plugin_env , ent->d_name ) ;
 			if( nret )
 			{
-				printf( "ERROR : AddFileWatcher[%s] failed , errno[%d]\n" , ent->d_name , errno );
+				ERRORLOG( "AddFileWatcher[%s] failed[%d]" , ent->d_name , nret );
 				closedir( dir );
 				return -1;
 			}
@@ -348,6 +350,10 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	{
 		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_plugin_env->path , errno );
 		return -1;
+	}
+	else
+	{
+		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_plugin_env->path , p_plugin_env->inotify_fd , p_plugin_env->inotify_path_wd )
 	}
 	
 	p_plugin_env->inotify_read_bufsize = INOTIFY_READ_BUFSIZE ;
