@@ -39,10 +39,12 @@ int asprintf(char **strp, const char *fmt, ...);
 ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t readn(int fd, void *vptr, size_t n);
 
-#define LOGPIPE_BLOCK_BUFSIZE			100*1024
-#define LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE	100*1023
+#define LOGPIPE_BLOCK_BUFSIZE			102400
+#define LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE	102357
 
 #define LOGPIPE_COMM_HEAD_MAGIC			'@'
+
+#define LOGPIPE_READ_END_OF_INPUT		4
 
 struct LogpipeEnv ;
 struct LogpipePluginConfigItem ;

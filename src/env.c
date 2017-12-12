@@ -27,12 +27,12 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 		nret = p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->plugin_config_items) , & (p_logpipe_output_plugin->context) ) ;
 		if( nret )
 		{
-			ERRORLOG( "[%s]p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+			ERRORLOG( "[%s]->pfuncInitLogpipeOutputPlugin failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno );
 			return -1;
 		}
 		else
 		{
-			INFOLOG( "[%s]p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin ok" , p_logpipe_output_plugin->so_path_filename );
+			INFOLOG( "[%s]->pfuncInitLogpipeOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
 		}
 	}
 	
@@ -44,12 +44,12 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 		nret = p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin( p_env , p_logpipe_input_plugin , & (p_logpipe_input_plugin->plugin_config_items) , & (p_logpipe_input_plugin->context) , & (p_logpipe_input_plugin->fd) ) ;
 		if( nret )
 		{
-			ERRORLOG( "[%s]p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+			ERRORLOG( "[%s]->pfuncInitLogpipeInputPlugin failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno );
 			return -1;
 		}
 		else
 		{
-			INFOLOG( "[%s]p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin ok" , p_logpipe_input_plugin->so_path_filename );
+			INFOLOG( "[%s]->pfuncInitLogpipeInputPlugin ok" , p_logpipe_input_plugin->so_filename );
 		}
 		
 		if( p_logpipe_input_plugin->fd >= 0 )
@@ -85,15 +85,15 @@ void CleanEnvironment( struct LogpipeEnv *p_env )
 	/* 执行所有输入端初始化函数 */
 	list_for_each_entry_safe( p_logpipe_input_plugin , p_next_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
 	{
-		nret = p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin( p_env , p_logpipe_input_plugin , & (p_logpipe_input_plugin->context) ) ;
+		nret = p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
 		if( nret )
 		{
-			ERRORLOG( "[%s]p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+			ERRORLOG( "[%s]->pfuncCleanLogpipeInputPlugin failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno );
 			return;
 		}
 		else
 		{
-			INFOLOG( "[%s]p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin ok" , p_logpipe_input_plugin->so_path_filename );
+			INFOLOG( "[%s]->pfuncCleanLogpipeInputPlugin ok" , p_logpipe_input_plugin->so_filename );
 		}
 		
 		RemoveAllPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) );
@@ -102,15 +102,15 @@ void CleanEnvironment( struct LogpipeEnv *p_env )
 	/* 执行所有输出端初始化函数 */
 	list_for_each_entry_safe( p_logpipe_output_plugin , p_next_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
-		nret = p_logpipe_output_plugin->pfuncCleanLogpipeOutputPlugin( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->context) ) ;
+		nret = p_logpipe_output_plugin->pfuncCleanLogpipeOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
 		if( nret )
 		{
-			ERRORLOG( "[%s]p_logpipe_output_plugin->pfuncCleanLogpipeOutputPlugin failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+			ERRORLOG( "[%s]->pfuncCleanLogpipeOutputPlugin failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno );
 			return;
 		}
 		else
 		{
-			INFOLOG( "[%s]p_logpipe_output_plugin->pfuncCleanLogpipeOutputPlugin ok" , p_logpipe_output_plugin->so_path_filename );
+			INFOLOG( "[%s]->pfuncCleanLogpipeOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
 		}
 		
 		RemoveAllPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) );
@@ -166,7 +166,7 @@ struct LogpipeInputPlugin *AddLogpipeInputPlugin( struct LogpipeEnv *p_env
 	}
 	else
 	{
-		INFOLOG( "epoll_ctl[%d] add[%s] ok" , p_env->epoll_fd , p_logpipe_input_plugin->fd );
+		INFOLOG( "epoll_ctl[%d] add[%d] ok" , p_env->epoll_fd , p_logpipe_input_plugin->fd );
 	}
 	list_add_tail( & (p_logpipe_input_plugin->this_node) , & (p_env->logpipe_input_plugins_list.this_node) );
 	

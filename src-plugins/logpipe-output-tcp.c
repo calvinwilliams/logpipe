@@ -77,12 +77,14 @@ int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 	/* 解析插件配置 */
 	p_plugin_env->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
+	INFOLOG( "ip[%s]" , p_plugin_env->ip )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
 	if( p )
 		p_plugin_env->port = atoi(p) ;
 	else
 		p_plugin_env->port = 0 ;
+	INFOLOG( "port[%d]" , p_plugin_env->port )
 	
 	/* 初始化插件环境内部数据 */
 	memset( & (p_plugin_env->forward_addr) , 0x00 , sizeof(struct sockaddr_in) );
@@ -161,7 +163,6 @@ funcWriteLogpipeOutput WriteLogpipeOutput ;
 int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
 {
 	struct LogpipeOutputPlugin_tcp	*p_plugin_env = (struct LogpipeOutputPlugin_tcp *)p_context ;
-	
 	uint32_t			block_len_htonl ;
 	int				len ;
 	
@@ -196,6 +197,23 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p
 funcAfterWriteLogpipeOutput AfterWriteLogpipeOutput ;
 int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
+	struct LogpipeOutputPlugin_tcp	*p_plugin_env = (struct LogpipeOutputPlugin_tcp *)p_context ;
+	uint32_t			block_len_htonl ;
+	int				len ;
+	
+	block_len_htonl = htonl(0) ;
+	len = writen( p_plugin_env->forward_sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
+	if( len == -1 )
+	{
+		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
+		return -1;
+	}
+	else
+	{
+		INFOLOG( "send block len to socket ok , [%d]bytes" , sizeof(block_len_htonl) )
+		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
+	}
+	
 	return 0;
 }
 

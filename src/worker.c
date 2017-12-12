@@ -55,6 +55,8 @@ int worker( struct LogpipeEnv *p_env )
 				else if( nret > 0 )
 				{
 					INFOLOG( "[%s]p_logpipe_input_plugin->pfuncOnLogpipeInputEvent return[%d]" , p_logpipe_input_plugin->so_filename , nret )
+					epoll_ctl( p_env->epoll_fd , EPOLL_CTL_DEL , p_logpipe_input_plugin->fd , NULL );
+					p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
 				}
 				else
 				{

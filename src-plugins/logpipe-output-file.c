@@ -29,6 +29,7 @@ int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	memset( p_plugin_env , 0x00 , sizeof(struct LogpipeOutputPlugin_file) );
 	
 	p_plugin_env->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
+	INFOLOG( "path[%s]" , p_plugin_env->path )
 	
 	p_plugin_env->uncompress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "uncompress_algorithm" ) ;
 	if( p_plugin_env->uncompress_algorithm )
@@ -43,6 +44,7 @@ int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 			return -1;
 		}
 	}
+	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_env->uncompress_algorithm )
 	
 	p_plugin_env->fd = -1 ;
 	

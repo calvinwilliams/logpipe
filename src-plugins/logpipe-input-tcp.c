@@ -89,6 +89,53 @@ int BeforeReadLogpipeInput_tcp_accepted( struct LogpipeEnv *p_env , struct Logpi
 funcReadLogpipeInput ReadLogpipeInput_tcp_accepted ;
 int ReadLogpipeInput_tcp_accepted( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
+	struct LogpipeInputPlugin_tcp_accepted	*p_plugin_input_plugin_tcp_accepted = (struct LogpipeInputPlugin_tcp_accepted *)p_context ;
+	uint32_t				block_len_htonl ;
+	int					len ;
+	
+	len = readn( p_plugin_input_plugin_tcp_accepted->accepted_sock , & block_len_htonl , sizeof(uint32_t) ) ;
+	if( len == -1 )
+	{
+		ERRORLOG( "recv block length failed , errno[%d]" , errno );
+		return 1;
+	}
+	else if( len == 0 )
+	{
+		WARNLOG( "remote socket closed on recv block length" );
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "recv filename from socket ok , [%d]bytes" , sizeof(uint32_t) )
+		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
+	}
+	
+	(*p_block_len) = ntohl( block_len_htonl ) ;
+	if( (*p_block_len) == 0 )
+		return LOGPIPE_READ_END_OF_INPUT;
+	if( (*p_block_len) > block_bufsize-1 )
+	{
+		ERRORLOG( "block length[%d] too lone" , (*p_block_len) );
+		return 1;
+	}
+	
+	len = readn( p_plugin_input_plugin_tcp_accepted->accepted_sock , block_buf , (*p_block_len) ) ;
+	if( len == -1 )
+	{
+		ERRORLOG( "recv filename failed , errno[%d]" , errno );
+		return 1;
+	}
+	else if( len == 0 )
+	{
+		WARNLOG( "remote socket closed on recv filename" );
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "recv filename from socket ok , [%d]bytes" , (*p_block_len) )
+		DEBUGHEXLOG( block_buf , len , NULL )
+	}
+	
 	return 0;
 }
 
@@ -144,12 +191,14 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	
 	/* 解析插件配置 */
 	p_plugin_env->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
+	INFOLOG( "ip[%s]" , p_plugin_env->ip )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
 	if( p )
 		p_plugin_env->port = atoi(p) ;
 	else
 		p_plugin_env->port = 0 ;
+	INFOLOG( "port[%d]" , p_plugin_env->port )
 	
 	/* 初始化插件环境内部数据 */
 	memset( & (p_plugin_env->listen_addr) , 0x00 , sizeof(struct sockaddr_in) );
