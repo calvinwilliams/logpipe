@@ -1,5 +1,5 @@
 _HDERBASE	=	$(HOME)/include
-_LIBBASE	=	$(HOME)/lib
+_LIBBASE	=	$(HOME)/so
 _BINBASE	=	$(HOME)/bin
 
 _CFLAGS		=	-I. -I$(_HDERBASE)

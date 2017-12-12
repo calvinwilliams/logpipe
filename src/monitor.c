@@ -20,7 +20,7 @@ int monitor( struct LogpipeEnv *p_env )
 	pid_t			pid , pid2 ;
 	int			status ;
 	
-	SetLogFile( p_env->conf.log.log_file );
+	SetLogFile( p_env->log_file );
 	SetLogLevel( p_env->log_level );
 	
 	/* …Ë÷√–≈∫≈ */

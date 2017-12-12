@@ -25,9 +25,13 @@ LIBINST		=	$(_LIBINST)
 
 ###### 编译选项
 CFLAGS		=	$(_CFLAGS) \
+			-std=gnu99 \
+			-I$(HOME)/include/logpipe \
 
 ###### 链接选项
 LFLAGS		=	$(_LFLAGS) \
+			-L$(HOME)/lib \
+			-llogpipe_api \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=

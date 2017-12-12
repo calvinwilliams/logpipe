@@ -1,5 +1,7 @@
 #include "logpipe_api.h"
 
+#include "zlib.h"
+
 struct LogpipeOutputPlugin_file
 {
 	struct LogpipeEnv		*p_env ;
@@ -12,10 +14,9 @@ struct LogpipeOutputPlugin_file
 } ;
 
 funcInitLogpipeOutputPlugin InitLogpipeOutputPlugin ;
-int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
 {
 	struct LogpipeOutputPlugin_file	*p_plugin_env = NULL ;
-	char				*p = NULL ;
 	
 	p_plugin_env = (struct LogpipeOutputPlugin_file *)malloc( sizeof(struct LogpipeOutputPlugin_file) ) ;
 	if( p_plugin_env == NULL )
@@ -49,7 +50,7 @@ int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipePluginConf
 }
 
 funcBeforeWriteLogpipeOutput BeforeWriteLogpipeOutput ;
-int BeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , void *p_context , uint16_t filename_len , char *filename )
+int BeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct LogpipeOutputPlugin_file	*p_plugin_env = (struct LogpipeOutputPlugin_file *)p_context ;
 	
@@ -72,7 +73,7 @@ int BeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , void *p_context , uint1
 }
 
 funcWriteLogpipeOutput WriteLogpipeOutput ;
-int WriteLogpipeOutput( struct LogpipeEnv *p_env , void *p_context , uint32_t block_len , char *block_buf )
+int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
 {
 	struct LogpipeOutputPlugin_file	*p_plugin_env = (struct LogpipeOutputPlugin_file *)p_context ;
 	
@@ -100,9 +101,8 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , void *p_context , uint32_t bl
 		{
 			z_stream		inflate_strm ;
 			
-			char			block_out_buf[ LOGPIPE_COMM_FILE_BLOCK_BUFSIZE + 1 ] ;
+			char			block_out_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
 			uint32_t		block_out_len ;
-			uint32_t		block_out_len_htonl ;
 			
 			memset( & inflate_strm , 0x00 , sizeof(z_stream) );
 			nret = inflateInit( & inflate_strm ) ;
@@ -134,20 +134,17 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , void *p_context , uint32_t bl
 				}
 				block_out_len = sizeof(block_out_buf)-1 - inflate_strm.avail_out ;
 				
-				list_for_each_entry( p_dump_session , & (p_env->dump_session_list.this_node) , struct DumpSession , this_node )
+				len = writen( p_plugin_env->fd , block_out_buf , block_out_len ) ;
+				if( len == -1 )
 				{
-					len = writen( p_plugin_env->fd , block_out_buf , block_out_len ) ;
-					if( len == -1 )
-					{
-						ERRORLOG( "write uncompress block data to file failed , errno[%d]" , errno )
-						inflateEnd( & inflate_strm );
-						return -1;
-					}
-					else
-					{
-						INFOLOG( "write uncompress block data to file ok , [%d]bytes" , block_out_len )
-						DEBUGHEXLOG( block_out_buf , len , NULL )
-					}
+					ERRORLOG( "write uncompress block data to file failed , errno[%d]" , errno )
+					inflateEnd( & inflate_strm );
+					return -1;
+				}
+				else
+				{
+					INFOLOG( "write uncompress block data to file ok , [%d]bytes" , block_out_len )
+					DEBUGHEXLOG( block_out_buf , len , NULL )
 				}
 			}
 			while( inflate_strm.avail_out == 0 );
@@ -164,9 +161,11 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , void *p_context , uint32_t bl
 	return 0;
 }
 
-func AfterWriteLogpipeOutput AfterWriteLogpipeOutput ;
-int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , void *p_context )
+funcAfterWriteLogpipeOutput AfterWriteLogpipeOutput ;
+int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
+	struct LogpipeOutputPlugin_file	*p_plugin_env = (struct LogpipeOutputPlugin_file *)p_context ;
+	
 	if( p_plugin_env->fd >= 0 )
 	{
 		close( p_plugin_env->fd ); p_plugin_env->fd = -1 ;
@@ -176,7 +175,7 @@ int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , void *p_context )
 }
 
 funcCleanLogpipeOutputPlugin CleanLogpipeOutputPlugin ;
-int CleanLogpipeOutputPlugin( struct LogpipeEnv *p_env , void *p_context )
+int CleanLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
 	struct LogpipeOutputPlugin_file	*p_plugin_env = (struct LogpipeOutputPlugin_file *)p_context ;
 	

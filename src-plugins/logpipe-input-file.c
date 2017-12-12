@@ -1,5 +1,7 @@
 #include "logpipe_api.h"
 
+#include "zlib.h"
+
 /* 跟踪文件信息结构 */
 struct TraceFile
 {
@@ -22,11 +24,11 @@ struct LogpipeInputPlugin_file
 	struct LogpipeEnv		*p_env ;
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin ;
 	
-	char				*path = NULL ;
-	char				*file = NULL ;
+	char				*path ;
+	char				*file ;
 	int				rotate_max_size ;
 	char				*exec_after_rotate ;
-	char				*compress_algorithm = NULL ;
+	char				*compress_algorithm ;
 	
 	int				inotify_fd ;
 	int				inotify_path_wd ;
@@ -45,7 +47,7 @@ LINK_RBTREENODE_INT( LinkTraceFileWdTreeNode , struct LogpipeInputPlugin_file , 
 QUERY_RBTREENODE_INT( QueryTraceFileWdTreeNode , struct LogpipeInputPlugin_file , inotify_wd_rbtree , struct TraceFile , inotify_file_wd_rbnode , inotify_file_wd )
 UNLINK_RBTREENODE( UnlinkTraceFileWdTreeNode , struct LogpipeInputPlugin_file , inotify_wd_rbtree , struct TraceFile , inotify_file_wd_rbnode )
 
-DESTROY_RBTREE( DestroyTraceFileTree , struct InotifySession , inotify_wd_rbtree , struct TraceFile , inotify_file_wd_rbnode , FREE_RBTREENODEENTRY_DIRECTLY )
+DESTROY_RBTREE( DestroyTraceFileTree , struct LogpipeInputPlugin_file , inotify_wd_rbtree , struct TraceFile , inotify_file_wd_rbnode , FREE_RBTREENODEENTRY_DIRECTLY )
 
 static int RoratingFile( char *pathname , char *filename , int filename_len )
 {
@@ -77,7 +79,19 @@ static int RoratingFile( char *pathname , char *filename , int filename_len )
 	return 0;
 }
 
-static int CheckFileOffset( struct LogpipeInputPlugin_file *p_plugin_env , struct TraceFile *p_trace_file )
+static int RemoveFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin_file *p_plugin_env , struct TraceFile *p_trace_file )
+{
+	UnlinkTraceFileWdTreeNode( p_plugin_env , p_trace_file );
+	
+	INFOLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_env->inotify_fd , p_trace_file->inotify_file_wd )
+	inotify_rm_watch( p_plugin_env->inotify_fd , p_trace_file->inotify_file_wd );
+	free( p_trace_file->path_filename );
+	free( p_trace_file );
+	
+	return 0;
+}
+
+static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin_file *p_plugin_env , struct TraceFile *p_trace_file )
 {
 	int			fd ;
 	struct stat		file_stat ;
@@ -91,7 +105,7 @@ static int CheckFileOffset( struct LogpipeInputPlugin_file *p_plugin_env , struc
 	if( fd == -1 )
 	{
 		ERRORLOG( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-		return RemoveFileWatcher( p_plugin_env , p_trace_file );
+		return RemoveFileWatcher( p_env , p_plugin_env , p_trace_file );
 	}
 	
 	memset( & file_stat , 0x00 , sizeof(struct stat) );
@@ -100,7 +114,7 @@ static int CheckFileOffset( struct LogpipeInputPlugin_file *p_plugin_env , struc
 	{
 		ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		close( fd );
-		return RemoveFileWatcher( p_plugin_env , p_trace_file );
+		return RemoveFileWatcher( p_env , p_plugin_env , p_trace_file );
 	}
 	
 	if( p_plugin_env->rotate_max_size > 0 && file_stat.st_size >= p_plugin_env->rotate_max_size )
@@ -114,7 +128,7 @@ static int CheckFileOffset( struct LogpipeInputPlugin_file *p_plugin_env , struc
 		{
 			ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 			close( fd );
-			return RemoveFileWatcher( p_plugin_env , p_trace_file );
+			return RemoveFileWatcher( p_env , p_plugin_env , p_trace_file );
 		}
 	}
 	
@@ -133,7 +147,6 @@ static int CheckFileOffset( struct LogpipeInputPlugin_file *p_plugin_env , struc
 		p_plugin_env->p_trace_file = p_trace_file ;
 		p_plugin_env->fd = fd ;
 		p_plugin_env->append_len = append_len ;
-		// nret = ToOutputs( p_env , NULL , -1 , p_trace_file->filename , p_trace_file->filename_len , fd , append_len , p_env->compress_algorithm ) ;
 		nret = WriteAllOutputPlugins( p_plugin_env->p_env , p_plugin_env->p_logpipe_input_plugin , p_trace_file->filename_len , p_trace_file->filename ) ;
 		if( nret )
 		{
@@ -149,13 +162,13 @@ static int CheckFileOffset( struct LogpipeInputPlugin_file *p_plugin_env , struc
 	
 	if( p_plugin_env->rotate_max_size > 0 && file_stat.st_size >= p_plugin_env->rotate_max_size )
 	{
-		RemoveFileWatcher( p_plugin_env , p_trace_file );
+		RemoveFileWatcher( p_env , p_plugin_env , p_trace_file );
 	}
 	
 	return 0;
 }
 
-static int AddFileWatcher( struct LogpipeInputPlugin_file *p_plugin_env , char *filename )
+static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin_file *p_plugin_env , char *filename )
 {
 	struct TraceFile	*p_trace_file = NULL ;
 	struct TraceFile	*p_trace_file_not_exist = NULL ;
@@ -218,7 +231,7 @@ static int AddFileWatcher( struct LogpipeInputPlugin_file *p_plugin_env , char *
 	}
 	else
 	{
-		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_inotify_session->inotify_fd , p_trace_file->inotify_file_wd )
+		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_env->inotify_fd , p_trace_file->inotify_file_wd )
 	}
 	
 	p_trace_file_not_exist = QueryTraceFileWdTreeNode( p_plugin_env , p_trace_file ) ;
@@ -239,19 +252,7 @@ static int AddFileWatcher( struct LogpipeInputPlugin_file *p_plugin_env , char *
 	return CheckFileOffset( p_env , p_plugin_env , p_trace_file );
 }
 
-static int RemoveFileWatcher( struct LogpipeInputPlugin_file *p_plugin_env , struct TraceFile *p_trace_file )
-{
-	UnlinkTraceFileWdTreeNode( p_plugin_env , p_trace_file );
-	
-	INFOLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_env->inotify_fd , p_trace_file->inotify_file_wd )
-	inotify_rm_watch( p_plugin_env->inotify_fd , p_trace_file->inotify_file_wd );
-	free( p_trace_file->path_filename );
-	free( p_trace_file );
-	
-	return 0;
-}
-
-static int ReadFilesToinotifyWdTree( struct LogpipeInputPlugin_file *p_plugin_env )
+static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeInputPlugin_file *p_plugin_env )
 {
 	DIR			*dir = NULL ;
 	struct dirent		*ent = NULL ;
@@ -273,7 +274,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeInputPlugin_file *p_plugin_en
 		
 		if( ent->d_type & DT_REG )
 		{
-			nret = AddFileWatcher( p_plugin_env , ent->d_name ) ;
+			nret = AddFileWatcher( p_env , p_plugin_env , ent->d_name ) ;
 			if( nret )
 			{
 				printf( "ERROR : AddFileWatcher[%s] failed , errno[%d]\n" , ent->d_name , errno );
@@ -293,6 +294,8 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 {
 	struct LogpipeInputPlugin_file	*p_plugin_env = NULL ;
 	char				*p = NULL ;
+	
+	int				nret = 0 ;
 	
 	p_plugin_env = (struct LogpipeInputPlugin_file *)malloc( sizeof(struct LogpipeInputPlugin_file) ) ;
 	if( p_plugin_env == NULL )
@@ -343,20 +346,20 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	p_plugin_env->inotify_path_wd = inotify_add_watch( p_plugin_env->inotify_fd , p_plugin_env->path , (uint32_t)(IN_CREATE|IN_MOVED_TO|IN_DELETE_SELF|IN_MOVE_SELF) );
 	if( p_plugin_env->inotify_path_wd == -1 )
 	{
-		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_inotify_session->inotify_path , errno );
+		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_plugin_env->path , errno );
 		return -1;
 	}
 	
-	p_env->inotify_read_bufsize = INOTIFY_READ_BUFSIZE ;
-	p_env->inotify_read_buffer = (char*)malloc( p_env->inotify_read_bufsize ) ;
-	if( p_env->inotify_read_buffer == NULL )
+	p_plugin_env->inotify_read_bufsize = INOTIFY_READ_BUFSIZE ;
+	p_plugin_env->inotify_read_buffer = (char*)malloc( p_plugin_env->inotify_read_bufsize ) ;
+	if( p_plugin_env->inotify_read_buffer == NULL )
 	{
 		ERRORLOG( "malloc failed , errno[%d]" , errno );
 		return -1;
 	}
-	memset( p_env->inotify_read_buffer , 0x00 , p_env->inotify_read_bufsize );
+	memset( p_plugin_env->inotify_read_buffer , 0x00 , p_plugin_env->inotify_read_bufsize );
 	
-	nret = ReadFilesToinotifyWdTree( p_plugin_env ) ;
+	nret = ReadFilesToinotifyWdTree( p_env , p_plugin_env ) ;
 	if( nret )
 	{
 		return nret;
@@ -370,7 +373,7 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 }
 
 funcOnLogpipeInputEvent OnLogpipeInputEvent ;
-int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
+int OnLogpipeInputEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	struct LogpipeInputPlugin_file	*p_plugin_env = (struct LogpipeInputPlugin_file *)p_context ;
 	
@@ -397,7 +400,7 @@ int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
 		
 		WARNLOG( "inotify read buffer resize [%d]bytes to [%d]bytes" , p_plugin_env->inotify_read_bufsize , inotify_read_nbytes+1 )
 		p_plugin_env->inotify_read_bufsize = inotify_read_nbytes+1 ;
-		tmp = (char*)realloc( p_env->inotify_read_buffer , p_plugin_env->inotify_read_bufsize ) ;
+		tmp = (char*)realloc( p_plugin_env->inotify_read_buffer , p_plugin_env->inotify_read_bufsize ) ;
 		if( tmp == NULL )
 		{
 			FATALLOG( "realloc failed , errno[%d]" , errno )
@@ -408,7 +411,7 @@ int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
 	memset( p_plugin_env->inotify_read_buffer , 0x00 , p_plugin_env->inotify_read_bufsize );
 	
 	DEBUGLOG( "read inotify[%d] ..." , p_plugin_env->inotify_fd )
-	len = read( p_plugin_env->inotify_fd , p_plugin_env->inotify_read_buffer , LOGPIPE_INOTIFY_READ_BUFSIZE-1 ) ;
+	len = read( p_plugin_env->inotify_fd , p_plugin_env->inotify_read_buffer , INOTIFY_READ_BUFSIZE-1 ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "read inotify[%d] failed , errno[%d]" , p_plugin_env->inotify_fd , errno )
@@ -433,7 +436,7 @@ int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
 		{
 			if( ( p_inotify_event->mask & IN_CREATE ) || ( p_inotify_event->mask & IN_MOVED_TO ) )
 			{
-				nret = AddFileWatcher( p_plugin_env , p_inotify_event->name ) ;
+				nret = AddFileWatcher( p_env , p_plugin_env , p_inotify_event->name ) ;
 				if( nret )
 				{
 					ERRORLOG( "AddFileWatcher[%s] failed , errno[%d]" , p_inotify_event->name , errno )
@@ -442,8 +445,8 @@ int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
 			}
 			else if( ( p_inotify_event->mask & IN_DELETE_SELF ) || ( p_inotify_event->mask & IN_MOVE_SELF ) )
 			{
-				INFOLOG( "[%s] had deleted" , p_plugin_env->inotify_path )
-				INFOLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_plugin_env->inotify_path , p_plugin_env->inotify_fd , p_plugin_env->inotify_path_wd )
+				INFOLOG( "[%s] had deleted" , p_plugin_env->path )
+				INFOLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_plugin_env->path , p_plugin_env->inotify_fd , p_plugin_env->inotify_path_wd )
 				inotify_rm_watch( p_plugin_env->inotify_fd , p_plugin_env->inotify_path_wd );
 				break;
 			}
@@ -464,7 +467,7 @@ int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
 			{
 				if( p_inotify_event->mask & IN_CLOSE_WRITE )
 				{
-					nret = CheckFileOffset( p_plugin_env , p_trace_file ) ;
+					nret = CheckFileOffset( p_env , p_plugin_env , p_trace_file ) ;
 					if( nret )
 					{
 						ERRORLOG( "CheckFileOffset failed[%d] , errno[%d]" , nret , errno )
@@ -473,7 +476,7 @@ int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
 				}
 				else if( ( p_inotify_event->mask & IN_DELETE_SELF ) || ( p_inotify_event->mask & IN_MOVE_SELF ) )
 				{
-					nret = RemoveFileWatcher( p_plugin_env , p_trace_file ) ;
+					nret = RemoveFileWatcher( p_env , p_plugin_env , p_trace_file ) ;
 					if( nret )
 					{
 						ERRORLOG( "RemoveFileWatcher failed , errno[%d]" , errno )
@@ -494,9 +497,9 @@ int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
 	{
 		char	*tmp = NULL ;
 		
-		WARNLOG( "inotify read buffer resize [%d]bytes to [%d]bytes" , p_plugin_env->inotify_read_bufsize , LOGPIPE_INOTIFY_READ_BUFSIZE )
+		WARNLOG( "inotify read buffer resize [%d]bytes to [%d]bytes" , p_plugin_env->inotify_read_bufsize , INOTIFY_READ_BUFSIZE )
 		p_plugin_env->inotify_read_bufsize = INOTIFY_READ_BUFSIZE ;
-		tmp = (char*)realloc( p_env->inotify_read_buffer , p_plugin_env->inotify_read_bufsize ) ;
+		tmp = (char*)realloc( p_plugin_env->inotify_read_buffer , p_plugin_env->inotify_read_bufsize ) ;
 		if( tmp == NULL )
 		{
 			FATALLOG( "realloc failed , errno[%d]" , errno )
@@ -509,16 +512,19 @@ int OnLogpipeInputEvent( struct LogpipeEnv *p_env , void *p_context )
 }
 
 funcBeforeReadLogpipeInput BeforeReadLogpipeInput ;
-int BeforeReadLogpipeInput( struct LogpipeEnv *p_env , void *p_context )
+int BeforeReadLogpipeInput( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
+	return 0;
 }
 
 funcReadLogpipeInput ReadLogpipeInput ;
-int ReadLogpipeInput( struct LogpipeEnv *p_env , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+int ReadLogpipeInput( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
 	struct LogpipeInputPlugin_file	*p_plugin_env = (struct LogpipeInputPlugin_file *)p_context ;
 	
 	int				len ;
+	
+	int				nret = 0 ;
 	
 	if( p_plugin_env->compress_algorithm == NULL )
 	{
@@ -550,7 +556,6 @@ int ReadLogpipeInput( struct LogpipeEnv *p_env , void *p_context , uint32_t *p_b
 			
 			char			block_in_buf[ 102357 + 1 ] ;
 			uint32_t		block_in_len ;
-			uint32_t		block_in_len_htonl ;
 			int			len ;
 			
 			if( p_plugin_env->remain_len > sizeof(block_in_buf) - 1 )
@@ -577,7 +582,6 @@ int ReadLogpipeInput( struct LogpipeEnv *p_env , void *p_context , uint32_t *p_b
 				if( nret != Z_OK )
 				{
 					FATALLOG( "deflateInit failed[%d]" , nret );
-					CLOSE_ALL_DUMP_FILE_AND_FORWARD_SOCKET
 					return -1;
 				}
 				
@@ -620,15 +624,14 @@ int ReadLogpipeInput( struct LogpipeEnv *p_env , void *p_context , uint32_t *p_b
 	return 0;
 }
 
-func AfterReadLogpipeInput AfterReadLogpipeInput ;
-int AfterReadLogpipeInput( struct LogpipeEnv *p_env , void *p_context )
+funcAfterReadLogpipeInput AfterReadLogpipeInput ;
+int AfterReadLogpipeInput( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
-	
-	
+	return 0;
 }
 
 funcCleanLogpipeInputPlugin CleanLogpipeInputPlugin ;
-int CleanLogpipeInputPlugin( struct LogpipeEnv *p_env , void *p_context )
+int CleanLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	struct LogpipeInputPlugin_file	*p_plugin_env = (struct LogpipeInputPlugin_file *)p_context ;
 	

@@ -150,7 +150,7 @@ char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key 
 {
 	struct LogpipePluginConfigItem	*item = NULL ;
 	
-	list_for_each_entry( item , config , struct LogpipePluginConfigItem , this_node )
+	list_for_each_entry( item , & (config->this_node) , struct LogpipePluginConfigItem , this_node )
 	{
 		if( STRCMP( key , == , item->key ) )
 			return item->value;
@@ -165,7 +165,7 @@ void RemoveAllPluginConfigItem( struct LogpipePluginConfigItem *config )
 	struct LogpipePluginConfigItem	*item = NULL ;
 	struct LogpipePluginConfigItem	*next_item = NULL ;
 	
-	list_for_each_entry_safe( item , next_item , config , struct LogpipePluginConfigItem , this_node )
+	list_for_each_entry_safe( item , next_item , & (config->this_node) , struct LogpipePluginConfigItem , this_node )
 	{
 		list_del( & (item->this_node) );
 		free( item );

@@ -30,11 +30,6 @@ static int ParseCommandParameter( struct LogpipeEnv *p_env , int argc , char *ar
 			version();
 			exit(0);
 		}
-		else if( STRCMP( argv[c] , == , "-i" ) )
-		{
-			InitConfig();
-			exit(0);
-		}
 		else if( STRCMP( argv[c] , == , "-f" ) && c + 1 < argc )
 		{
 			strncpy( p_env->config_path_filename , argv[c+1] , sizeof(p_env->config_path_filename)-1 );
