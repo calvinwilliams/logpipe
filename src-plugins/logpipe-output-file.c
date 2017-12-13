@@ -4,11 +4,8 @@
 
 char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.1.0" ;
 
-struct LogpipeOutputPlugin_file
+struct LogpipeOutputPluginContext
 {
-	struct LogpipeEnv		*p_env ;
-	struct LogpipeOutputPlugin	*p_logpipe_input_plugin ;
-	
 	char				*path ;
 	char				*uncompress_algorithm ;
 	
@@ -18,55 +15,62 @@ struct LogpipeOutputPlugin_file
 funcInitLogpipeOutputPlugin InitLogpipeOutputPlugin ;
 int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
 {
-	struct LogpipeOutputPlugin_file	*p_plugin_env = NULL ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = NULL ;
 	
-	p_plugin_env = (struct LogpipeOutputPlugin_file *)malloc( sizeof(struct LogpipeOutputPlugin_file) ) ;
-	if( p_plugin_env == NULL )
+	p_plugin_ctx = (struct LogpipeOutputPluginContext *)malloc( sizeof(struct LogpipeOutputPluginContext) ) ;
+	if( p_plugin_ctx == NULL )
 	{
 		ERRORLOG( "malloc failed , errno[%d]" , errno );
 		return -1;
 	}
-	memset( p_plugin_env , 0x00 , sizeof(struct LogpipeOutputPlugin_file) );
+	memset( p_plugin_ctx , 0x00 , sizeof(struct LogpipeOutputPluginContext) );
 	
-	p_plugin_env->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
-	INFOLOG( "path[%s]" , p_plugin_env->path )
+	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
+	INFOLOG( "path[%s]" , p_plugin_ctx->path )
 	
-	p_plugin_env->uncompress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "uncompress_algorithm" ) ;
-	if( p_plugin_env->uncompress_algorithm )
+	p_plugin_ctx->uncompress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "uncompress_algorithm" ) ;
+	if( p_plugin_ctx->uncompress_algorithm )
 	{
-		if( STRCMP( p_plugin_env->uncompress_algorithm , == , "deflate" ) )
+		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
 		{
 			;
 		}
 		else
 		{
-			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_env->uncompress_algorithm );
+			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm );
 			return -1;
 		}
 	}
-	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_env->uncompress_algorithm )
+	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
 	
-	p_plugin_env->fd = -1 ;
+	p_plugin_ctx->fd = -1 ;
 	
-	(*pp_context) = p_plugin_env ;
+	/* 设置插件环境上下文 */
+	(*pp_context) = p_plugin_ctx ;
 	
+	return 0;
+}
+
+funcInitLogpipeOutputPlugin2 InitLogpipeOutputPlugin2 ;
+int InitLogpipeOutputPlugin2( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+{
 	return 0;
 }
 
 funcBeforeWriteLogpipeOutput BeforeWriteLogpipeOutput ;
 int BeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
-	struct LogpipeOutputPlugin_file	*p_plugin_env = (struct LogpipeOutputPlugin_file *)p_context ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
 	
 	char				path_filename[ PATH_MAX + 1 ] ;
 	
 	memset( path_filename , 0x00 , sizeof(path_filename) );
-	snprintf( path_filename , sizeof(path_filename)-1 , "%s/%.*s" , p_plugin_env->path , filename_len , filename );
-	p_plugin_env->fd = open( path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
-	if( p_plugin_env->fd == -1 )
+	snprintf( path_filename , sizeof(path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , filename_len , filename );
+	p_plugin_ctx->fd = open( path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
+	if( p_plugin_ctx->fd == -1 )
 	{
 		ERRORLOG( "open file[%s] failed , errno[%d]" , path_filename , errno )
-		return -1;
+		return 1;
 	}
 	else
 	{
@@ -79,19 +83,19 @@ int BeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 funcWriteLogpipeOutput WriteLogpipeOutput ;
 int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
 {
-	struct LogpipeOutputPlugin_file	*p_plugin_env = (struct LogpipeOutputPlugin_file *)p_context ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
 	
 	int				len ;
 	
 	int				nret = 0 ;
 	
-	if( p_plugin_env->uncompress_algorithm == NULL )
+	if( p_plugin_ctx->uncompress_algorithm == NULL )
 	{
-		len = writen( p_plugin_env->fd , block_buf , block_len ) ;
+		len = writen( p_plugin_ctx->fd , block_buf , block_len ) ;
 		if( len == -1 )
 		{
 			ERRORLOG( "write block data to file failed , errno[%d]" , errno )
-			return -1;
+			return 1;
 		}
 		else
 		{
@@ -101,11 +105,11 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p
 	}
 	else
 	{
-		if( STRCMP( p_plugin_env->uncompress_algorithm , == , "deflate" ) )
+		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
 		{
 			z_stream		inflate_strm ;
 			
-			char			block_out_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
+			char			block_out_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
 			uint32_t		block_out_len ;
 			
 			memset( & inflate_strm , 0x00 , sizeof(z_stream) );
@@ -128,22 +132,22 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p
 				{
 					FATALLOG( "inflate return Z_STREAM_ERROR" )
 					inflateEnd( & inflate_strm );
-					return -1;
+					return 1;
 				}
 				else if( nret == Z_NEED_DICT || nret == Z_DATA_ERROR || nret == Z_MEM_ERROR )
 				{
 					FATALLOG( "inflate return[%d]" , nret )
 					inflateEnd( & inflate_strm );
-					return -1;
+					return 1;
 				}
 				block_out_len = sizeof(block_out_buf)-1 - inflate_strm.avail_out ;
 				
-				len = writen( p_plugin_env->fd , block_out_buf , block_out_len ) ;
+				len = writen( p_plugin_ctx->fd , block_out_buf , block_out_len ) ;
 				if( len == -1 )
 				{
 					ERRORLOG( "write uncompress block data to file failed , errno[%d]" , errno )
 					inflateEnd( & inflate_strm );
-					return -1;
+					return 1;
 				}
 				else
 				{
@@ -157,7 +161,7 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p
 		}
 		else
 		{
-			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_env->uncompress_algorithm );
+			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm );
 			return -1;
 		}
 	}
@@ -168,11 +172,12 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p
 funcAfterWriteLogpipeOutput AfterWriteLogpipeOutput ;
 int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
-	struct LogpipeOutputPlugin_file	*p_plugin_env = (struct LogpipeOutputPlugin_file *)p_context ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
 	
-	if( p_plugin_env->fd >= 0 )
+	if( p_plugin_ctx->fd >= 0 )
 	{
-		close( p_plugin_env->fd ); p_plugin_env->fd = -1 ;
+		INFOLOG( "close file" )
+		close( p_plugin_ctx->fd ); p_plugin_ctx->fd = -1 ;
 	}
 	
 	return 0;
@@ -181,10 +186,10 @@ int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 funcCleanLogpipeOutputPlugin CleanLogpipeOutputPlugin ;
 int CleanLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
-	struct LogpipeOutputPlugin_file	*p_plugin_env = (struct LogpipeOutputPlugin_file *)p_context ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
 	
-	INFOLOG( "free p_plugin_env" )
-	free( p_plugin_env );
+	INFOLOG( "free p_plugin_ctx" )
+	free( p_plugin_ctx );
 	
 	return 0;
 }

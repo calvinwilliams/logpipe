@@ -6,124 +6,128 @@
 
 char	*__LOGPIPE_OUTPUT_TCP_VERSION = "0.1.0" ;
 
-struct LogpipeOutputPlugin_tcp
+struct LogpipeOutputPluginContext
 {
-	struct LogpipeEnv		*p_env ;
-	struct LogpipeInputPlugin	*p_logpipe_input_plugin ;
-	
 	char				*ip ;
 	int				port ;
 	
 	struct sockaddr_in   	 	forward_addr ;
 	int				forward_sock ;
-	
 } ;
 
-static int ConnectForwardSocket( struct LogpipeOutputPlugin_tcp *p_plugin_env )
+static int ConnectForwardSocket( struct LogpipeOutputPluginContext *p_plugin_ctx )
 {
 	int		nret = 0 ;
 	
 	/* 创建套接字 */
-	p_plugin_env->forward_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
-	if( p_plugin_env->forward_sock == -1 )
+	p_plugin_ctx->forward_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+	if( p_plugin_ctx->forward_sock == -1 )
 	{
 		ERRORLOG( "socket failed , errno[%d]" , errno );
-		sleep(1);
-		return -1;
+		return 1;
 	}
 	
 	/* 设置套接字选项 */
 	{
 		int	onoff = 1 ;
-		setsockopt( p_plugin_env->forward_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+		setsockopt( p_plugin_ctx->forward_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
 	}
 	
 	{
 		int	onoff = 1 ;
-		setsockopt( p_plugin_env->forward_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+		setsockopt( p_plugin_ctx->forward_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
 	}
 	
 	/* 连接到服务端侦听端口 */
-	nret = connect( p_plugin_env->forward_sock , (struct sockaddr *) & (p_plugin_env->forward_addr) , sizeof(struct sockaddr) ) ;
+	nret = connect( p_plugin_ctx->forward_sock , (struct sockaddr *) & (p_plugin_ctx->forward_addr) , sizeof(struct sockaddr) ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->forward_sock , errno );
-		close( p_plugin_env->forward_sock ); p_plugin_env->forward_sock = -1 ;
-		sleep(1);
+		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->forward_sock , errno );
+		close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
 		return 1;
 	}
 	else
 	{
-		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_env->ip , p_plugin_env->port , p_plugin_env->forward_sock );
-		return 0;
+		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->forward_sock );
 	}
+	
+	return 0;
 }
 
 funcInitLogpipeOutputPlugin InitLogpipeOutputPlugin ;
 int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
 {
-	struct LogpipeOutputPlugin_tcp	*p_plugin_env = NULL ;
-	char				*p = NULL ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = NULL ;
+	char					*p = NULL ;
 	
-	int				nret = 0 ;
+	int					nret = 0 ;
 	
-	p_plugin_env = (struct LogpipeOutputPlugin_tcp *)malloc( sizeof(struct LogpipeOutputPlugin_tcp) ) ;
-	if( p_plugin_env == NULL )
+	p_plugin_ctx = (struct LogpipeOutputPluginContext *)malloc( sizeof(struct LogpipeOutputPluginContext) ) ;
+	if( p_plugin_ctx == NULL )
 	{
 		ERRORLOG( "malloc failed , errno[%d]" , errno );
 		return -1;
 	}
-	memset( p_plugin_env , 0x00 , sizeof(struct LogpipeOutputPlugin_tcp) );
+	memset( p_plugin_ctx , 0x00 , sizeof(struct LogpipeOutputPluginContext) );
 	
 	/* 解析插件配置 */
-	p_plugin_env->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
-	INFOLOG( "ip[%s]" , p_plugin_env->ip )
+	p_plugin_ctx->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
+	INFOLOG( "ip[%s]" , p_plugin_ctx->ip )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
 	if( p )
-		p_plugin_env->port = atoi(p) ;
+		p_plugin_ctx->port = atoi(p) ;
 	else
-		p_plugin_env->port = 0 ;
-	INFOLOG( "port[%d]" , p_plugin_env->port )
+		p_plugin_ctx->port = 0 ;
+	INFOLOG( "port[%d]" , p_plugin_ctx->port )
 	
 	/* 初始化插件环境内部数据 */
-	memset( & (p_plugin_env->forward_addr) , 0x00 , sizeof(struct sockaddr_in) );
-	p_plugin_env->forward_addr.sin_family = AF_INET ;
-	if( p_plugin_env->ip[0] == '\0' )
-		p_plugin_env->forward_addr.sin_addr.s_addr = INADDR_ANY ;
+	memset( & (p_plugin_ctx->forward_addr) , 0x00 , sizeof(struct sockaddr_in) );
+	p_plugin_ctx->forward_addr.sin_family = AF_INET ;
+	if( p_plugin_ctx->ip[0] == '\0' )
+		p_plugin_ctx->forward_addr.sin_addr.s_addr = INADDR_ANY ;
 	else
-		p_plugin_env->forward_addr.sin_addr.s_addr = inet_addr(p_plugin_env->ip) ;
-	p_plugin_env->forward_addr.sin_port = htons( (unsigned short)(p_plugin_env->port) );
+		p_plugin_ctx->forward_addr.sin_addr.s_addr = inet_addr(p_plugin_ctx->ip) ;
+	p_plugin_ctx->forward_addr.sin_port = htons( (unsigned short)(p_plugin_ctx->port) );
 	
 	/* 连接服务端 */
-	p_plugin_env->forward_sock = -1 ;
-	nret = ConnectForwardSocket( p_plugin_env ) ;
+	p_plugin_ctx->forward_sock = -1 ;
+	nret = ConnectForwardSocket( p_plugin_ctx ) ;
 	if( nret )
-		return nret;
+		return -1;
+	
+	INFOLOG( "close forward sock" )	
+	close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
 	
 	/* 设置插件环境上下文 */
-	(*pp_context) = p_plugin_env ;
+	(*pp_context) = p_plugin_ctx ;
 	
+	return 0;
+}
+
+funcInitLogpipeOutputPlugin2 InitLogpipeOutputPlugin2 ;
+int InitLogpipeOutputPlugin2( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+{
 	return 0;
 }
 
 funcBeforeWriteLogpipeOutput BeforeWriteLogpipeOutput ;
 int BeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
-	struct LogpipeOutputPlugin_tcp	*p_plugin_env = (struct LogpipeOutputPlugin_tcp *)p_context ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
 	
-	uint16_t			*filename_len_htons = NULL ;
-	char				comm_buf[ 1 + sizeof(uint16_t) + PATH_MAX ] ;
-	int				len ;
+	uint16_t				*filename_len_htons = NULL ;
+	char					comm_buf[ 1 + sizeof(uint16_t) + PATH_MAX ] ;
+	int					len ;
 	
-	int				nret = 0 ;
+	int					nret = 0 ;
 	
 _GOTO_RETRY_SEND :
 	
-	while( p_plugin_env->forward_sock == -1 )
+	while( p_plugin_ctx->forward_sock == -1 )
 	{
-		nret = ConnectForwardSocket( p_plugin_env ) ;
-		if( nret < 0 )
+		nret = ConnectForwardSocket( p_plugin_ctx ) ;
+		if( nret )
 			return nret;
 	}
 	
@@ -133,7 +137,7 @@ _GOTO_RETRY_SEND :
 	if( filename_len > PATH_MAX )
 	{
 		ERRORLOG( "filename length[%d] too long" , filename_len )
-		return 0;
+		return 1;
 	}
 	
 	filename_len_htons = (uint16_t*)(comm_buf+1) ;
@@ -142,12 +146,11 @@ _GOTO_RETRY_SEND :
 	strncpy( comm_buf+1+sizeof(uint16_t) , filename , filename_len );
 	
 	/* 发送通讯头和文件名 */
-	len = writen( p_plugin_env->forward_sock , comm_buf , 1+sizeof(uint16_t)+filename_len ) ;
+	len = writen( p_plugin_ctx->forward_sock , comm_buf , 1+sizeof(uint16_t)+filename_len ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "send comm magic and filename failed , errno[%d]" , errno )
-		close( p_plugin_env->forward_sock ); p_plugin_env->forward_sock = -1 ;
-		sleep(1);
+		close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
 		goto _GOTO_RETRY_SEND;
 	}
 	else
@@ -162,16 +165,16 @@ _GOTO_RETRY_SEND :
 funcWriteLogpipeOutput WriteLogpipeOutput ;
 int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
 {
-	struct LogpipeOutputPlugin_tcp	*p_plugin_env = (struct LogpipeOutputPlugin_tcp *)p_context ;
-	uint32_t			block_len_htonl ;
-	int				len ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
+	uint32_t				block_len_htonl ;
+	int					len ;
 	
 	block_len_htonl = htonl(block_len) ;
-	len = writen( p_plugin_env->forward_sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
+	len = writen( p_plugin_ctx->forward_sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
-		return -1;
+		return 1;
 	}
 	else
 	{
@@ -179,11 +182,11 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p
 		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
 	}
 	
-	len = writen( p_plugin_env->forward_sock , block_buf , block_len ) ;
+	len = writen( p_plugin_ctx->forward_sock , block_buf , block_len ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "send block data to socket failed , errno[%d]" , errno )
-		return -1;
+		return 1;
 	}
 	else
 	{
@@ -197,16 +200,16 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p
 funcAfterWriteLogpipeOutput AfterWriteLogpipeOutput ;
 int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
-	struct LogpipeOutputPlugin_tcp	*p_plugin_env = (struct LogpipeOutputPlugin_tcp *)p_context ;
-	uint32_t			block_len_htonl ;
-	int				len ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
+	uint32_t				block_len_htonl ;
+	int					len ;
 	
 	block_len_htonl = htonl(0) ;
-	len = writen( p_plugin_env->forward_sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
+	len = writen( p_plugin_ctx->forward_sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
-		return -1;
+		return 1;
 	}
 	else
 	{
@@ -220,15 +223,16 @@ int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 funcCleanLogpipeOutputPlugin CleanLogpipeOutputPlugin ;
 int CleanLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
-	struct LogpipeOutputPlugin_tcp	*p_plugin_env = (struct LogpipeOutputPlugin_tcp *)p_context ;
+	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
 	
-	if( p_plugin_env->forward_sock == -1 )
+	if( p_plugin_ctx->forward_sock == -1 )
 	{
-		close( p_plugin_env->forward_sock ); p_plugin_env->forward_sock = -1 ;
+		INFOLOG( "close forward sock" )
+		close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
 	}
 	
-	INFOLOG( "free p_plugin_env" )
-	free( p_plugin_env );
+	INFOLOG( "free p_plugin_ctx" )
+	free( p_plugin_ctx );
 	
 	return 0;
 }

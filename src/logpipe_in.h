@@ -30,6 +30,7 @@ struct LogpipeInputPlugin
 	char				so_path_filename[ PATH_MAX + 1 ] ;
 	void				*so_handler ;
 	funcInitLogpipeInputPlugin	*pfuncInitLogpipeInputPlugin ;
+	funcInitLogpipeInputPlugin2	*pfuncInitLogpipeInputPlugin2 ;
 	funcOnLogpipeInputEvent		*pfuncOnLogpipeInputEvent ;
 	funcBeforeReadLogpipeInput	*pfuncBeforeReadLogpipeInput ;
 	funcReadLogpipeInput		*pfuncReadLogpipeInput ;
@@ -50,6 +51,7 @@ struct LogpipeOutputPlugin
 	char				so_path_filename[ PATH_MAX + 1 ] ;
 	void				*so_handler ;
 	funcInitLogpipeOutputPlugin	*pfuncInitLogpipeOutputPlugin ;
+	funcInitLogpipeOutputPlugin2	*pfuncInitLogpipeOutputPlugin2 ;
 	funcBeforeWriteLogpipeOutput	*pfuncBeforeWriteLogpipeOutput ;
 	funcWriteLogpipeOutput		*pfuncWriteLogpipeOutput ;
 	funcAfterWriteLogpipeOutput	*pfuncAfterWriteLogpipeOutput ;
@@ -68,14 +70,13 @@ struct LogpipeEnv
 	char				log_file[ PATH_MAX + 1 ] ;
 	int				log_level ;
 	
-	struct LogpipeInputPlugin	logpipe_input_plugins_list ;
-	struct LogpipeOutputPlugin	logpipe_output_plugins_list ;
-	
 	int				epoll_fd ;
 	
-	int				is_monitor ;
-	
+	struct LogpipeInputPlugin	logpipe_input_plugins_list ;
+	struct LogpipeOutputPlugin	logpipe_output_plugins_list ;
 	struct LogpipeInputPlugin	*p_block_input_plugin ;
+	
+	int				quit_pipe[2] ;
 } ;
 
 int WriteEntireFile( char *pathfilename , char *file_content , int file_len );
@@ -86,16 +87,15 @@ void InitConfig();
 int LoadConfig( struct LogpipeEnv *p_env );
 
 int InitEnvironment( struct LogpipeEnv *p_env );
+int InitEnvironment2( struct LogpipeEnv *p_env );
 void CleanEnvironment( struct LogpipeEnv *p_env );
-void LogEnvironment( struct LogpipeEnv *p_env );
 
 int monitor( struct LogpipeEnv *p_env );
 int _monitor( void *pv );
 
 int worker( struct LogpipeEnv *p_env );
 
-/* 快速删除输入插件环境结构 */
-void RemoveLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin );
+void RemoveLogpipeOutputSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin );
 
 #ifdef __cplusplus
 }

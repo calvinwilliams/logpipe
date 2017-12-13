@@ -168,6 +168,8 @@ void RemoveAllPluginConfigItem( struct LogpipePluginConfigItem *config )
 	list_for_each_entry_safe( item , next_item , & (config->this_node) , struct LogpipePluginConfigItem , this_node )
 	{
 		list_del( & (item->this_node) );
+		free( item->key );
+		free( item->value );
 		free( item );
 	}
 	

@@ -4,21 +4,10 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 {
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
 	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
-	struct epoll_event		event ;
 	
 	int				nret = 0 ;
 	
-	/* 创建epoll */
-	p_env->epoll_fd = epoll_create( 1024 ) ;
-	if( p_env->epoll_fd == -1 )
-	{
-		ERRORLOG( "epoll_create failed , errno[%d]" , errno );
-		return -1;
-	}
-	else
-	{
-		INFOLOG( "epoll_create ok" )
-	}
+	p_env->epoll_fd = -1 ;
 	
 	/* 执行所有输出端初始化函数 */
 	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
@@ -51,19 +40,45 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 		{
 			INFOLOG( "[%s]->pfuncInitLogpipeInputPlugin ok" , p_logpipe_input_plugin->so_filename );
 		}
-		
-		if( p_logpipe_input_plugin->fd >= 0 )
+	}
+	
+	return 0;
+}
+
+int InitEnvironment2( struct LogpipeEnv *p_env )
+{
+	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
+	
+	int				nret = 0 ;
+	
+	/* 执行所有输出端初始化函数 */
+	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
+	{
+		nret = p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin2( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->plugin_config_items) , & (p_logpipe_output_plugin->context) ) ;
+		if( nret )
 		{
-			/* 加入订阅可读事件到epoll */
-			memset( & event , 0x00 , sizeof(struct epoll_event) );
-			event.events = EPOLLIN | EPOLLERR ;
-			event.data.ptr = p_logpipe_input_plugin ;
-			nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_logpipe_input_plugin->fd , & event ) ;
-			if( nret == -1 )
-			{
-				ERRORLOG( "epoll_ctl[%d] add[%d] failed , errno[%d]" , p_env->epoll_fd , p_logpipe_input_plugin->fd , errno );
-				return -1;
-			}
+			ERRORLOG( "[%s]->pfuncInitLogpipeOutputPlugin2 failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno );
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "[%s]->pfuncInitLogpipeOutputPlugin2 ok" , p_logpipe_output_plugin->so_filename );
+		}
+	}
+	
+	/* 执行所有输入端初始化函数 */
+	list_for_each_entry( p_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
+	{
+		nret = p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin2( p_env , p_logpipe_input_plugin , & (p_logpipe_input_plugin->plugin_config_items) , & (p_logpipe_input_plugin->context) , & (p_logpipe_input_plugin->fd) ) ;
+		if( nret )
+		{
+			ERRORLOG( "[%s]->pfuncInitLogpipeInputPlugin2 failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno );
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "[%s]->pfuncInitLogpipeInputPlugin2 ok" , p_logpipe_input_plugin->so_filename );
 		}
 		
 		if( p_logpipe_input_plugin->fd < 0 )
@@ -80,50 +95,22 @@ void CleanEnvironment( struct LogpipeEnv *p_env )
 	struct LogpipeInputPlugin	*p_next_logpipe_input_plugin = NULL ;
 	struct LogpipeOutputPlugin	*p_next_logpipe_output_plugin = NULL ;
 	
-	int				nret = 0 ;
-	
 	/* 执行所有输入端初始化函数 */
 	list_for_each_entry_safe( p_logpipe_input_plugin , p_next_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
 	{
-		nret = p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
-		if( nret )
-		{
-			ERRORLOG( "[%s]->pfuncCleanLogpipeInputPlugin failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno );
-			return;
-		}
-		else
-		{
-			INFOLOG( "[%s]->pfuncCleanLogpipeInputPlugin ok" , p_logpipe_input_plugin->so_filename );
-		}
-		
-		RemoveAllPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) );
+		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
 	}
 	
 	/* 执行所有输出端初始化函数 */
 	list_for_each_entry_safe( p_logpipe_output_plugin , p_next_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
-		nret = p_logpipe_output_plugin->pfuncCleanLogpipeOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
-		if( nret )
-		{
-			ERRORLOG( "[%s]->pfuncCleanLogpipeOutputPlugin failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno );
-			return;
-		}
-		else
-		{
-			INFOLOG( "[%s]->pfuncCleanLogpipeOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
-		}
-		
-		RemoveAllPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) );
+		RemoveLogpipeOutputSession( p_env , p_logpipe_output_plugin );
 	}
-	
-	/* 销毁epoll */
-	INFOLOG( " close epoll" )
-	close( p_env->epoll_fd );
 	
 	return;
 }
 
-struct LogpipeInputPlugin *AddLogpipeInputPlugin( struct LogpipeEnv *p_env
+struct LogpipeInputPlugin *AddLogpipeInputSession( struct LogpipeEnv *p_env
 						, char *so_filename
 						, funcOnLogpipeInputEvent *pfuncOnLogpipeInputEvent
 						, funcBeforeReadLogpipeInput *pfuncBeforeReadLogpipeInput , funcReadLogpipeInput *pfuncReadLogpipeInput , funcAfterReadLogpipeInput *pfuncAfterReadLogpipeInput
@@ -141,7 +128,11 @@ struct LogpipeInputPlugin *AddLogpipeInputPlugin( struct LogpipeEnv *p_env
 	memset( p_logpipe_input_plugin , 0x00 , sizeof(struct LogpipeInputPlugin) );
 	
 	INIT_LIST_HEAD( & (p_logpipe_input_plugin->plugin_config_items.this_node) );
-	strncpy( p_logpipe_input_plugin->so_filename , so_filename , sizeof(p_logpipe_input_plugin->so_filename)-1 );
+	
+	if( so_filename )
+	{
+		strncpy( p_logpipe_input_plugin->so_filename , so_filename , sizeof(p_logpipe_input_plugin->so_filename)-1 );
+	}
 	
 	p_logpipe_input_plugin->pfuncOnLogpipeInputEvent = pfuncOnLogpipeInputEvent ;
 	
@@ -154,34 +145,76 @@ struct LogpipeInputPlugin *AddLogpipeInputPlugin( struct LogpipeEnv *p_env
 	p_logpipe_input_plugin->fd = fd ;
 	p_logpipe_input_plugin->context = context ;
 	
-	memset( & event , 0x00 , sizeof(struct epoll_event) );
-	event.events = EPOLLIN | EPOLLERR ;
-	event.data.ptr = p_logpipe_input_plugin ;
-	nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_logpipe_input_plugin->fd , & event ) ;
-	if( nret == -1 )
+	if( p_logpipe_input_plugin->fd >= 0 )
 	{
-		ERRORLOG( "epoll_ctl[%d] add p_logpipe_input_plugin->fd[%s] failed , errno[%d]" , p_env->epoll_fd , p_logpipe_input_plugin->fd , errno );
-		RemoveLogpipeInputPlugin( p_env , p_logpipe_input_plugin );
-		return NULL;
+		memset( & event , 0x00 , sizeof(struct epoll_event) );
+		event.events = EPOLLIN | EPOLLERR ;
+		event.data.ptr = p_logpipe_input_plugin ;
+		nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_logpipe_input_plugin->fd , & event ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "epoll_ctl[%d] add input plugin fd[%d] failed , errno[%d]" , p_env->epoll_fd , p_logpipe_input_plugin->fd , errno );
+			free( p_logpipe_input_plugin );
+			return NULL;
+		}
+		else
+		{
+			INFOLOG( "epoll_ctl[%d] add input plugin fd[%d] ok" , p_env->epoll_fd , p_logpipe_input_plugin->fd );
+		}
 	}
-	else
-	{
-		INFOLOG( "epoll_ctl[%d] add[%d] ok" , p_env->epoll_fd , p_logpipe_input_plugin->fd );
-	}
+	
 	list_add_tail( & (p_logpipe_input_plugin->this_node) , & (p_env->logpipe_input_plugins_list.this_node) );
 	
 	return p_logpipe_input_plugin;
 }
 
-void RemoveLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
+void RemoveLogpipeInputSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
 {
-	if( p_logpipe_input_plugin->fd >= 0 )
+	int		nret = 0 ;
+	
+	RemoveAllPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) );
+	
+	if( p_env->epoll_fd >= 0 )
 	{
-		epoll_ctl( p_env->epoll_fd , EPOLL_CTL_DEL , p_logpipe_input_plugin->fd , NULL );
+		if( p_logpipe_input_plugin->fd >= 0 )
+		{
+			INFOLOG( "epoll_ctl[%d] del input plugin fd[%d]" , p_env->epoll_fd , p_logpipe_input_plugin->fd );
+			epoll_ctl( p_env->epoll_fd , EPOLL_CTL_DEL , p_logpipe_input_plugin->fd , NULL );
+		}
 	}
-	p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context );
+	
+	nret = p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
+	INFOLOG( "[%s]->pfuncCleanLogpipeInputPlugin return[%d]" , p_logpipe_input_plugin->so_filename , nret );
+	
+	if( p_logpipe_input_plugin->so_handler )
+	{
+		dlclose( p_logpipe_input_plugin->so_handler );
+	}
+	
+	list_del( & (p_logpipe_input_plugin->this_node) );
 	
 	free( p_logpipe_input_plugin );
+	
+	return;
+}
+
+void RemoveLogpipeOutputSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin )
+{
+	int		nret = 0 ;
+	
+	RemoveAllPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) );
+	
+	nret = p_logpipe_output_plugin->pfuncCleanLogpipeOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
+	INFOLOG( "[%s]->pfuncCleanLogpipeOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
+	
+	if( p_logpipe_output_plugin->so_handler )
+	{
+		dlclose( p_logpipe_output_plugin->so_handler );
+	}
+	
+	list_del( & (p_logpipe_output_plugin->this_node) );
+	
+	free( p_logpipe_output_plugin );
 	
 	return;
 }

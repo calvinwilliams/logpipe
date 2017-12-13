@@ -103,14 +103,13 @@ int main( int argc , char *argv[] )
 	{
 		umask( 0 ) ;
 		chdir( "/tmp" );
-		nret = monitor( p_env ) ;
+		nret = _monitor( (void*)p_env ) ;
 	}
 	else
 	{
 		nret = BindDaemonServer( & _monitor , (void*)p_env , 1 ) ;
 	}
 	
-	CleanEnvironment( p_env );
 	free( p_env );
 	
 	return -nret;

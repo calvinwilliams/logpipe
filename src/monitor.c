@@ -1,13 +1,13 @@
 #include "logpipe_in.h"
 
-static sig_atomic_t		g_SIGTERM_flag = 0 ;
+static sig_atomic_t		g_QUIT_flag = 0 ;
 
 static void sig_set_flag( int sig_no )
 {
 	/* 接收到不同信号设置不同的全局标志，延后到主流程中处理 */
 	if( sig_no == SIGTERM )
 	{
-		g_SIGTERM_flag = 1 ; /* 退出 */
+		g_QUIT_flag = 1 ; /* 退出 */
 	}
 	
 	return;
@@ -20,8 +20,7 @@ int monitor( struct LogpipeEnv *p_env )
 	pid_t			pid , pid2 ;
 	int			status ;
 	
-	SetLogFile( p_env->log_file );
-	SetLogLevel( p_env->log_level );
+	int			nret = 0 ;
 	
 	/* 设置信号 */
 	if( ! p_env->no_daemon )
@@ -38,24 +37,31 @@ int monitor( struct LogpipeEnv *p_env )
 	act.sa_flags = SA_RESTART ;
 	signal( SIGCLD , SIG_DFL );
 	
-	p_env->is_monitor = 1 ;
-	while(1)
+	while( g_QUIT_flag == 0 )
 	{
+		nret = pipe( p_env->quit_pipe ) ;
+		if( nret == -1 )
+		{
+			FATALLOG( "pipe failed , errno[%d]" , errno )
+			return -1;
+		}
+		
 		/* 创建工作进程 */
 		pid = fork() ;
 		if( pid == -1 )
 		{
-			ERRORLOG( "fork failed , errno[%d]" , errno )
+			FATALLOG( "fork failed , errno[%d]" , errno )
 			return -1;
 		}
 		else if( pid == 0 )
 		{
+			close( p_env->quit_pipe[1] );
 			INFOLOG( "child : [%ld] fork [%ld]" , getppid() , getpid() )
-			p_env->is_monitor = 0 ;
 			return -worker( p_env );
 		}
 		else
 		{
+			close( p_env->quit_pipe[0] );
 			INFOLOG( "parent : [%ld] fork [%ld]" , getpid() , pid )
 		}
 		
@@ -69,12 +75,9 @@ _GOTO_WAITPID :
 			if( errno == EINTR )
 			{
 				/* 如果被退出信号中断，退出 */
-				if( g_SIGTERM_flag )
+				if( g_QUIT_flag )
 				{
-					break;
-				}
-				else
-				{
+					close( p_env->quit_pipe[1] );
 					goto _GOTO_WAITPID;
 				}
 			}
@@ -97,13 +100,12 @@ _GOTO_WAITPID :
 			ERRORLOG( "waitpid[%d] WEXITSTATUS[%d] WIFSIGNALED[%d] WTERMSIG[%d]" , pid , WEXITSTATUS(status) , WIFSIGNALED(status) , WTERMSIG(status) )
 		}
 		
+		close( p_env->quit_pipe[1] );
+		
 		sleep(1);
 		
 		/* 重新创建命令管道，创建工作进程 */
 	}
-	
-	/* 杀死子进程 */
-	kill( pid , SIGTERM );
 	
 	/* 关闭事件总线 */
 	close( p_env->epoll_fd );
@@ -113,6 +115,17 @@ _GOTO_WAITPID :
 
 int _monitor( void *pv )
 {
-	return monitor( (struct LogpipeEnv*)pv );
+	struct LogpipeEnv	*p_env = (struct LogpipeEnv *)pv ;
+	
+	int			nret = 0 ;
+	
+	SetLogFile( p_env->log_file );
+	SetLogLevel( p_env->log_level );
+	
+	nret = monitor( p_env ) ;
+	
+	CleanEnvironment( p_env );
+	
+	return nret;
 }
 

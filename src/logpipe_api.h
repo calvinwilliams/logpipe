@@ -58,6 +58,7 @@ void RemoveAllPluginConfigItem( struct LogpipePluginConfigItem *config );
 
 /* 输入插件回调函数原型 */
 typedef int funcInitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd );
+typedef int funcInitLogpipeInputPlugin2( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd );
 typedef int funcOnLogpipeInputEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context );
 typedef int funcBeforeReadLogpipeInput( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context );
 typedef int funcReadLogpipeInput( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize );
@@ -66,18 +67,20 @@ typedef int funcCleanLogpipeInputPlugin( struct LogpipeEnv *p_env , struct Logpi
 
 /* 输出插件回调函数原型 */
 typedef int funcInitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context );
+typedef int funcInitLogpipeOutputPlugin2( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context );
 typedef int funcBeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename );
 typedef int funcWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf );
 typedef int funcAfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context );
 typedef int funcCleanLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context );
 
 /* 快速创建输入插件环境结构 */
-struct LogpipeInputPlugin *AddLogpipeInputPlugin( struct LogpipeEnv *p_env
+struct LogpipeInputPlugin *AddLogpipeInputSession( struct LogpipeEnv *p_env
 						, char *so_filename
 						, funcOnLogpipeInputEvent *pfuncOnLogpipeInputEvent
 						, funcBeforeReadLogpipeInput *pfuncBeforeReadLogpipeInput , funcReadLogpipeInput *pfuncReadLogpipeInput , funcAfterReadLogpipeInput *pfuncAfterReadLogpipeInput
 						, funcCleanLogpipeInputPlugin *pfuncCleanLogpipeInputPlugin
 						, int fd , void *context );
+void RemoveLogpipeInputSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin );
 
 /* 导出所有输出端 */
 int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , uint16_t filename_len , char *filename );

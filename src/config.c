@@ -58,6 +58,13 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
+	p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin2 = (funcInitLogpipeInputPlugin2 *)dlsym( p_logpipe_input_plugin->so_handler , "InitLogpipeInputPlugin2" ) ;
+	if( p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin2 == NULL )
+	{
+		ERRORLOG( "dlsym[%s][InitLogpipeInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		return -1;
+	}
+	
 	p_logpipe_input_plugin->pfuncBeforeReadLogpipeInput = (funcBeforeReadLogpipeInput *)dlsym( p_logpipe_input_plugin->so_handler , "BeforeReadLogpipeInput" ) ;
 	if( p_logpipe_input_plugin->pfuncBeforeReadLogpipeInput == NULL )
 	{
@@ -128,6 +135,13 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	
 	p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin = (funcInitLogpipeOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "InitLogpipeOutputPlugin" ) ;
 	if( p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin == NULL )
+	{
+		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		return -1;
+	}
+	
+	p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin2 = (funcInitLogpipeOutputPlugin2 *)dlsym( p_logpipe_output_plugin->so_handler , "InitLogpipeOutputPlugin2" ) ;
+	if( p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin2 == NULL )
 	{
 		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
 		return -1;
