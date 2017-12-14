@@ -82,7 +82,7 @@ _GOTO_WAITPID :
 				}
 			}
 			
-			ERRORLOG( "waitpid failed , errno[%d]" , errno )
+			FATALLOG( "waitpid failed , errno[%d]" , errno )
 			return -1;
 		}
 		else if( pid2 != pid )
@@ -97,7 +97,7 @@ _GOTO_WAITPID :
 		}
 		else
 		{
-			ERRORLOG( "waitpid[%d] WEXITSTATUS[%d] WIFSIGNALED[%d] WTERMSIG[%d]" , pid , WEXITSTATUS(status) , WIFSIGNALED(status) , WTERMSIG(status) )
+			FATALLOG( "waitpid[%d] WEXITSTATUS[%d] WIFSIGNALED[%d] WTERMSIG[%d]" , pid , WEXITSTATUS(status) , WIFSIGNALED(status) , WTERMSIG(status) )
 		}
 		
 		close( p_env->quit_pipe[1] );
@@ -106,9 +106,6 @@ _GOTO_WAITPID :
 		
 		/* 重新创建命令管道，创建工作进程 */
 	}
-	
-	/* 关闭事件总线 */
-	close( p_env->epoll_fd );
 	
 	return 0;
 }
@@ -122,9 +119,11 @@ int _monitor( void *pv )
 	SetLogFile( p_env->log_file );
 	SetLogLevel( p_env->log_level );
 	
+	INFOLOG( "--- monitor begin ---------" )
+	
 	nret = monitor( p_env ) ;
 	
-	CleanEnvironment( p_env );
+	INFOLOG( "--- monitor end ---------" )
 	
 	return nret;
 }

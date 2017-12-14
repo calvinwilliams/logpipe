@@ -4,26 +4,26 @@
 
 char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.1.0" ;
 
-struct LogpipeOutputPluginContext
+struct OutputPluginContext
 {
-	char				*path ;
-	char				*uncompress_algorithm ;
+	char		*path ;
+	char		*uncompress_algorithm ;
 	
-	int				fd ;
+	int		fd ;
 } ;
 
-funcInitLogpipeOutputPlugin InitLogpipeOutputPlugin ;
-int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+funcLoadOutputPluginConfig LoadOutputPluginConfig ;
+int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
 {
-	struct LogpipeOutputPluginContext	*p_plugin_ctx = NULL ;
+	struct OutputPluginContext	*p_plugin_ctx = NULL ;
 	
-	p_plugin_ctx = (struct LogpipeOutputPluginContext *)malloc( sizeof(struct LogpipeOutputPluginContext) ) ;
+	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
 		ERRORLOG( "malloc failed , errno[%d]" , errno );
 		return -1;
 	}
-	memset( p_plugin_ctx , 0x00 , sizeof(struct LogpipeOutputPluginContext) );
+	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
 	
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
 	INFOLOG( "path[%s]" , p_plugin_ctx->path )
@@ -51,16 +51,16 @@ int InitLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	return 0;
 }
 
-funcInitLogpipeOutputPlugin2 InitLogpipeOutputPlugin2 ;
-int InitLogpipeOutputPlugin2( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+funcInitOutputPluginContext InitOutputPluginContext ;
+int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
 	return 0;
 }
 
-funcBeforeWriteLogpipeOutput BeforeWriteLogpipeOutput ;
-int BeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
+funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
+int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
-	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
 	char				path_filename[ PATH_MAX + 1 ] ;
 	
@@ -80,10 +80,10 @@ int BeforeWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 	return 0;
 }
 
-funcWriteLogpipeOutput WriteLogpipeOutput ;
-int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
+funcWriteOutputPlugin WriteOutputPlugin ;
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
 {
-	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
 	int				len ;
 	
@@ -169,10 +169,10 @@ int WriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p
 	return 0;
 }
 
-funcAfterWriteLogpipeOutput AfterWriteLogpipeOutput ;
-int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
+int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
-	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
 	if( p_plugin_ctx->fd >= 0 )
 	{
@@ -183,13 +183,18 @@ int AfterWriteLogpipeOutput( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	return 0;
 }
 
-funcCleanLogpipeOutputPlugin CleanLogpipeOutputPlugin ;
-int CleanLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+funcCleanOutputPluginContext CleanOutputPluginContext ;
+int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
-	struct LogpipeOutputPluginContext	*p_plugin_ctx = (struct LogpipeOutputPluginContext *)p_context ;
+	return 0;
+}
+
+funcUnloadOutputPluginConfig UnloadOutputPluginConfig ;
+int UnloadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void **pp_context )
+{
+	struct OutputPluginContext	**pp_plugin_ctx = (struct OutputPluginContext **)pp_context ;
 	
-	INFOLOG( "free p_plugin_ctx" )
-	free( p_plugin_ctx );
+	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
 	
 	return 0;
 }

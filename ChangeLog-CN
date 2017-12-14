@@ -1,3 +1,6 @@
+0.5.0		2017-12-14	calvin
+		* 重构设计，采用插件模型
+
 0.4.0		2017-12-09	calvin
 		* 新增配置参数comm.compress_algorithm用于压缩传输
 

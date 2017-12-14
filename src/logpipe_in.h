@@ -29,13 +29,14 @@ struct LogpipeInputPlugin
 	char				so_filename[ PATH_MAX + 1 ] ;
 	char				so_path_filename[ PATH_MAX + 1 ] ;
 	void				*so_handler ;
-	funcInitLogpipeInputPlugin	*pfuncInitLogpipeInputPlugin ;
-	funcInitLogpipeInputPlugin2	*pfuncInitLogpipeInputPlugin2 ;
-	funcOnLogpipeInputEvent		*pfuncOnLogpipeInputEvent ;
-	funcBeforeReadLogpipeInput	*pfuncBeforeReadLogpipeInput ;
-	funcReadLogpipeInput		*pfuncReadLogpipeInput ;
-	funcAfterReadLogpipeInput	*pfuncAfterReadLogpipeInput ;
-	funcCleanLogpipeInputPlugin	*pfuncCleanLogpipeInputPlugin ;
+	funcLoadInputPluginConfig	*pfuncLoadInputPluginConfig ;
+	funcInitInputPluginContext	*pfuncInitInputPluginContext ;
+	funcOnInputPluginEvent		*pfuncOnInputPluginEvent ;
+	funcBeforeReadInputPlugin	*pfuncBeforeReadInputPlugin ;
+	funcReadInputPlugin		*pfuncReadInputPlugin ;
+	funcAfterReadInputPlugin	*pfuncAfterReadInputPlugin ;
+	funcCleanInputPluginContext	*pfuncCleanInputPluginContext ;
+	funcUnloadInputPluginConfig	*pfuncUnloadInputPluginConfig ;
 	int				fd ;
 	void				*context ;
 	
@@ -50,12 +51,13 @@ struct LogpipeOutputPlugin
 	char				so_filename[ PATH_MAX + 1 ] ;
 	char				so_path_filename[ PATH_MAX + 1 ] ;
 	void				*so_handler ;
-	funcInitLogpipeOutputPlugin	*pfuncInitLogpipeOutputPlugin ;
-	funcInitLogpipeOutputPlugin2	*pfuncInitLogpipeOutputPlugin2 ;
-	funcBeforeWriteLogpipeOutput	*pfuncBeforeWriteLogpipeOutput ;
-	funcWriteLogpipeOutput		*pfuncWriteLogpipeOutput ;
-	funcAfterWriteLogpipeOutput	*pfuncAfterWriteLogpipeOutput ;
-	funcCleanLogpipeOutputPlugin	*pfuncCleanLogpipeOutputPlugin ;
+	funcLoadOutputPluginConfig	*pfuncLoadOutputPluginConfig ;
+	funcInitOutputPluginContext	*pfuncInitOutputPluginContext ;
+	funcBeforeWriteOutputPlugin	*pfuncBeforeWriteOutputPlugin ;
+	funcWriteOutputPlugin		*pfuncWriteOutputPlugin ;
+	funcAfterWriteOutputPlugin	*pfuncAfterWriteOutputPlugin ;
+	funcCleanOutputPluginContext	*pfuncCleanOutputPluginContext ;
+	funcUnloadOutputPluginConfig	*pfuncUnloadOutputPluginConfig ;
 	void				*context ;
 	
 	struct list_head		this_node ;
@@ -83,8 +85,8 @@ int WriteEntireFile( char *pathfilename , char *file_content , int file_len );
 char *StrdupEntireFile( char *pathfilename , int *p_file_len );
 int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag );
 
-void InitConfig();
 int LoadConfig( struct LogpipeEnv *p_env );
+void UnloadConfig( struct LogpipeEnv *p_env );
 
 int InitEnvironment( struct LogpipeEnv *p_env );
 int InitEnvironment2( struct LogpipeEnv *p_env );
@@ -95,7 +97,7 @@ int _monitor( void *pv );
 
 int worker( struct LogpipeEnv *p_env );
 
-void RemoveLogpipeOutputSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin );
+void RemoveOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin );
 
 #ifdef __cplusplus
 }

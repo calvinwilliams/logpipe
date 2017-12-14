@@ -32,6 +32,7 @@ CFLAGS		=	$(_CFLAGS) \
 LFLAGS		=	$(_LFLAGS) \
 			-L$(HOME)/lib \
 			-llogpipe_api \
+			-rdynamic \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=

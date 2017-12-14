@@ -42,6 +42,7 @@ CFLAGS		=	$(_CFLAGS) \
 
 ###### Á´½ÓÑ¡Ïî
 LFLAGS		=	$(_LFLAGS) \
+			-rdynamic \
 			-ldl \
 			-lz \
 

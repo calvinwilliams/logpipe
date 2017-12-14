@@ -51,52 +51,59 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
-	p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin = (funcInitLogpipeInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "InitLogpipeInputPlugin" ) ;
-	if( p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin == NULL )
+	p_logpipe_input_plugin->pfuncLoadInputPluginConfig = (funcLoadInputPluginConfig *)dlsym( p_logpipe_input_plugin->so_handler , "LoadInputPluginConfig" ) ;
+	if( p_logpipe_input_plugin->pfuncLoadInputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][InitLogpipeInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][LoadInputPluginConfig] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin2 = (funcInitLogpipeInputPlugin2 *)dlsym( p_logpipe_input_plugin->so_handler , "InitLogpipeInputPlugin2" ) ;
-	if( p_logpipe_input_plugin->pfuncInitLogpipeInputPlugin2 == NULL )
+	p_logpipe_input_plugin->pfuncInitInputPluginContext = (funcInitInputPluginContext *)dlsym( p_logpipe_input_plugin->so_handler , "InitInputPluginContext" ) ;
+	if( p_logpipe_input_plugin->pfuncInitInputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][InitLogpipeInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][LoadInputPluginConfig] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_input_plugin->pfuncBeforeReadLogpipeInput = (funcBeforeReadLogpipeInput *)dlsym( p_logpipe_input_plugin->so_handler , "BeforeReadLogpipeInput" ) ;
-	if( p_logpipe_input_plugin->pfuncBeforeReadLogpipeInput == NULL )
+	p_logpipe_input_plugin->pfuncBeforeReadInputPlugin = (funcBeforeReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "BeforeReadInputPlugin" ) ;
+	if( p_logpipe_input_plugin->pfuncBeforeReadInputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][BeforeReadLogpipeInput] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][BeforeReadInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_input_plugin->pfuncOnLogpipeInputEvent = (funcOnLogpipeInputEvent *)dlsym( p_logpipe_input_plugin->so_handler , "OnLogpipeInputEvent" ) ;
-	if( p_logpipe_input_plugin->pfuncOnLogpipeInputEvent == NULL )
+	p_logpipe_input_plugin->pfuncOnInputPluginEvent = (funcOnInputPluginEvent *)dlsym( p_logpipe_input_plugin->so_handler , "OnInputPluginEvent" ) ;
+	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
 	{
-		ERRORLOG( "dlsym[%s][OnLogpipeInputEvent] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][OnInputPluginEvent] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_input_plugin->pfuncReadLogpipeInput = (funcReadLogpipeInput *)dlsym( p_logpipe_input_plugin->so_handler , "ReadLogpipeInput" ) ;
-	if( p_logpipe_input_plugin->pfuncReadLogpipeInput == NULL )
+	p_logpipe_input_plugin->pfuncReadInputPlugin = (funcReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "ReadInputPlugin" ) ;
+	if( p_logpipe_input_plugin->pfuncReadInputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][ReadLogpipeInput] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][ReadInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_input_plugin->pfuncAfterReadLogpipeInput = (funcAfterReadLogpipeInput *)dlsym( p_logpipe_input_plugin->so_handler , "AfterReadLogpipeInput" ) ;
-	if( p_logpipe_input_plugin->pfuncAfterReadLogpipeInput == NULL )
+	p_logpipe_input_plugin->pfuncAfterReadInputPlugin = (funcAfterReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "AfterReadInputPlugin" ) ;
+	if( p_logpipe_input_plugin->pfuncAfterReadInputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][AfterReadLogpipeInput] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][AfterReadInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin = (funcCleanLogpipeInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "CleanLogpipeInputPlugin" ) ;
-	if( p_logpipe_input_plugin->pfuncCleanLogpipeInputPlugin == NULL )
+	p_logpipe_input_plugin->pfuncCleanInputPluginContext = (funcCleanInputPluginContext *)dlsym( p_logpipe_input_plugin->so_handler , "CleanInputPluginContext" ) ;
+	if( p_logpipe_input_plugin->pfuncCleanInputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][CleanLogpipeInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][CleanInputPluginContext] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		return -1;
+	}
+	
+	p_logpipe_input_plugin->pfuncUnloadInputPluginConfig = (funcUnloadInputPluginConfig *)dlsym( p_logpipe_input_plugin->so_handler , "UnloadInputPluginConfig" ) ;
+	if( p_logpipe_input_plugin->pfuncUnloadInputPluginConfig == NULL )
+	{
+		ERRORLOG( "dlsym[%s][UnloadInputPluginConfig] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
@@ -133,45 +140,52 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 		return -1;
 	}
 	
-	p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin = (funcInitLogpipeOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "InitLogpipeOutputPlugin" ) ;
-	if( p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin == NULL )
+	p_logpipe_output_plugin->pfuncLoadOutputPluginConfig = (funcLoadOutputPluginConfig *)dlsym( p_logpipe_output_plugin->so_handler , "LoadOutputPluginConfig" ) ;
+	if( p_logpipe_output_plugin->pfuncLoadOutputPluginConfig == NULL )
 	{
 		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin2 = (funcInitLogpipeOutputPlugin2 *)dlsym( p_logpipe_output_plugin->so_handler , "InitLogpipeOutputPlugin2" ) ;
-	if( p_logpipe_output_plugin->pfuncInitLogpipeOutputPlugin2 == NULL )
+	p_logpipe_output_plugin->pfuncInitOutputPluginContext = (funcInitOutputPluginContext *)dlsym( p_logpipe_output_plugin->so_handler , "InitOutputPluginContext" ) ;
+	if( p_logpipe_output_plugin->pfuncInitOutputPluginContext == NULL )
 	{
 		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_output_plugin->pfuncBeforeWriteLogpipeOutput = (funcBeforeWriteLogpipeOutput *)dlsym( p_logpipe_output_plugin->so_handler , "BeforeWriteLogpipeOutput" ) ;
-	if( p_logpipe_output_plugin->pfuncBeforeWriteLogpipeOutput == NULL )
+	p_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin = (funcBeforeWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "BeforeWriteOutputPlugin" ) ;
+	if( p_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][BeforeWriteLogpipeOutput] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][BeforeWriteOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_output_plugin->pfuncWriteLogpipeOutput = (funcWriteLogpipeOutput *)dlsym( p_logpipe_output_plugin->so_handler , "WriteLogpipeOutput" ) ;
-	if( p_logpipe_output_plugin->pfuncWriteLogpipeOutput == NULL )
+	p_logpipe_output_plugin->pfuncWriteOutputPlugin = (funcWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "WriteOutputPlugin" ) ;
+	if( p_logpipe_output_plugin->pfuncWriteOutputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][WriteLogpipeOutput] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][WriteOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_output_plugin->pfuncAfterWriteLogpipeOutput = (funcAfterWriteLogpipeOutput *)dlsym( p_logpipe_output_plugin->so_handler , "AfterWriteLogpipeOutput" ) ;
-	if( p_logpipe_output_plugin->pfuncAfterWriteLogpipeOutput == NULL )
+	p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin = (funcAfterWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "AfterWriteOutputPlugin" ) ;
+	if( p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][AfterWriteLogpipeOutput] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][AfterWriteOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
-	p_logpipe_output_plugin->pfuncCleanLogpipeOutputPlugin = (funcCleanLogpipeOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "CleanLogpipeOutputPlugin" ) ;
-	if( p_logpipe_output_plugin->pfuncCleanLogpipeOutputPlugin == NULL )
+	p_logpipe_output_plugin->pfuncCleanOutputPluginContext = (funcInitOutputPluginContext *)dlsym( p_logpipe_output_plugin->so_handler , "CleanOutputPluginContext" ) ;
+	if( p_logpipe_output_plugin->pfuncCleanOutputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][CleanLogpipeOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][CleanOutputPluginContext] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		return -1;
+	}
+	
+	p_logpipe_output_plugin->pfuncUnloadOutputPluginConfig = (funcUnloadOutputPluginConfig *)dlsym( p_logpipe_output_plugin->so_handler , "UnloadOutputPluginConfig" ) ;
+	if( p_logpipe_output_plugin->pfuncUnloadOutputPluginConfig == NULL )
+	{
+		ERRORLOG( "dlsym[%s][UnloadOutputPluginConfig] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
 		return -1;
 	}
 	
@@ -264,11 +278,13 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 
 int LoadConfig( struct LogpipeEnv *p_env )
 {
-	char		*file_content = NULL ;
+	char				*file_content = NULL ;
+	char				jpath[ 1024 + 1 ] ;
 	
-	char		jpath[ 1024 + 1 ] ;
+	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
 	
-	int		nret = 0 ;
+	int				nret = 0 ;
 	
 	file_content = StrdupEntireFile( p_env->config_path_filename , NULL ) ;
 	if( file_content == NULL )
@@ -290,6 +306,152 @@ int LoadConfig( struct LogpipeEnv *p_env )
 	
 	free( file_content );
 	
+	/* 执行所有输出端初始化函数 */
+	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
+	{
+		p_logpipe_output_plugin->context = NULL ;
+		nret = p_logpipe_output_plugin->pfuncLoadOutputPluginConfig( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->plugin_config_items) , & (p_logpipe_output_plugin->context) ) ;
+		if( nret )
+		{
+			ERRORLOG( "[%s]->pfuncLoadOutputPluginConfig failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno );
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "[%s]->pfuncLoadOutputPluginConfig ok" , p_logpipe_output_plugin->so_filename );
+		}
+	}
+	
+	/* 执行所有输入端初始化函数 */
+	list_for_each_entry( p_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
+	{
+		p_logpipe_input_plugin->fd = -1 ;
+		p_logpipe_input_plugin->context = NULL ;
+		nret = p_logpipe_input_plugin->pfuncLoadInputPluginConfig( p_env , p_logpipe_input_plugin , & (p_logpipe_input_plugin->plugin_config_items) , & (p_logpipe_input_plugin->context) , & (p_logpipe_input_plugin->fd) ) ;
+		if( nret )
+		{
+			ERRORLOG( "[%s]->pfuncLoadInputPluginConfig failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno );
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "[%s]->pfuncLoadInputPluginConfig ok" , p_logpipe_input_plugin->so_filename );
+		}
+	}
+	
 	return 0;
 }
 
+void UnloadConfig( struct LogpipeEnv *p_env )
+{
+	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
+	struct LogpipeInputPlugin	*p_next_logpipe_input_plugin = NULL ;
+	struct LogpipeOutputPlugin	*p_next_logpipe_output_plugin = NULL ;
+	
+	/* 执行所有输入端初始化函数 */
+	list_for_each_entry_safe( p_logpipe_input_plugin , p_next_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
+	{
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+	}
+	
+	/* 执行所有输出端初始化函数 */
+	list_for_each_entry_safe( p_logpipe_output_plugin , p_next_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
+	{
+		RemoveOutputPluginSession( p_env , p_logpipe_output_plugin );
+	}
+	
+	return;
+}
+
+struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , char *so_filename
+						, funcOnInputPluginEvent *pfuncOnInputPluginEvent
+						, funcBeforeReadInputPlugin *pfuncBeforeReadInputPlugin , funcReadInputPlugin *pfuncReadInputPlugin , funcAfterReadInputPlugin *pfuncAfterReadInputPlugin
+						, funcCleanInputPluginContext *pfuncCleanInputPluginContext , funcUnloadInputPluginConfig *pfuncUnloadInputPluginConfig
+						, int fd , void *context )
+{
+	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+	struct epoll_event		event ;
+	
+	int				nret = 0 ;
+	
+	p_logpipe_input_plugin = (struct LogpipeInputPlugin *)malloc( sizeof(struct LogpipeInputPlugin) ) ;
+	if( p_logpipe_input_plugin == NULL )
+		return NULL;
+	memset( p_logpipe_input_plugin , 0x00 , sizeof(struct LogpipeInputPlugin) );
+	
+	INIT_LIST_HEAD( & (p_logpipe_input_plugin->plugin_config_items.this_node) );
+	
+	if( so_filename )
+	{
+		strncpy( p_logpipe_input_plugin->so_filename , so_filename , sizeof(p_logpipe_input_plugin->so_filename)-1 );
+	}
+	
+	p_logpipe_input_plugin->pfuncOnInputPluginEvent = pfuncOnInputPluginEvent ;
+	p_logpipe_input_plugin->pfuncBeforeReadInputPlugin = pfuncBeforeReadInputPlugin ;
+	p_logpipe_input_plugin->pfuncReadInputPlugin = pfuncReadInputPlugin ;
+	p_logpipe_input_plugin->pfuncAfterReadInputPlugin = pfuncAfterReadInputPlugin ;
+	p_logpipe_input_plugin->pfuncCleanInputPluginContext = pfuncCleanInputPluginContext ;
+	p_logpipe_input_plugin->pfuncUnloadInputPluginConfig = pfuncUnloadInputPluginConfig ;
+	
+	p_logpipe_input_plugin->fd = fd ;
+	p_logpipe_input_plugin->context = context ;
+	
+	if( p_logpipe_input_plugin->fd >= 0 )
+	{
+		memset( & event , 0x00 , sizeof(struct epoll_event) );
+		event.events = EPOLLIN | EPOLLERR ;
+		event.data.ptr = p_logpipe_input_plugin ;
+		nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_logpipe_input_plugin->fd , & event ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "epoll_ctl[%d] add input plugin fd[%d] failed , errno[%d]" , p_env->epoll_fd , p_logpipe_input_plugin->fd , errno );
+			free( p_logpipe_input_plugin );
+			return NULL;
+		}
+		else
+		{
+			INFOLOG( "epoll_ctl[%d] add input plugin fd[%d] ok" , p_env->epoll_fd , p_logpipe_input_plugin->fd );
+		}
+	}
+	
+	list_add( & (p_logpipe_input_plugin->this_node) , & (p_env->logpipe_input_plugins_list.this_node) );
+	
+	return p_logpipe_input_plugin;
+}
+
+void RemoveInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
+{
+	RemoveAllPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) );
+	
+	p_logpipe_input_plugin->pfuncUnloadInputPluginConfig( p_env , p_logpipe_input_plugin , & (p_logpipe_input_plugin->context) );
+	
+	if( p_logpipe_input_plugin->so_handler )
+	{
+		dlclose( p_logpipe_input_plugin->so_handler );
+	}
+	
+	list_del( & (p_logpipe_input_plugin->this_node) );
+	
+	free( p_logpipe_input_plugin );
+	
+	return;
+}
+
+void RemoveOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin )
+{
+	RemoveAllPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) );
+	
+	p_logpipe_output_plugin->pfuncUnloadOutputPluginConfig( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->context) );
+	
+	if( p_logpipe_output_plugin->so_handler )
+	{
+		dlclose( p_logpipe_output_plugin->so_handler );
+	}
+	
+	list_del( & (p_logpipe_output_plugin->this_node) );
+	
+	free( p_logpipe_output_plugin );
+	
+	return;
+}

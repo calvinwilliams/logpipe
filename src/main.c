@@ -73,6 +73,7 @@ int main( int argc , char *argv[] )
 	}
 	memset( p_env , 0x00 , sizeof(struct LogpipeEnv) );
 	
+	p_env->epoll_fd = -1 ;
 	INIT_LIST_HEAD( & (p_env->logpipe_input_plugins_list.this_node) );
 	INIT_LIST_HEAD( & (p_env->logpipe_output_plugins_list.this_node) );
 	
@@ -95,10 +96,6 @@ int main( int argc , char *argv[] )
 		return 1;
 	}
 	
-	nret = InitEnvironment( p_env ) ;
-	if( nret )
-		return -nret;
-	
 	if( p_env->no_daemon )
 	{
 		umask( 0 ) ;
@@ -109,6 +106,8 @@ int main( int argc , char *argv[] )
 	{
 		nret = BindDaemonServer( & _monitor , (void*)p_env , 1 ) ;
 	}
+	
+	UnloadConfig( p_env );
 	
 	free( p_env );
 	

@@ -6,35 +6,35 @@
 
 char	*__LOGPIPE_INPUT_TCP_VERSION = "0.1.0" ;
 
-struct LogpipeInputPluginContext_AcceptedSession
+struct InputPluginContext_AcceptedSession
 {
 	struct sockaddr_in	accepted_addr ;
 	int			accepted_sock ;
 } ;
 
-funcOnLogpipeInputEvent OnLogpipeInputEvent_accepted_session ;
-int OnLogpipeInputEvent_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+funcOnInputPluginEvent OnInputPluginEvent_accepted_session ;
+int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
-	struct LogpipeInputPluginContext_AcceptedSession	*p_accepted_session_context = (struct LogpipeInputPluginContext_AcceptedSession *)p_context ;
+	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
 	
-	uint16_t						*filename_len_htons = NULL ;
-	char							comm_buf[ 1 + sizeof(uint16_t) + PATH_MAX ] ;
-	uint16_t						filename_len ;
-	int							len ;
+	uint16_t					*filename_len_htons = NULL ;
+	char						comm_buf[ 1 + sizeof(uint16_t) + PATH_MAX ] ;
+	uint16_t					filename_len ;
+	int						len ;
 	
-	int							nret = 0 ;
+	int						nret = 0 ;
 	
 	len = readn( p_accepted_session_context->accepted_sock , comm_buf , 1+sizeof(uint16_t) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "recv comm magic and filename len failed , errno[%d]" , errno );
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	else if( len == 0 )
 	{
 		INFOLOG( "remote socket closed on recv comm magic and filename len" );
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	else
@@ -46,7 +46,7 @@ int OnLogpipeInputEvent_accepted_session( struct LogpipeEnv *p_env , struct Logp
 	if( comm_buf[0] != LOGPIPE_COMM_HEAD_MAGIC )
 	{
 		ERRORLOG( "magic[%c][%d] invalid" , comm_buf[0] , comm_buf[0] );
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	
@@ -56,7 +56,7 @@ int OnLogpipeInputEvent_accepted_session( struct LogpipeEnv *p_env , struct Logp
 	if( filename_len > PATH_MAX )
 	{
 		ERRORLOG( "filename length[%d] too long" , filename_len );
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	
@@ -64,13 +64,13 @@ int OnLogpipeInputEvent_accepted_session( struct LogpipeEnv *p_env , struct Logp
 	if( len == -1 )
 	{
 		ERRORLOG( "recv accepted session sock failed , errno[%d]" , errno );
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	else if( len == 0 )
 	{
 		ERRORLOG( "remote socket closed on recv accepted session sock" );
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	else
@@ -90,30 +90,30 @@ int OnLogpipeInputEvent_accepted_session( struct LogpipeEnv *p_env , struct Logp
 	return 0;
 }
 
-funcBeforeReadLogpipeInput BeforeReadLogpipeInput_accepted_session ;
-int BeforeReadLogpipeInput_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+funcBeforeReadInputPlugin BeforeReadInputPlugin_accepted_session ;
+int BeforeReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	return 0;
 }
 
-funcReadLogpipeInput ReadLogpipeInput_accepted_session ;
-int ReadLogpipeInput_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+funcReadInputPlugin ReadInputPlugin_accepted_session ;
+int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
-	struct LogpipeInputPluginContext_AcceptedSession	*p_accepted_session_context = (struct LogpipeInputPluginContext_AcceptedSession *)p_context ;
-	uint32_t						block_len_htonl ;
-	int							len ;
+	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
+	uint32_t					block_len_htonl ;
+	int						len ;
 	
 	len = readn( p_accepted_session_context->accepted_sock , & block_len_htonl , sizeof(uint32_t) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "recv block length from accepted session sock failed , errno[%d]" , errno )
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	else if( len == 0 )
 	{
 		ERRORLOG( "accepted sessio sock closed on recv block length" )
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	else
@@ -128,7 +128,7 @@ int ReadLogpipeInput_accepted_session( struct LogpipeEnv *p_env , struct Logpipe
 	if( (*p_block_len) > block_bufsize-1 )
 	{
 		ERRORLOG( "block length[%d] too long" , (*p_block_len) )
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	
@@ -136,13 +136,13 @@ int ReadLogpipeInput_accepted_session( struct LogpipeEnv *p_env , struct Logpipe
 	if( len == -1 )
 	{
 		ERRORLOG( "recv block from accepted session sock failed , errno[%d]" , errno )
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	else if( len == 0 )
 	{
 		ERRORLOG( "accepted session socket closed on recv block" )
-		RemoveLogpipeInputSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
 		return 1;
 	}
 	else
@@ -154,32 +154,39 @@ int ReadLogpipeInput_accepted_session( struct LogpipeEnv *p_env , struct Logpipe
 	return 0;
 }
 
-funcAfterReadLogpipeInput AfterReadLogpipeInput_accepted_session ;
-int AfterReadLogpipeInput_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+funcAfterReadInputPlugin AfterReadInputPlugin_accepted_session ;
+int AfterReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	return 0;
 }
 
-funcCleanLogpipeInputPlugin CleanLogpipeInputPlugin_accepted_session ;
-int CleanLogpipeInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+funcCleanInputPluginContext CleanInputPluginContext_accepted_session ;
+int CleanInputPluginContext_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
-	struct LogpipeInputPluginContext_AcceptedSession	*p_accepted_session_context = (struct LogpipeInputPluginContext_AcceptedSession *)p_context ;
+	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
 	
 	if( p_accepted_session_context->accepted_sock >= 0 )
 	{
-		INFOLOG( "close accepted sock" )
+		INFOLOG( "close accepted sock[%d]" , p_accepted_session_context->accepted_sock )
 		close( p_accepted_session_context->accepted_sock ); p_accepted_session_context->accepted_sock = -1 ;
 	}
 	
-	INFOLOG( "free p_accepted_session_context" )
-	free( p_accepted_session_context );
+	return 0;
+}
+
+funcUnloadInputPluginConfig UnloadInputPluginConfig_accepted_session ;
+int UnloadInputPluginConfig_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void **pp_context )
+{
+	struct InputPluginContext_AcceptedSession	**pp_accepted_session_context = (struct InputPluginContext_AcceptedSession **)pp_context ;
+	
+	free( (*pp_accepted_session_context) ); (*pp_accepted_session_context) = NULL ;
 	
 	return 0;
 }
 
 /****************** 以上为已连接会话 ******************/
 
-struct LogpipeInputPluginContext
+struct InputPluginContext
 {
 	char			*ip ;
 	int			port ;
@@ -188,21 +195,19 @@ struct LogpipeInputPluginContext
 	int			listen_sock ;
 } ;
 
-funcInitLogpipeInputPlugin InitLogpipeInputPlugin ;
-int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd )
+funcLoadInputPluginConfig LoadInputPluginConfig ;
+int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd )
 {
-	struct LogpipeInputPluginContext	*p_plugin_ctx = NULL ;
-	char					*p = NULL ;
+	struct InputPluginContext	*p_plugin_ctx = NULL ;
+	char				*p = NULL ;
 	
-	int					nret = 0 ;
-	
-	p_plugin_ctx = (struct LogpipeInputPluginContext *)malloc( sizeof(struct LogpipeInputPluginContext) ) ;
+	p_plugin_ctx = (struct InputPluginContext *)malloc( sizeof(struct InputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
 		ERRORLOG( "malloc failed , errno[%d]" , errno );
 		return -1;
 	}
-	memset( p_plugin_ctx , 0x00 , sizeof(struct LogpipeInputPluginContext) );
+	memset( p_plugin_ctx , 0x00 , sizeof(struct InputPluginContext) );
 	
 	/* 解析插件配置 */
 	p_plugin_ctx->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
@@ -223,6 +228,19 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	else
 		p_plugin_ctx->listen_addr.sin_addr.s_addr = inet_addr(p_plugin_ctx->ip) ;
 	p_plugin_ctx->listen_addr.sin_port = htons( (unsigned short)(p_plugin_ctx->port) );
+	
+	/* 设置插件环境上下文 */
+	(*pp_context) = p_plugin_ctx ;
+	
+	return 0;
+}
+
+funcInitInputPluginContext InitInputPluginContext ;
+int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , int *p_fd )
+{
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
+	
+	int				nret = 0 ;
 	
 	/* 创建侦听端 */
 	p_plugin_ctx->listen_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
@@ -263,101 +281,106 @@ int InitLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		INFOLOG( "listen[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->listen_sock )
 	}
 	
-	/* 设置插件环境上下文 */
-	(*pp_context) = p_plugin_ctx ;
+	/* 设置输入描述字 */
 	(*p_fd) = p_plugin_ctx->listen_sock ;
 	
 	return 0;
 }
 
-funcInitLogpipeInputPlugin2 InitLogpipeInputPlugin2 ;
-int InitLogpipeInputPlugin2( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd )
+funcOnInputPluginEvent OnInputPluginEvent ;
+int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
-	return 0;
-}
-
-funcOnLogpipeInputEvent OnLogpipeInputEvent ;
-int OnLogpipeInputEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	struct LogpipeInputPluginContext			*p_plugin_ctx = (struct LogpipeInputPluginContext *)p_context ;
-	struct LogpipeInputPluginContext_AcceptedSession	*p_logpipe_input_plugin_tcp_accepted = NULL ;
-	socklen_t						accept_addr_len ;
+	struct InputPluginContext			*p_plugin_ctx = (struct InputPluginContext *)p_context ;
+	struct InputPluginContext_AcceptedSession	*p_accepted_session_ctx = NULL ;
+	struct LogpipeInputPlugin			*p_accepted_session = NULL ;
+	socklen_t					accept_addr_len ;
 	
 	/* 申请内存以存放客户端连接会话 */
-	p_logpipe_input_plugin_tcp_accepted = (struct LogpipeInputPluginContext_AcceptedSession *)malloc( sizeof(struct LogpipeInputPluginContext_AcceptedSession) ) ;
-	if( p_logpipe_input_plugin_tcp_accepted == NULL )
+	p_accepted_session_ctx = (struct InputPluginContext_AcceptedSession *)malloc( sizeof(struct InputPluginContext_AcceptedSession) ) ;
+	if( p_accepted_session_ctx == NULL )
 	{
 		ERRORLOG( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
-	memset( p_logpipe_input_plugin_tcp_accepted , 0x00 , sizeof(struct LogpipeInputPluginContext_AcceptedSession) );
+	memset( p_accepted_session_ctx , 0x00 , sizeof(struct InputPluginContext_AcceptedSession) );
 	
 	/* 接受新连接 */
 	accept_addr_len = sizeof(struct sockaddr) ;
-	p_logpipe_input_plugin_tcp_accepted->accepted_sock = accept( p_plugin_ctx->listen_sock , (struct sockaddr *) & (p_logpipe_input_plugin_tcp_accepted->accepted_addr) , & accept_addr_len ) ;
-	if( p_logpipe_input_plugin_tcp_accepted->accepted_sock == -1 )
+	p_accepted_session_ctx->accepted_sock = accept( p_plugin_ctx->listen_sock , (struct sockaddr *) & (p_accepted_session_ctx->accepted_addr) , & accept_addr_len ) ;
+	if( p_accepted_session_ctx->accepted_sock == -1 )
 	{
 		ERRORLOG( "accept failed , errno[%d]" , errno )
-		free( p_logpipe_input_plugin_tcp_accepted );
+		free( p_accepted_session_ctx );
 		return -1;
 	}
 	
 	/* 设置套接字选项 */
 	{
 		int	onoff = 1 ;
-		setsockopt( p_logpipe_input_plugin_tcp_accepted->accepted_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+		setsockopt( p_accepted_session_ctx->accepted_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
 	}
 	
 	{
 		int	onoff = 1 ;
-		setsockopt( p_logpipe_input_plugin_tcp_accepted->accepted_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+		setsockopt( p_accepted_session_ctx->accepted_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
 	}
 	
-	DEBUGLOG( "[%d]accept[%d] ok" , p_plugin_ctx->listen_sock , p_logpipe_input_plugin_tcp_accepted->accepted_sock )
+	DEBUGLOG( "[%d]accept[%d] ok" , p_plugin_ctx->listen_sock , p_accepted_session_ctx->accepted_sock )
 	
-	p_logpipe_input_plugin = AddLogpipeInputSession( p_env , "accepted_session" , & OnLogpipeInputEvent_accepted_session , & BeforeReadLogpipeInput_accepted_session , & ReadLogpipeInput_accepted_session , & AfterReadLogpipeInput_accepted_session , & CleanLogpipeInputPlugin_accepted_session , p_logpipe_input_plugin_tcp_accepted->accepted_sock , p_logpipe_input_plugin_tcp_accepted ) ;
-	if( p_logpipe_input_plugin == NULL )
+	p_accepted_session = AddInputPluginSession( p_env , "accepted_session"
+					, & OnInputPluginEvent_accepted_session
+					, & BeforeReadInputPlugin_accepted_session , & ReadInputPlugin_accepted_session , & AfterReadInputPlugin_accepted_session
+					, & CleanInputPluginContext_accepted_session , & UnloadInputPluginConfig_accepted_session
+					, p_accepted_session_ctx->accepted_sock , p_accepted_session_ctx ) ;
+	if( p_accepted_session == NULL )
 	{
-		close( p_logpipe_input_plugin_tcp_accepted->accepted_sock );
-		free( p_logpipe_input_plugin_tcp_accepted );
-		ERRORLOG( "AddLogpipeInputSession failed" )
+		close( p_accepted_session_ctx->accepted_sock );
+		free( p_accepted_session_ctx );
+		ERRORLOG( "AddInputPluginSession failed" )
 		return -1;
 	}
 	
 	return 0;
 }
 
-funcBeforeReadLogpipeInput BeforeReadLogpipeInput ;
-int BeforeReadLogpipeInput( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+funcBeforeReadInputPlugin BeforeReadInputPlugin ;
+int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	return 0;
 }
 
-funcReadLogpipeInput ReadLogpipeInput ;
-int ReadLogpipeInput( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+funcReadInputPlugin ReadInputPlugin ;
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
 	return 0;
 }
 
-funcAfterReadLogpipeInput AfterReadLogpipeInput ;
-int AfterReadLogpipeInput( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+funcAfterReadInputPlugin AfterReadInputPlugin ;
+int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	return 0;
 }
 
-funcCleanLogpipeInputPlugin CleanLogpipeInputPlugin ;
-int CleanLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+funcCleanInputPluginContext CleanInputPluginContext ;
+int CleanInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
-	struct LogpipeInputPluginContext	*p_plugin_ctx = (struct LogpipeInputPluginContext *)p_context ;
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	
 	if( p_plugin_ctx->listen_sock >= 0 )
 	{
-		INFOLOG( "close listen sock" )
+		INFOLOG( "close listen sock[%d]" , p_plugin_ctx->listen_sock )
 		close( p_plugin_ctx->listen_sock ); p_plugin_ctx->listen_sock = -1 ;
 	}
 	
-	INFOLOG( "free p_plugin_ctx" )
-	free( p_plugin_ctx );
+	return 0;
+}
+
+funcUnloadInputPluginConfig UnloadInputPluginConfig ;
+int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void **pp_context )
+{
+	struct InputPluginContext	**pp_plugin_ctx = (struct InputPluginContext **)pp_context ;
+	
+	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
 	
 	return 0;
 }

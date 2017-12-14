@@ -20,15 +20,7 @@ int worker( struct LogpipeEnv *p_env )
 	SetLogFile( p_env->log_file );
 	SetLogLevel( p_env->log_level );
 	
-	/* 第二次初始化环境 */
-	nret = InitEnvironment2( p_env ) ;
-	if( nret )
-	{
-		ERRORLOG( "InitEnvironment2 failed[%d]" , nret );
-		return -1;
-	}
-	
-	/* 创建epoll */
+	/* 创建事件总线 */
 	p_env->epoll_fd = epoll_create( 1024 ) ;
 	if( p_env->epoll_fd == -1 )
 	{
@@ -37,25 +29,19 @@ int worker( struct LogpipeEnv *p_env )
 	}
 	else
 	{
-		INFOLOG( "epoll_create ok" )
+		INFOLOG( "epoll_create ok , epoll_fd[%d]" , p_env->epoll_fd )
 	}
 	
-	/* 所有输入端描述字加入epoll */
-	list_for_each_entry( p_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
+	/* 初始化插件环境 */
+	nret = InitEnvironment( p_env ) ;
+	if( nret )
 	{
-		if( p_logpipe_input_plugin->fd >= 0 )
-		{
-			/* 加入订阅可读事件到epoll */
-			memset( & event , 0x00 , sizeof(struct epoll_event) );
-			event.events = EPOLLIN | EPOLLERR ;
-			event.data.ptr = p_logpipe_input_plugin ;
-			nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_logpipe_input_plugin->fd , & event ) ;
-			if( nret == -1 )
-			{
-				ERRORLOG( "epoll_ctl[%d] add input plugin fd[%d] EPOLLIN failed , errno[%d]" , p_env->epoll_fd , p_logpipe_input_plugin->fd , errno );
-				return -1;
-			}
-		}
+		ERRORLOG( "InitEnvironment failed[%d]" , nret );
+		return -1;
+	}
+	else
+	{
+		INFOLOG( "InitEnvironment ok" )
 	}
 	
 	/* 管道描述字加入epoll */
@@ -114,33 +100,37 @@ int worker( struct LogpipeEnv *p_env )
 				/* 可读事件 */
 				if( p_event->events & EPOLLIN )
 				{
-					nret = p_logpipe_input_plugin->pfuncOnLogpipeInputEvent( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
+					nret = p_logpipe_input_plugin->pfuncOnInputPluginEvent( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
 					if( nret < 0 )
 					{
-						FATALLOG( "[%s]->pfuncOnLogpipeInputEvent failed[%d]" , so_filename , nret )
+						FATALLOG( "[%s]->pfuncOnInputPluginEvent failed[%d]" , so_filename , nret )
 						return -1;
 					}
 					else if( nret > 0 )
 					{
-						INFOLOG( "[%s]->pfuncOnLogpipeInputEvent return[%d]" , so_filename , nret )
+						INFOLOG( "[%s]->pfuncOnInputPluginEvent return[%d]" , so_filename , nret )
 					}
 					else
 					{
-						DEBUGLOG( "[%s]->pfuncOnLogpipeInputEvent ok" , so_filename )
+						DEBUGLOG( "[%s]->pfuncOnInputPluginEvent ok" , so_filename )
 					}
 				}
 				/* 其它事件 */
 				else
 				{
-					FATALLOG( "[%s]->pfuncOnLogpipeInputEvent unknow event[0x%X]" , so_filename , p_event->events )
+					FATALLOG( "[%s]->pfuncOnInputPluginEvent unknow event[0x%X]" , so_filename , p_event->events )
 					return -1;
 				}
 			}
 		}
 	}
 	
-	/* 销毁epoll */
-	INFOLOG( " close epoll" )
+	/* 清理插件环境 */
+	CleanEnvironment( p_env );
+	INFOLOG( "CleanEnvironment" )
+	
+	/* 关闭事件总线 */
+	INFOLOG( " close epoll_fd[%d]" , p_env->epoll_fd )
 	close( p_env->epoll_fd );
 	
 	return 0;
