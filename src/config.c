@@ -211,7 +211,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 				return -1;
 			memset( p_logpipe_input_plugin , 0x00 , sizeof(struct LogpipeInputPlugin) );
 			
-			INIT_LIST_HEAD( & (p_logpipe_input_plugin->plugin_config_items.this_node) );
+			DuplicatePluginConfigItems( & (p_logpipe_input_plugin->plugin_config_items) , & (p_env->public_plugin_config_items) );
 		}
 		else if( jpath_len == sizeof(LOGPIPE_CONFIG_OUTPUTS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_OUTPUTS , jpath_len ) )
 		{
@@ -220,7 +220,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 				return -1;
 			memset( p_logpipe_output_plugin , 0x00 , sizeof(struct LogpipeOutputPlugin) );
 			
-			INIT_LIST_HEAD( & (p_logpipe_output_plugin->plugin_config_items.this_node) );
+			DuplicatePluginConfigItems( & (p_logpipe_output_plugin->plugin_config_items) , & (p_env->public_plugin_config_items) );
 		}
 	}
 	else if( (type&FASTERJSON_NODE_LEAVE) && (type&FASTERJSON_NODE_BRANCH) )
@@ -299,7 +299,7 @@ int LoadConfig( struct LogpipeEnv *p_env )
 	nret = TravelJsonBuffer( file_content , jpath , sizeof(jpath) , & CallbackOnJsonNode , p_env ) ;
 	if( nret )
 	{
-		ERRORLOG( "parse config[%s] failed" , p_env->config_path_filename );
+		ERRORLOG( "parse config[%s] failed[%d]" , p_env->config_path_filename , nret );
 		free( file_content );
 		return -1;
 	}
@@ -352,75 +352,19 @@ void UnloadConfig( struct LogpipeEnv *p_env )
 	/* 执行所有输入端初始化函数 */
 	list_for_each_entry_safe( p_logpipe_input_plugin , p_next_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
 	{
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		UnloadInputPluginSession( p_env , p_logpipe_input_plugin );
 	}
 	
 	/* 执行所有输出端初始化函数 */
 	list_for_each_entry_safe( p_logpipe_output_plugin , p_next_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
-		RemoveOutputPluginSession( p_env , p_logpipe_output_plugin );
+		UnloadOutputPluginSession( p_env , p_logpipe_output_plugin );
 	}
 	
 	return;
 }
 
-struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , char *so_filename
-						, funcOnInputPluginEvent *pfuncOnInputPluginEvent
-						, funcBeforeReadInputPlugin *pfuncBeforeReadInputPlugin , funcReadInputPlugin *pfuncReadInputPlugin , funcAfterReadInputPlugin *pfuncAfterReadInputPlugin
-						, funcCleanInputPluginContext *pfuncCleanInputPluginContext , funcUnloadInputPluginConfig *pfuncUnloadInputPluginConfig
-						, int fd , void *context )
-{
-	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
-	struct epoll_event		event ;
-	
-	int				nret = 0 ;
-	
-	p_logpipe_input_plugin = (struct LogpipeInputPlugin *)malloc( sizeof(struct LogpipeInputPlugin) ) ;
-	if( p_logpipe_input_plugin == NULL )
-		return NULL;
-	memset( p_logpipe_input_plugin , 0x00 , sizeof(struct LogpipeInputPlugin) );
-	
-	INIT_LIST_HEAD( & (p_logpipe_input_plugin->plugin_config_items.this_node) );
-	
-	if( so_filename )
-	{
-		strncpy( p_logpipe_input_plugin->so_filename , so_filename , sizeof(p_logpipe_input_plugin->so_filename)-1 );
-	}
-	
-	p_logpipe_input_plugin->pfuncOnInputPluginEvent = pfuncOnInputPluginEvent ;
-	p_logpipe_input_plugin->pfuncBeforeReadInputPlugin = pfuncBeforeReadInputPlugin ;
-	p_logpipe_input_plugin->pfuncReadInputPlugin = pfuncReadInputPlugin ;
-	p_logpipe_input_plugin->pfuncAfterReadInputPlugin = pfuncAfterReadInputPlugin ;
-	p_logpipe_input_plugin->pfuncCleanInputPluginContext = pfuncCleanInputPluginContext ;
-	p_logpipe_input_plugin->pfuncUnloadInputPluginConfig = pfuncUnloadInputPluginConfig ;
-	
-	p_logpipe_input_plugin->fd = fd ;
-	p_logpipe_input_plugin->context = context ;
-	
-	if( p_logpipe_input_plugin->fd >= 0 )
-	{
-		memset( & event , 0x00 , sizeof(struct epoll_event) );
-		event.events = EPOLLIN | EPOLLERR ;
-		event.data.ptr = p_logpipe_input_plugin ;
-		nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_logpipe_input_plugin->fd , & event ) ;
-		if( nret == -1 )
-		{
-			ERRORLOG( "epoll_ctl[%d] add input plugin fd[%d] failed , errno[%d]" , p_env->epoll_fd , p_logpipe_input_plugin->fd , errno );
-			free( p_logpipe_input_plugin );
-			return NULL;
-		}
-		else
-		{
-			INFOLOG( "epoll_ctl[%d] add input plugin fd[%d] ok" , p_env->epoll_fd , p_logpipe_input_plugin->fd );
-		}
-	}
-	
-	list_add( & (p_logpipe_input_plugin->this_node) , & (p_env->logpipe_input_plugins_list.this_node) );
-	
-	return p_logpipe_input_plugin;
-}
-
-void RemoveInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
+void UnloadInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
 {
 	RemoveAllPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) );
 	
@@ -438,7 +382,7 @@ void RemoveInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlu
 	return;
 }
 
-void RemoveOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin )
+void UnloadOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin )
 {
 	RemoveAllPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) );
 	
@@ -455,3 +399,4 @@ void RemoveOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputP
 	
 	return;
 }
+

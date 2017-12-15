@@ -10,8 +10,6 @@ extern "C" {
 #include "list.h"
 #include "rbtree.h"
 
-#include "fasterjson.h"
-
 /* 插件配置结构 */
 struct LogpipePluginConfigItem
 {
@@ -71,6 +69,7 @@ struct LogpipeEnv
 	
 	char				log_file[ PATH_MAX + 1 ] ;
 	int				log_level ;
+	struct LogpipePluginConfigItem	public_plugin_config_items ;
 	
 	int				epoll_fd ;
 	
@@ -81,23 +80,32 @@ struct LogpipeEnv
 	int				quit_pipe[2] ;
 } ;
 
+/* 公共函数 */
 int WriteEntireFile( char *pathfilename , char *file_content , int file_len );
 char *StrdupEntireFile( char *pathfilename , int *p_file_len );
 int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag );
 
+/* 插件配置函数 */
+int AddPluginConfigItem( struct LogpipePluginConfigItem *config , char *key , int key_len , char *value , int value_len );
+int DuplicatePluginConfigItems( struct LogpipePluginConfigItem *dst , struct LogpipePluginConfigItem *src );
+void RemoveAllPluginConfigItem( struct LogpipePluginConfigItem *config );
+
+/* 配置 */
 int LoadConfig( struct LogpipeEnv *p_env );
 void UnloadConfig( struct LogpipeEnv *p_env );
+void UnloadInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin );
+void UnloadOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin );
 
+/* 环境 */
 int InitEnvironment( struct LogpipeEnv *p_env );
-int InitEnvironment2( struct LogpipeEnv *p_env );
 void CleanEnvironment( struct LogpipeEnv *p_env );
 
+/* 管理进程 */
 int monitor( struct LogpipeEnv *p_env );
 int _monitor( void *pv );
 
+/* 工作进程 */
 int worker( struct LogpipeEnv *p_env );
-
-void RemoveOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin );
 
 #ifdef __cplusplus
 }

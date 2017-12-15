@@ -25,9 +25,13 @@ struct InputPluginContext
 {
 	char			*path ;
 	char			*file ;
-	int			rotate_max_size ;
-	char			*exec_after_rotate ;
+	char			exec_before_rotating_buffer[ PATH_MAX * 3 ] ;
+	char			*exec_before_rotating ;
+	int			rotate_size ;
+	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
+	char			*exec_after_rotating ;
 	char			*compress_algorithm ;
+	int			start_for_full_dose ;
 	
 	int			inotify_fd ;
 	int			inotify_path_wd ;
@@ -63,7 +67,7 @@ void FreeTraceFile( void *pv )
 
 DESTROY_RBTREE( DestroyTraceFileTree , struct InputPluginContext , inotify_wd_rbtree , struct TraceFile , inotify_file_wd_rbnode , FreeTraceFile )
 
-static int RoratingFile( char *pathname , char *filename , int filename_len )
+static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathname , char *filename , int filename_len )
 {
 	time_t		tt ;
 	struct tm	tm ;
@@ -73,13 +77,27 @@ static int RoratingFile( char *pathname , char *filename , int filename_len )
 	int		nret = 0 ;
 	
 	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%.*s" , pathname , filename_len , filename );
-	
 	time( & tt );
 	memset( & tm , 0x00 , sizeof(struct tm) );
 	localtime_r( & tt , & tm );
 	memset( new_filename , 0x00 , sizeof(new_filename) );
 	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec );
+	
+	setenv( "LOGPIPE_ROTATING_OLD_FILENAME" , old_filename , 1 );
+	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
+	
+	if( p_plugin_ctx->exec_before_rotating )
+	{
+		system( p_plugin_ctx->exec_before_rotating );
+	}
+	
 	nret = rename( old_filename , new_filename ) ;
+	
+	if( p_plugin_ctx->exec_after_rotating )
+	{
+		system( p_plugin_ctx->exec_after_rotating );
+	}
+	
 	if( nret )
 	{
 		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
@@ -130,10 +148,10 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 	}
 	
-	if( p_plugin_ctx->rotate_max_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_max_size )
+	if( p_plugin_ctx->rotate_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_size )
 	{
-		INFOLOG( "file_stat.st_size[%d] > p_env->conf.rotate.file_rotate_max_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_max_size )
-		RoratingFile( p_trace_file->pathname , p_trace_file->filename , p_trace_file->filename_len );
+		INFOLOG( "file_stat.st_size[%d] > p_env->conf.rotate.file_rotate_max_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
+		RotatingFile( p_plugin_ctx , p_trace_file->pathname , p_trace_file->filename , p_trace_file->filename_len );
 		
 		memset( & file_stat , 0x00 , sizeof(struct stat) );
 		nret = fstat( fd , & file_stat ) ;
@@ -171,7 +189,7 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	
 	close( fd );
 	
-	if( p_plugin_ctx->rotate_max_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_max_size )
+	if( p_plugin_ctx->rotate_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_size )
 	{
 		RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 	}
@@ -232,7 +250,10 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	p_trace_file->filename_len = len ;
 	
-	p_trace_file->trace_offset = 0 ;
+	if( check_flag_offset_flag )
+		p_trace_file->trace_offset = 0 ;
+	else
+		p_trace_file->trace_offset = file_stat.st_size ;
 	
 	p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED) ) ;
 	if( p_trace_file->inotify_file_wd == -1 )
@@ -244,7 +265,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	else
 	{
-		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
+		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset )
 	}
 	
 	p_trace_file_not_exist = QueryTraceFileWdTreeNode( p_plugin_ctx , p_trace_file ) ;
@@ -290,7 +311,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 		
 		if( ent->d_type & DT_REG )
 		{
-			nret = AddFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , ent->d_name , 0 ) ;
+			nret = AddFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , ent->d_name , p_plugin_ctx->start_for_full_dose ) ;
 			if( nret )
 			{
 				ERRORLOG( "AddFileWatcher[%s] failed[%d]" , ent->d_name , nret );
@@ -326,15 +347,48 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_plugin_ctx->file = QueryPluginConfigItem( p_plugin_config_items , "file" ) ;
 	INFOLOG( "file[%s]" , p_plugin_ctx->file )
 	
-	p = QueryPluginConfigItem( p_plugin_config_items , "file" ) ;
+	p = QueryPluginConfigItem( p_plugin_config_items , "exec_before_rotating" ) ;
 	if( p )
-		p_plugin_ctx->rotate_max_size = atoi(p) ;
-	else
-		p_plugin_ctx->rotate_max_size = 0 ;
-	INFOLOG( "rotate_max_size[%d]" , p_plugin_ctx->rotate_max_size )
+	{
+		int		buffer_len = 0 ;
+		int		remain_len = sizeof(p_plugin_ctx->exec_before_rotating_buffer)-1 ;
+		
+		memset( p_plugin_ctx->exec_before_rotating_buffer , 0x00 , sizeof(p_plugin_ctx->exec_before_rotating_buffer) );
+		JSONUNESCAPE_FOLD( p , strlen(p) , p_plugin_ctx->exec_before_rotating_buffer , buffer_len , remain_len )
+		if( buffer_len == -1 )
+		{
+			ERRORLOG( "p[%s] invalid" , p );
+			return -1;
+		}
+		
+		p_plugin_ctx->exec_before_rotating = p_plugin_ctx->exec_before_rotating_buffer ;
+	}
+	INFOLOG( "exec_before_rotating[%s]" , p_plugin_ctx->exec_before_rotating )
 	
-	p_plugin_ctx->exec_after_rotate = QueryPluginConfigItem( p_plugin_config_items , "exec_after_rotate" ) ;
-	INFOLOG( "exec_after_rotate[%s]" , p_plugin_ctx->exec_after_rotate )
+	p = QueryPluginConfigItem( p_plugin_config_items , "rotate_size" ) ;
+	if( p )
+		p_plugin_ctx->rotate_size = atoi(p) ;
+	else
+		p_plugin_ctx->rotate_size = 0 ;
+	INFOLOG( "rotate_size[%d]" , p_plugin_ctx->rotate_size )
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "exec_after_rotating" ) ;
+	if( p )
+	{
+		int		buffer_len = 0 ;
+		int		remain_len = sizeof(p_plugin_ctx->exec_after_rotating_buffer)-1 ;
+		
+		memset( p_plugin_ctx->exec_after_rotating_buffer , 0x00 , sizeof(p_plugin_ctx->exec_after_rotating_buffer) );
+		JSONUNESCAPE_FOLD( p , strlen(p) , p_plugin_ctx->exec_after_rotating_buffer , buffer_len , remain_len )
+		if( buffer_len == -1 )
+		{
+			ERRORLOG( "p[%s] invalid" , p );
+			return -1;
+		}
+		
+		p_plugin_ctx->exec_after_rotating = p_plugin_ctx->exec_after_rotating_buffer ;
+	}
+	INFOLOG( "exec_after_rotating[%s]" , p_plugin_ctx->exec_after_rotating )
 	
 	p_plugin_ctx->compress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "compress_algorithm" ) ;
 	if( p_plugin_ctx->compress_algorithm )
@@ -350,6 +404,13 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 	}
 	INFOLOG( "compress_algorithm[%s]" , p_plugin_ctx->compress_algorithm )
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "start_for_full_dose" ) ;
+	if( p )
+		p_plugin_ctx->start_for_full_dose = atoi(p) ;
+	else
+		p_plugin_ctx->start_for_full_dose = 0 ;
+	INFOLOG( "start_for_full_dose[%d]" , p_plugin_ctx->start_for_full_dose )
 	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;

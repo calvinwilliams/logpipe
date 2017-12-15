@@ -1,3 +1,7 @@
+0.6.0		2017-12-15	calvin
+		* logpipe-input-file新增配置项exec_before_rotating,rotate_size,exec_after_rotating
+		* logpipe命令行参数新增公共配置项机制--public-plugin-config-item-，logpipe-input-file新增配置项start_for_full_dose
+
 0.5.0		2017-12-14	calvin
 		* 重构设计，采用插件模型
 

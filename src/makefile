@@ -31,6 +31,7 @@ LIBINST		=	$(_LIBINST)
 HDER		= \
 			rbtree.h \
 			LOGC.h \
+			fasterjson.h \
 			rbtree_tpl.h \
 			logpipe_api.h \
 

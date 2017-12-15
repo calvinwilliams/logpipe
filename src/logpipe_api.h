@@ -35,6 +35,7 @@ int asprintf(char **strp, const char *fmt, ...);
 #include "rbtree_tpl.h"
 
 #include "LOGC.h"
+#include "fasterjson.h"
 
 ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t readn(int fd, void *vptr, size_t n);
@@ -52,9 +53,7 @@ struct LogpipeInputPlugin ;
 struct LogpipeOutputPlugin ;
 
 /* 插件配置函数 */
-int AddPluginConfigItem( struct LogpipePluginConfigItem *config , char *key , int key_len , char *value , int value_len );
 char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key );
-void RemoveAllPluginConfigItem( struct LogpipePluginConfigItem *config );
 
 /* 输入插件回调函数原型 */
 typedef int funcLoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd );
