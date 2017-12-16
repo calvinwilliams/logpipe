@@ -69,7 +69,7 @@ struct LogpipeEnv
 	
 	char				log_file[ PATH_MAX + 1 ] ;
 	int				log_level ;
-	struct LogpipePluginConfigItem	public_plugin_config_items ;
+	struct LogpipePluginConfigItem	start_once_for_plugin_config_items ;
 	
 	int				epoll_fd ;
 	
@@ -88,7 +88,8 @@ int BindDaemonServer( int (* ServerMain)( void *pv ) , void *pv , int close_flag
 /* ≤Âº˛≈‰÷√∫Ø ˝ */
 int AddPluginConfigItem( struct LogpipePluginConfigItem *config , char *key , int key_len , char *value , int value_len );
 int DuplicatePluginConfigItems( struct LogpipePluginConfigItem *dst , struct LogpipePluginConfigItem *src );
-void RemoveAllPluginConfigItem( struct LogpipePluginConfigItem *config );
+void RemovePluginConfigItemsFrom( struct LogpipePluginConfigItem *config , struct LogpipePluginConfigItem *from );
+void RemoveAllPluginConfigItems( struct LogpipePluginConfigItem *config );
 
 /* ≈‰÷√ */
 int LoadConfig( struct LogpipeEnv *p_env );

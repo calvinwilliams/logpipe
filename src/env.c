@@ -19,7 +19,7 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncInitOutputPluginContext ok" , p_logpipe_output_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncInitOutputPluginContext ok" , p_logpipe_output_plugin->so_filename );
 		}
 	}
 	
@@ -34,7 +34,7 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncInitInputPluginContext ok" , p_logpipe_input_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncInitInputPluginContext ok" , p_logpipe_input_plugin->so_filename );
 		}
 		
 		if( p_logpipe_input_plugin->fd >= 0 )
@@ -48,6 +48,10 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 			{
 				ERRORLOG( "epoll_ctl[%d] add input plugin fd[%d] EPOLLIN failed , errno[%d]" , p_env->epoll_fd , p_logpipe_input_plugin->fd , errno );
 				return -1;
+			}
+			else
+			{
+				INFOLOG( "epoll_ctl[%d] add input plugin fd[%d] EPOLLIN ok" , p_env->epoll_fd , p_logpipe_input_plugin->fd );
 			}
 		}
 		else
@@ -86,7 +90,7 @@ void CleanEnvironment( struct LogpipeEnv *p_env )
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncCleanInputPluginContext ok" , p_logpipe_input_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncCleanInputPluginContext ok" , p_logpipe_input_plugin->so_filename );
 		}
 	}
 	
@@ -101,7 +105,7 @@ void CleanEnvironment( struct LogpipeEnv *p_env )
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncCleanOutputPluginContext ok" , p_logpipe_output_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncCleanOutputPluginContext ok" , p_logpipe_output_plugin->so_filename );
 		}
 	}
 	
@@ -184,7 +188,7 @@ void RemoveInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlu
 	}
 	else
 	{
-		INFOLOG( "[%s]->pfuncCleanInputPluginContext ok" , p_logpipe_input_plugin->so_filename );
+		DEBUGLOG( "[%s]->pfuncCleanInputPluginContext ok" , p_logpipe_input_plugin->so_filename );
 	}
 	
 	UnloadInputPluginSession( p_env , p_logpipe_input_plugin );

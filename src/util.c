@@ -145,25 +145,6 @@ int AddPluginConfigItem( struct LogpipePluginConfigItem *config , char *key , in
 	return 0;
 }
 
-/* 复制插件配置项 */
-int DuplicatePluginConfigItems( struct LogpipePluginConfigItem *dst , struct LogpipePluginConfigItem *src )
-{
-	int			nret = 0 ;
-	
-	struct LogpipePluginConfigItem	*item = NULL ;
-	
-	INIT_LIST_HEAD( & (dst->this_node) );
-	
-	list_for_each_entry( item , & (src->this_node) , struct LogpipePluginConfigItem , this_node )
-	{
-		nret = AddPluginConfigItem( dst , item->key , strlen(item->key) , item->value , strlen(item->value) ) ;
-		if( nret )
-			return nret;
-	}
-	
-	return 0;
-}
-
 /* 查询插件配置项 */
 char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key )
 {
@@ -179,7 +160,7 @@ char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key 
 }
 
 /* 删除所有插件配置项 */
-void RemoveAllPluginConfigItem( struct LogpipePluginConfigItem *config )
+void RemoveAllPluginConfigItems( struct LogpipePluginConfigItem *config )
 {
 	struct LogpipePluginConfigItem	*item = NULL ;
 	struct LogpipePluginConfigItem	*next_item = NULL ;

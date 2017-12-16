@@ -13,6 +13,30 @@ static void sig_set_flag( int sig_no )
 	return;
 }
 
+static void SetStartOnceEnv( struct LogpipePluginConfigItem *start_once )
+{
+	struct LogpipePluginConfigItem	*item = NULL ;
+	
+	list_for_each_entry( item , & (start_once->this_node) , struct LogpipePluginConfigItem , this_node )
+	{
+		setenv( item->key , item->value , 1 );
+	}
+	
+	return;
+}
+
+static void UnsetStartOnceEnv( struct LogpipePluginConfigItem *start_once )
+{
+	struct LogpipePluginConfigItem	*item = NULL ;
+	
+	list_for_each_entry( item , & (start_once->this_node) , struct LogpipePluginConfigItem , this_node )
+	{
+		unsetenv( item->key );
+	}
+	
+	return;
+}
+
 int monitor( struct LogpipeEnv *p_env )
 {
 	struct sigaction	act ;
@@ -36,6 +60,8 @@ int monitor( struct LogpipeEnv *p_env )
 	sigaction( SIGTERM , & act , NULL );
 	act.sa_flags = SA_RESTART ;
 	signal( SIGCLD , SIG_DFL );
+	
+	SetStartOnceEnv( & (p_env->start_once_for_plugin_config_items) );
 	
 	while( g_QUIT_flag == 0 )
 	{
@@ -63,6 +89,7 @@ int monitor( struct LogpipeEnv *p_env )
 		{
 			close( p_env->quit_pipe[0] );
 			INFOLOG( "parent : [%ld] fork [%ld]" , getpid() , pid )
+			UnsetStartOnceEnv( & (p_env->start_once_for_plugin_config_items) );
 		}
 		
 _GOTO_WAITPID :

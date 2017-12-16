@@ -211,7 +211,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 				return -1;
 			memset( p_logpipe_input_plugin , 0x00 , sizeof(struct LogpipeInputPlugin) );
 			
-			DuplicatePluginConfigItems( & (p_logpipe_input_plugin->plugin_config_items) , & (p_env->public_plugin_config_items) );
+			INIT_LIST_HEAD( & (p_logpipe_input_plugin->plugin_config_items.this_node) );
 		}
 		else if( jpath_len == sizeof(LOGPIPE_CONFIG_OUTPUTS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_OUTPUTS , jpath_len ) )
 		{
@@ -220,7 +220,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 				return -1;
 			memset( p_logpipe_output_plugin , 0x00 , sizeof(struct LogpipeOutputPlugin) );
 			
-			DuplicatePluginConfigItems( & (p_logpipe_output_plugin->plugin_config_items) , & (p_env->public_plugin_config_items) );
+			INIT_LIST_HEAD( & (p_logpipe_output_plugin->plugin_config_items.this_node) );
 		}
 	}
 	else if( (type&FASTERJSON_NODE_LEAVE) && (type&FASTERJSON_NODE_BRANCH) )
@@ -318,7 +318,7 @@ int LoadConfig( struct LogpipeEnv *p_env )
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncLoadOutputPluginConfig ok" , p_logpipe_output_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncLoadOutputPluginConfig ok" , p_logpipe_output_plugin->so_filename );
 		}
 	}
 	
@@ -335,7 +335,7 @@ int LoadConfig( struct LogpipeEnv *p_env )
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncLoadInputPluginConfig ok" , p_logpipe_input_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncLoadInputPluginConfig ok" , p_logpipe_input_plugin->so_filename );
 		}
 	}
 	
@@ -361,12 +361,14 @@ void UnloadConfig( struct LogpipeEnv *p_env )
 		UnloadOutputPluginSession( p_env , p_logpipe_output_plugin );
 	}
 	
+	RemoveAllPluginConfigItems( & (p_env->start_once_for_plugin_config_items) );
+	
 	return;
 }
 
 void UnloadInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
 {
-	RemoveAllPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) );
+	RemoveAllPluginConfigItems( & (p_logpipe_input_plugin->plugin_config_items) );
 	
 	p_logpipe_input_plugin->pfuncUnloadInputPluginConfig( p_env , p_logpipe_input_plugin , & (p_logpipe_input_plugin->context) );
 	
@@ -384,7 +386,7 @@ void UnloadInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlu
 
 void UnloadOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin )
 {
-	RemoveAllPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) );
+	RemoveAllPluginConfigItems( & (p_logpipe_output_plugin->plugin_config_items) );
 	
 	p_logpipe_output_plugin->pfuncUnloadOutputPluginConfig( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->context) );
 	

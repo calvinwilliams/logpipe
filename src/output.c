@@ -24,13 +24,13 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 			list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 			{
 				nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
-				INFOLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
+				ERRORLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
 			}
 			return 0;
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncBeforeWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncBeforeWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
 		}
 	}
 	
@@ -50,17 +50,17 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		else if( nret > 0 )
 		{
-			INFOLOG( "[%s]->pfuncReadInputPlugin return[%d]" , p_logpipe_input_plugin->so_filename , nret );
+			DEBUGLOG( "[%s]->pfuncReadInputPlugin return[%d]" , p_logpipe_input_plugin->so_filename , nret );
 			list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 			{
 				nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
-				INFOLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
+				DEBUGLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
 			}
 			return 0;
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncReadInputPlugin ok" , p_logpipe_input_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncReadInputPlugin ok" , p_logpipe_input_plugin->so_filename );
 		}
 		
 		/* 执行所有输出端写函数 */
@@ -74,17 +74,17 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 			}
 			else if( nret > 0 )
 			{
-				INFOLOG( "[%s]->pfuncWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
+				ERRORLOG( "[%s]->pfuncWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
 				list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 				{
 					nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
-					INFOLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
+					ERRORLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
 				}
 				return 0;
 			}
 			else
 			{
-				INFOLOG( "[%s]->pfuncWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
+				DEBUGLOG( "[%s]->pfuncWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
 			}
 		}
 	}
@@ -100,11 +100,11 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		else if( nret > 0 )
 		{
-			INFOLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
+			ERRORLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
 		}
 		else
 		{
-			INFOLOG( "[%s]->pfuncAfterWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
+			DEBUGLOG( "[%s]->pfuncAfterWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename );
 		}
 	}
 	

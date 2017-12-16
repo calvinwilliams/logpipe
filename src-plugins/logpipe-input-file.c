@@ -2,6 +2,10 @@
 
 #include "zlib.h"
 
+/* cmd for testing
+logpipe -f logpipe_case1_collector.conf --start-once-for-env "start_once_for_full_dose 1"
+*/
+
 char	*__LOGPIPE_INPUT_FILE_VERSION = "0.1.0" ;
 
 /* 跟踪文件信息结构 */
@@ -31,7 +35,7 @@ struct InputPluginContext
 	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_after_rotating ;
 	char			*compress_algorithm ;
-	int			start_for_full_dose ;
+	int			start_once_for_full_dose ;
 	
 	int			inotify_fd ;
 	int			inotify_path_wd ;
@@ -83,6 +87,7 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathnam
 	memset( new_filename , 0x00 , sizeof(new_filename) );
 	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec );
 	
+	setenv( "LOGPIPE_ROTATING_PATHNAME" , pathname , 1 );
 	setenv( "LOGPIPE_ROTATING_OLD_FILENAME" , old_filename , 1 );
 	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
 	
@@ -163,6 +168,8 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		}
 	}
 	
+_GOTO_WRITEALLOUTPUTPLUGINS :
+	
 	DEBUGLOG( "file_size[%d] trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )
 	if( file_stat.st_size < p_trace_file->trace_offset )
 	{
@@ -185,6 +192,20 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		}
 		
 		p_trace_file->trace_offset = file_stat.st_size ;
+		
+		if( p_plugin_ctx->rotate_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_size )
+		{
+			memset( & file_stat , 0x00 , sizeof(struct stat) );
+			nret = fstat( fd , & file_stat ) ;
+			if( nret == -1 )
+			{
+				ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+				close( fd );
+				return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
+			}
+			
+			goto _GOTO_WRITEALLOUTPUTPLUGINS;
+		}
 	}
 	
 	close( fd );
@@ -208,7 +229,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	if( filename[0] == '.' || filename[0] == '_' )
 	{
-		INFOLOG( "file[%s] has ignored" , filename )
+		INFOLOG( "file[%s] ignored" , filename )
 		return 0;
 	}
 	
@@ -311,7 +332,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 		
 		if( ent->d_type & DT_REG )
 		{
-			nret = AddFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , ent->d_name , p_plugin_ctx->start_for_full_dose ) ;
+			nret = AddFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , ent->d_name , p_plugin_ctx->start_once_for_full_dose ) ;
 			if( nret )
 			{
 				ERRORLOG( "AddFileWatcher[%s] failed[%d]" , ent->d_name , nret );
@@ -405,13 +426,6 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	INFOLOG( "compress_algorithm[%s]" , p_plugin_ctx->compress_algorithm )
 	
-	p = QueryPluginConfigItem( p_plugin_config_items , "start_for_full_dose" ) ;
-	if( p )
-		p_plugin_ctx->start_for_full_dose = atoi(p) ;
-	else
-		p_plugin_ctx->start_for_full_dose = 0 ;
-	INFOLOG( "start_for_full_dose[%d]" , p_plugin_ctx->start_for_full_dose )
-	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
 	
@@ -422,8 +436,17 @@ funcInitInputPluginContext InitInputPluginContext ;
 int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , int *p_fd )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)(p_context) ;
+	char				*p = NULL ;
 	
 	int				nret = 0 ;
+	
+	/* 补充从环境变量中解析配置 */
+	p = getenv( "start_once_for_full_dose" ) ;
+	if( p )
+		p_plugin_ctx->start_once_for_full_dose = 1 ;
+	else
+		p_plugin_ctx->start_once_for_full_dose = 0 ;
+	INFOLOG( "start_once_for_full_dose[%d]" , p_plugin_ctx->start_once_for_full_dose )
 	
 	/* 初始化插件环境内部数据 */
 	p_plugin_ctx->inotify_fd = inotify_init() ;
@@ -507,7 +530,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	len = read( p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_read_buffer , INOTIFY_READ_BUFSIZE-1 ) ;
 	if( len == -1 )
 	{
-		ERRORLOG( "read inotify[%d] failed , errno[%d]" , p_plugin_ctx->inotify_fd , errno )
+		FATALLOG( "read inotify[%d] failed , errno[%d]" , p_plugin_ctx->inotify_fd , errno )
 		return -1;
 	}
 	else
@@ -521,7 +544,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	{
 		DEBUGLOG( "inotify event wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 		
-		if( p_inotify_event->mask & IN_IGNORED )
+		if( p_inotify_event->mask & IN_UNMOUNT )
+		{
+			FATALLOG( "something unmounted" )
+			return -1;
+		}
+		else if( p_inotify_event->mask & IN_IGNORED )
 		{
 			;
 		}
@@ -554,7 +582,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			p_trace_file = QueryTraceFileWdTreeNode( p_plugin_ctx , & trace_file ) ;
 			if( p_trace_file == NULL )
 			{
-				ERRORLOG( "wd[%d] not found" , trace_file.inotify_file_wd )
+				WARNLOG( "wd[%d] not found" , trace_file.inotify_file_wd )
 			}
 			else
 			{
