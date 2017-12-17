@@ -1,3 +1,11 @@
+/*
+ * logpipe - Distribute log collector
+ * author	: calvin
+ * email	: calvinwilliams@163.com
+ *
+ * Licensed under the LGPL v2.1, see the file LICENSE in base directory.
+ */
+
 #ifndef _H_LOGPIPE_IN_
 #define _H_LOGPIPE_IN_
 
