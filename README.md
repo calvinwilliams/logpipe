@@ -180,7 +180,7 @@ logpipe v0.7.0 build Dec 17 2017 20:02:46
 
 ## 3.1. 案例A
 
-异步实时采集ecif@158.1.0.56:~/log/*、ecif@158.1.0.57:~/log/*、ecif@158.1.0.58:~/log/*下的新建和追加日志文件，归集到iblog@158.1.0.55:~/log下。
+异步实时采集`ecif@158.1.0.56:~/log/*`、`ecif@158.1.0.57:~/log/*`、`ecif@158.1.0.58:~/log/*`下的新建和追加日志文件，归集到`iblog@158.1.0.55:~/log`下。
 
 ### 3.1.1. 部署归集端
 
@@ -248,7 +248,7 @@ $ cat /tmp/logpipe_iblog.log
 
 ### 3.1.2. 部署采集端
 
-在ecif@158.1.0.56:~/etc、ecif@158.1.0.57:~/etc、ecif@158.1.0.58:~/etc新建配置文件logpipe.conf
+在`ecif@158.1.0.56:~/etc`、`ecif@158.1.0.57:~/etc`、`ecif@158.1.0.58:~/etc`新建配置文件`logpipe.conf`
 
 ```
 {
@@ -398,21 +398,21 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 配置项
 
-* path : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
-* rotate_size : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间)"并脱离监控；不填或0为关闭；可选
-* exec_before_rotating : 触发文件大小转档前要执行的命令，命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
-* exec_after_rotating : 触发文件大小转档后要执行的命令，命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
-* compress_algorithm : 采集数据后压缩，目前算法只有"deflate"；可选
+* `path` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
+* `rotate_size` : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间)"并脱离监控；不填或0为关闭；可选
+* `exec_before_rotating` : 触发文件大小转档前要执行的命令，命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
+* `exec_after_rotating` : 触发文件大小转档后要执行的命令，命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
+* `compress_algorithm` : 采集数据后压缩，目前算法只有"deflate"；可选
 
-配置项exec_before_rotating和exec_after_rotating的内置环境变量
+配置项`exec_before_rotating`和`exec_after_rotating`的内置环境变量
 
-* LOGPIPE_ROTATING_PATHNAME : 受到监控的目录，绝对路径
-* LOGPIPE_ROTATING_OLD_FILENAME : 转档前文件名，绝对路径
-* LOGPIPE_ROTATING_NEW_FILENAME : 转档后文件名，绝对路径
+* `LOGPIPE_ROTATING_PATHNAME` : 受到监控的目录，绝对路径
+* `LOGPIPE_ROTATING_OLD_FILENAME` : 转档前文件名，绝对路径
+* `LOGPIPE_ROTATING_NEW_FILENAME` : 转档后文件名，绝对路径
 
 环境变量
 
-* start_once_for_full_dose : 启动后是否采集已存在全量日志文件
+* `start_once_for_full_dose` : 启动后是否采集已存在全量日志文件
 
 示例
 
@@ -428,8 +428,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 配置项
 
-* path : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
-* uncompress_algorithm : 落地数据前解压，目前算法只有"deflate"；可选
+* `path` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
+* `uncompress_algorithm` : 落地数据前解压，目前算法只有"deflate"；可选
 
 示例
 
@@ -441,8 +441,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 配置项
 
-* ip : 服务端侦听IP；必选
-* port : 服务端侦听PORT；必选
+* `ip` : 服务端侦听IP；必选
+* `port` : 服务端侦听PORT；必选
 
 示例
 
@@ -454,8 +454,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 配置项
 
-* ip : 连接服务端IP；必选
-* port : 连接服务端PORT；必选
+* `ip` : 连接服务端IP；必选
+* `port` : 连接服务端PORT；必选
 
 示例
 
@@ -572,9 +572,9 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 
 说明：
 
-* 回调函数LoadInputPluginConfig用于装载配置时构造插件上下文和解析配置参数填充上下文，构造的插件上下文被其它回调函数使用，最后在回调函数UnloadInputPluginConfig里释放。插件上下文由应用自定义。
-* 回调函数InitInputPluginContexth和CleanInputPluginContext负责初始化、清理内部环境。
-* 回调函数OnInputPluginEvent在事件总线上发生属于该插件的事件时被调用。函数里调用WriteAllOutputPlugins触发框架传递消息，流程逻辑如下：
+* 回调函数`LoadInputPluginConfig`用于装载配置时构造插件上下文和解析配置参数填充上下文，构造的插件上下文被其它回调函数使用，最后在回调函数`UnloadInputPluginConfig`里释放。插件上下文由应用自定义。
+* 回调函数`InitInputPluginContexth`和`CleanInputPluginContext`负责初始化、清理内部环境。
+* 回调函数`OnInputPluginEvent`在事件总线上发生属于该插件的事件时被调用。函数里调用`WriteAllOutputPlugins`触发框架传递消息，流程逻辑如下：
 
 ```
 遍历所有输出插件
@@ -587,10 +587,10 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 	调用输出插件的AfterWriteOutputPlugin
 ```
 
-* 回调函数ReadInputPlugin在触发框架传递消息时被迭代调用，直到返回LOGPIPE_READ_END_OF_INPUT。
+* 回调函数`ReadInputPlugin`在触发框架传递消息时被迭代调用，直到返回`LOGPIPE_READ_END_OF_INPUT`。
 
 注意：初始化函数必须设置事件描述字，框架会加入到事件总线中。
-注意：以上所有回调函数（除了ReadInputPlugin返回值LOGPIPE_READ_END_OF_INPUT外），当返回值大于0时中断本次消息传递，当返回值小于0时重启logpipe工作进程。
+注意：以上所有回调函数（除了`ReadInputPlugin`返回值`LOGPIPE_READ_END_OF_INPUT`外），当返回值大于0时中断本次消息传递，当返回值小于0时重启logpipe工作进程。
 
 ## 5.2. 输出插件
 
@@ -686,9 +686,9 @@ int UnloadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 
 说明：
 
-* 回调函数LoadOutputPluginConfig用于装载配置时构造插件上下文和解析配置参数填充上下文，构造的插件上下文被其它回调函数使用，最后在回调函数UnloadoutputPluginConfig里释放。插件上下文由应用自定义。
-* 回调函数InitOutputPluginContexth和CleanOutputPluginContext负责初始化、清理内部环境。
-* 回调函数WriteOutputPlugin在触发框架传递消息时被迭代调用。
+* 回调函数`LoadOutputPluginConfig`用于装载配置时构造插件上下文和解析配置参数填充上下文，构造的插件上下文被其它回调函数使用，最后在回调函数`UnloadoutputPluginConfig`里释放。插件上下文由应用自定义。
+* 回调函数`InitOutputPluginContexth`和`CleanOutputPluginContext`负责初始化、清理内部环境。
+* 回调函数`WriteOutputPlugin`在触发框架传递消息时被迭代调用。
 
 注意：以上所有回调函数，当返回值大于0时中断本次消息传递，当返回值小于0时重启logpipe工作进程。
 
@@ -724,8 +724,8 @@ tmpfs                           99     0    99    0% /run/user/1000
 
 日志收集架构：
 
-* flume-ng部署架构为从一个目录中采集日志文件约100MB，经过channel为memory，落地到另一个目录中。
-* logpipe部署架构为从给一个目录中采集日志文件约100MB，经过TCP传输（禁用压缩），落地到另一个目录中。
+* `flume-ng`部署架构为从一个目录中采集日志文件约100MB，经过channel为memory，落地到另一个目录中。
+* `logpipe`部署架构为从给一个目录中采集日志文件约100MB，经过TCP传输（禁用压缩），落地到另一个目录中。
 
 ## 6.1. flume-ng
 
