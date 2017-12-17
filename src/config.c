@@ -72,6 +72,13 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
+	p_logpipe_input_plugin->pfuncReadInputPlugin = (funcReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "ReadInputPlugin" ) ;
+	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
+	{
+		ERRORLOG( "dlsym[%s][ReadInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		return -1;
+	}
+	
 	p_logpipe_input_plugin->pfuncCleanInputPluginContext = (funcCleanInputPluginContext *)dlsym( p_logpipe_input_plugin->so_handler , "CleanInputPluginContext" ) ;
 	if( p_logpipe_input_plugin->pfuncCleanInputPluginContext == NULL )
 	{

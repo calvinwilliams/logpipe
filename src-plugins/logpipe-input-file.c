@@ -642,11 +642,13 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	
 	int				nret = 0 ;
 	
+DEBUGLOG( "" )
 	if( p_plugin_ctx->remain_len == 0 )
 		return LOGPIPE_READ_END_OF_INPUT;
 	
 	if( p_plugin_ctx->compress_algorithm == NULL )
 	{
+DEBUGLOG( "" )
 		if( p_plugin_ctx->remain_len > block_bufsize - 1 )
 			len = block_bufsize - 1 ;
 		else
@@ -669,21 +671,26 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		
 		(*p_block_len) = p_plugin_ctx->read_len ;
+DEBUGLOG( "" )
 	}
 	else
 	{
+DEBUGLOG( "" )
 		if( STRCMP( p_plugin_ctx->compress_algorithm , == , "deflate" ) )
 		{
 			z_stream		deflate_strm ;
 			char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
 			uint32_t		block_in_len ;
 			
+DEBUGLOG( "" )
 			if( p_plugin_ctx->remain_len > sizeof(block_in_buf) - 1 )
 				block_in_len = sizeof(block_in_buf) - 1 ;
 			else
 				block_in_len = p_plugin_ctx->remain_len ;
 			
+DEBUGLOG( "" )
 			p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_in_buf , block_in_len ) ;
+DEBUGLOG( "" )
 			if( p_plugin_ctx->read_len == -1 )
 			{
 				ERRORLOG( "read file failed , errno[%d]" , errno )
@@ -696,7 +703,9 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			}
 			
 			memset( & deflate_strm , 0x00 , sizeof(z_stream) );
+DEBUGLOG( "" )
 			nret = deflateInit( & deflate_strm , Z_DEFAULT_COMPRESSION ) ;
+DEBUGLOG( "" )
 			if( nret != Z_OK )
 			{
 				FATALLOG( "deflateInit failed[%d]" , nret );
@@ -707,7 +716,9 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			deflate_strm.next_in = (Bytef*)block_in_buf ;
 			deflate_strm.avail_out = block_bufsize ;
 			deflate_strm.next_out = (Bytef*)block_buf ;
+DEBUGLOG( "" )
 			nret = deflate( & deflate_strm , Z_FINISH ) ;
+DEBUGLOG( "" )
 			if( nret == Z_STREAM_ERROR )
 			{
 				FATALLOG( "deflate return Z_STREAM_ERROR" )
@@ -722,7 +733,9 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			}
 			(*p_block_len) = block_bufsize-1 - deflate_strm.avail_out ;
 			
+DEBUGLOG( "" )
 			deflateEnd( & deflate_strm );
+DEBUGLOG( "" )
 		}
 		else
 		{
@@ -730,6 +743,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			return -1;
 		}
 	}
+DEBUGLOG( "" )
 	
 	p_plugin_ctx->remain_len -= p_plugin_ctx->read_len ;
 	

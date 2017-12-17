@@ -108,7 +108,7 @@ int worker( struct LogpipeEnv *p_env )
 					}
 					else if( nret > 0 )
 					{
-						INFOLOG( "[%s]->pfuncOnInputPluginEvent return[%d]" , so_filename , nret )
+						WARNLOG( "[%s]->pfuncOnInputPluginEvent return[%d]" , so_filename , nret )
 					}
 					else
 					{
