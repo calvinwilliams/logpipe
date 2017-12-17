@@ -65,31 +65,10 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
-	p_logpipe_input_plugin->pfuncBeforeReadInputPlugin = (funcBeforeReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "BeforeReadInputPlugin" ) ;
-	if( p_logpipe_input_plugin->pfuncBeforeReadInputPlugin == NULL )
-	{
-		ERRORLOG( "dlsym[%s][BeforeReadInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
-		return -1;
-	}
-	
 	p_logpipe_input_plugin->pfuncOnInputPluginEvent = (funcOnInputPluginEvent *)dlsym( p_logpipe_input_plugin->so_handler , "OnInputPluginEvent" ) ;
 	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
 	{
 		ERRORLOG( "dlsym[%s][OnInputPluginEvent] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
-		return -1;
-	}
-	
-	p_logpipe_input_plugin->pfuncReadInputPlugin = (funcReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "ReadInputPlugin" ) ;
-	if( p_logpipe_input_plugin->pfuncReadInputPlugin == NULL )
-	{
-		ERRORLOG( "dlsym[%s][ReadInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
-		return -1;
-	}
-	
-	p_logpipe_input_plugin->pfuncAfterReadInputPlugin = (funcAfterReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "AfterReadInputPlugin" ) ;
-	if( p_logpipe_input_plugin->pfuncAfterReadInputPlugin == NULL )
-	{
-		ERRORLOG( "dlsym[%s][AfterReadInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
 		return -1;
 	}
 	

@@ -6,185 +6,10 @@
 
 char	*__LOGPIPE_INPUT_TCP_VERSION = "0.1.0" ;
 
-struct InputPluginContext_AcceptedSession
-{
-	struct sockaddr_in	accepted_addr ;
-	int			accepted_sock ;
-} ;
-
 funcOnInputPluginEvent OnInputPluginEvent_accepted_session ;
-int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
-	
-	uint16_t					*filename_len_htons = NULL ;
-	char						comm_buf[ 1 + sizeof(uint16_t) + PATH_MAX ] ;
-	uint16_t					filename_len ;
-	int						len ;
-	
-	int						nret = 0 ;
-	
-	len = readn( p_accepted_session_context->accepted_sock , comm_buf , 1+sizeof(uint16_t) ) ;
-	if( len == -1 )
-	{
-		ERRORLOG( "recv comm magic and filename len failed , errno[%d]" , errno );
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	else if( len == 0 )
-	{
-		INFOLOG( "remote socket closed on recv comm magic and filename len" );
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	else
-	{
-		INFOLOG( "recv comm magic and filename len ok , [%d]bytes" , len )
-		DEBUGHEXLOG( comm_buf , len , NULL )
-	}
-	
-	if( comm_buf[0] != LOGPIPE_COMM_HEAD_MAGIC )
-	{
-		ERRORLOG( "magic[%c][%d] invalid" , comm_buf[0] , comm_buf[0] );
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	
-	filename_len_htons = (uint16_t*)(comm_buf+1) ;
-	filename_len = ntohs(*filename_len_htons) ;
-	
-	if( filename_len > PATH_MAX )
-	{
-		ERRORLOG( "filename length[%d] too long" , filename_len );
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	
-	len = readn( p_accepted_session_context->accepted_sock , comm_buf+1+sizeof(uint16_t) , filename_len ) ;
-	if( len == -1 )
-	{
-		ERRORLOG( "recv accepted session sock failed , errno[%d]" , errno );
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	else if( len == 0 )
-	{
-		ERRORLOG( "remote socket closed on recv accepted session sock" );
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	else
-	{
-		INFOLOG( "recv filename from socket ok , [%d]bytes" , len )
-		DEBUGHEXLOG( comm_buf+1+sizeof(uint16_t) , len , NULL )
-	}
-	
-	/* 导出所有输出端 */
-	nret = WriteAllOutputPlugins( p_env , p_logpipe_input_plugin , filename_len , comm_buf+1+sizeof(uint16_t) ) ;
-	if( nret )
-	{
-		ERRORLOG( "WriteAllOutputPlugins failed[%d]" , nret )
-		return nret;
-	}
-	
-	return 0;
-}
-
-funcBeforeReadInputPlugin BeforeReadInputPlugin_accepted_session ;
-int BeforeReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	return 0;
-}
-
 funcReadInputPlugin ReadInputPlugin_accepted_session ;
-int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
-{
-	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
-	uint32_t					block_len_htonl ;
-	int						len ;
-	
-	len = readn( p_accepted_session_context->accepted_sock , & block_len_htonl , sizeof(uint32_t) ) ;
-	if( len == -1 )
-	{
-		ERRORLOG( "recv block length from accepted session sock failed , errno[%d]" , errno )
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	else if( len == 0 )
-	{
-		ERRORLOG( "accepted sessio sock closed on recv block length" )
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	else
-	{
-		INFOLOG( "recv block length from accepted session sock ok , [%d]bytes" , sizeof(uint32_t) )
-		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
-	}
-	
-	(*p_block_len) = ntohl( block_len_htonl ) ;
-	if( (*p_block_len) == 0 )
-		return LOGPIPE_READ_END_OF_INPUT;
-	if( (*p_block_len) > block_bufsize-1 )
-	{
-		ERRORLOG( "block length[%d] too long" , (*p_block_len) )
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	
-	len = readn( p_accepted_session_context->accepted_sock , block_buf , (*p_block_len) ) ;
-	if( len == -1 )
-	{
-		ERRORLOG( "recv block from accepted session sock failed , errno[%d]" , errno )
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	else if( len == 0 )
-	{
-		ERRORLOG( "accepted session socket closed on recv block" )
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
-		return 1;
-	}
-	else
-	{
-		INFOLOG( "recv block from accepted session sock ok , [%d]bytes" , (*p_block_len) )
-		DEBUGHEXLOG( block_buf , len , NULL )
-	}
-	
-	return 0;
-}
-
-funcAfterReadInputPlugin AfterReadInputPlugin_accepted_session ;
-int AfterReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	return 0;
-}
-
 funcCleanInputPluginContext CleanInputPluginContext_accepted_session ;
-int CleanInputPluginContext_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
-	
-	if( p_accepted_session_context->accepted_sock >= 0 )
-	{
-		INFOLOG( "close accepted sock[%d]" , p_accepted_session_context->accepted_sock )
-		close( p_accepted_session_context->accepted_sock ); p_accepted_session_context->accepted_sock = -1 ;
-	}
-	
-	return 0;
-}
-
 funcUnloadInputPluginConfig UnloadInputPluginConfig_accepted_session ;
-int UnloadInputPluginConfig_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void **pp_context )
-{
-	struct InputPluginContext_AcceptedSession	**pp_accepted_session_context = (struct InputPluginContext_AcceptedSession **)pp_context ;
-	
-	free( (*pp_accepted_session_context) ); (*pp_accepted_session_context) = NULL ;
-	
-	return 0;
-}
-
-/****************** 以上为已连接会话 ******************/
 
 struct InputPluginContext
 {
@@ -195,12 +20,19 @@ struct InputPluginContext
 	int			listen_sock ;
 } ;
 
+struct InputPluginContext_AcceptedSession
+{
+	struct sockaddr_in	accepted_addr ;
+	int			accepted_sock ;
+} ;
+
 funcLoadInputPluginConfig LoadInputPluginConfig ;
 int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd )
 {
 	struct InputPluginContext	*p_plugin_ctx = NULL ;
 	char				*p = NULL ;
 	
+	/* 申请内存以存放插件上下文 */
 	p_plugin_ctx = (struct InputPluginContext *)malloc( sizeof(struct InputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
@@ -329,7 +161,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	
 	p_accepted_session = AddInputPluginSession( p_env , "accepted_session"
 					, & OnInputPluginEvent_accepted_session
-					, & BeforeReadInputPlugin_accepted_session , & ReadInputPlugin_accepted_session , & AfterReadInputPlugin_accepted_session
+					, & ReadInputPlugin_accepted_session
 					, & CleanInputPluginContext_accepted_session , & UnloadInputPluginConfig_accepted_session
 					, p_accepted_session_ctx->accepted_sock , p_accepted_session_ctx ) ;
 	if( p_accepted_session == NULL )
@@ -340,24 +172,6 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		return -1;
 	}
 	
-	return 0;
-}
-
-funcBeforeReadInputPlugin BeforeReadInputPlugin ;
-int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	return 0;
-}
-
-funcReadInputPlugin ReadInputPlugin ;
-int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
-{
-	return 0;
-}
-
-funcAfterReadInputPlugin AfterReadInputPlugin ;
-int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
 	return 0;
 }
 
@@ -380,7 +194,170 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 {
 	struct InputPluginContext	**pp_plugin_ctx = (struct InputPluginContext **)pp_context ;
 	
+	/* 释放内存以存放插件上下文 */
 	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
+	
+	return 0;
+}
+
+/****************** 以下为已连接会话 ******************/
+
+funcOnInputPluginEvent OnInputPluginEvent_accepted_session ;
+int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+{
+	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
+	
+	uint16_t					*filename_len_htons = NULL ;
+	char						comm_buf[ 1 + sizeof(uint16_t) + PATH_MAX ] ;
+	uint16_t					filename_len ;
+	int						len ;
+	
+	int						nret = 0 ;
+	
+	len = readn( p_accepted_session_context->accepted_sock , comm_buf , 1+sizeof(uint16_t) ) ;
+	if( len == -1 )
+	{
+		ERRORLOG( "recv comm magic and filename len failed , errno[%d]" , errno );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	else if( len == 0 )
+	{
+		INFOLOG( "remote socket closed on recv comm magic and filename len" );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "recv comm magic and filename len ok , [%d]bytes" , len )
+		DEBUGHEXLOG( comm_buf , len , NULL )
+	}
+	
+	if( comm_buf[0] != LOGPIPE_COMM_HEAD_MAGIC )
+	{
+		ERRORLOG( "magic[%c][%d] invalid" , comm_buf[0] , comm_buf[0] );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	
+	filename_len_htons = (uint16_t*)(comm_buf+1) ;
+	filename_len = ntohs(*filename_len_htons) ;
+	
+	if( filename_len > PATH_MAX )
+	{
+		ERRORLOG( "filename length[%d] too long" , filename_len );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	
+	len = readn( p_accepted_session_context->accepted_sock , comm_buf+1+sizeof(uint16_t) , filename_len ) ;
+	if( len == -1 )
+	{
+		ERRORLOG( "recv accepted session sock failed , errno[%d]" , errno );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	else if( len == 0 )
+	{
+		ERRORLOG( "remote socket closed on recv accepted session sock" );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "recv filename from socket ok , [%d]bytes" , len )
+		DEBUGHEXLOG( comm_buf+1+sizeof(uint16_t) , len , NULL )
+	}
+	
+	/* 导出所有输出端 */
+	nret = WriteAllOutputPlugins( p_env , p_logpipe_input_plugin , filename_len , comm_buf+1+sizeof(uint16_t) ) ;
+	if( nret )
+	{
+		ERRORLOG( "WriteAllOutputPlugins failed[%d]" , nret )
+		return nret;
+	}
+	
+	return 0;
+}
+
+funcReadInputPlugin ReadInputPlugin_accepted_session ;
+int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+{
+	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
+	uint32_t					block_len_htonl ;
+	int						len ;
+	
+	len = readn( p_accepted_session_context->accepted_sock , & block_len_htonl , sizeof(uint32_t) ) ;
+	if( len == -1 )
+	{
+		ERRORLOG( "recv block length from accepted session sock failed , errno[%d]" , errno )
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	else if( len == 0 )
+	{
+		ERRORLOG( "accepted sessio sock closed on recv block length" )
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "recv block length from accepted session sock ok , [%d]bytes" , sizeof(uint32_t) )
+		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
+	}
+	
+	(*p_block_len) = ntohl( block_len_htonl ) ;
+	if( (*p_block_len) == 0 )
+		return LOGPIPE_READ_END_OF_INPUT;
+	if( (*p_block_len) > block_bufsize-1 )
+	{
+		ERRORLOG( "block length[%d] too long" , (*p_block_len) )
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	
+	len = readn( p_accepted_session_context->accepted_sock , block_buf , (*p_block_len) ) ;
+	if( len == -1 )
+	{
+		ERRORLOG( "recv block from accepted session sock failed , errno[%d]" , errno )
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	else if( len == 0 )
+	{
+		ERRORLOG( "accepted session socket closed on recv block" )
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "recv block from accepted session sock ok , [%d]bytes" , (*p_block_len) )
+		DEBUGHEXLOG( block_buf , len , NULL )
+	}
+	
+	return 0;
+}
+
+funcCleanInputPluginContext CleanInputPluginContext_accepted_session ;
+int CleanInputPluginContext_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+{
+	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
+	
+	if( p_accepted_session_context->accepted_sock >= 0 )
+	{
+		INFOLOG( "close accepted sock[%d]" , p_accepted_session_context->accepted_sock )
+		close( p_accepted_session_context->accepted_sock ); p_accepted_session_context->accepted_sock = -1 ;
+	}
+	
+	return 0;
+}
+
+funcUnloadInputPluginConfig UnloadInputPluginConfig_accepted_session ;
+int UnloadInputPluginConfig_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void **pp_context )
+{
+	struct InputPluginContext_AcceptedSession	**pp_accepted_session_context = (struct InputPluginContext_AcceptedSession **)pp_context ;
+	
+	free( (*pp_accepted_session_context) ); (*pp_accepted_session_context) = NULL ;
 	
 	return 0;
 }

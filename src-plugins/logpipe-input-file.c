@@ -353,6 +353,7 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	struct InputPluginContext	*p_plugin_ctx = NULL ;
 	char				*p = NULL ;
 	
+	/* 申请内存以存放插件上下文 */
 	p_plugin_ctx = (struct InputPluginContext *)malloc( sizeof(struct InputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
@@ -632,12 +633,6 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	return 0;
 }
 
-funcBeforeReadInputPlugin BeforeReadInputPlugin ;
-int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	return 0;
-}
-
 funcReadInputPlugin ReadInputPlugin ;
 int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
@@ -741,17 +736,6 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	return 0;
 }
 
-funcAfterReadInputPlugin AfterReadInputPlugin ;
-int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
-	
-	DEBUGLOG( "trace_offset[%d]->[%d]" , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->p_trace_file->trace_offset + p_plugin_ctx->read_len )
-	p_plugin_ctx->p_trace_file->trace_offset += p_plugin_ctx->read_len ;
-	
-	return 0;
-}
-
 funcCleanInputPluginContext CleanInputPluginContext ;
 int CleanInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
@@ -771,6 +755,7 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 {
 	struct InputPluginContext	**pp_plugin_ctx = (struct InputPluginContext **)pp_context ;
 	
+	/* 释放内存以存放插件上下文 */
 	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
 	
 	return 0;

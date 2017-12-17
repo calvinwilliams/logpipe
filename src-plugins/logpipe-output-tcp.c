@@ -60,6 +60,7 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	struct OutputPluginContext	*p_plugin_ctx = NULL ;
 	char				*p = NULL ;
 	
+	/* 申请内存以存放插件上下文 */
 	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
@@ -238,6 +239,7 @@ int UnloadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 {
 	struct OutputPluginContext	**pp_plugin_ctx = (struct OutputPluginContext **)pp_context ;
 	
+	/* 释放内存以存放插件上下文 */
 	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
 	
 	return 0;
