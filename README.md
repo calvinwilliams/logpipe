@@ -9,9 +9,26 @@
         - [2.1.2. 编译安装自带logpipe插件](#212-编译安装自带logpipe插件)
         - [2.1.3. 确认安装](#213-确认安装)
 - [3. 使用](#3-使用)
-- [4. 插件开发](#4-插件开发)
-- [5. 性能压测](#5-性能压测)
-- [6. 最后](#6-最后)
+    - [3.1. 案例A](#31-案例a)
+        - [3.1.1. 部署归集端](#311-部署归集端)
+        - [3.1.2. 部署采集端](#312-部署采集端)
+        - [3.1.3. 测试](#313-测试)
+        - [3.1.4. 停止logpipe](#314-停止logpipe)
+- [4. 参考](#4-参考)
+    - [4.1. logpipe](#41-logpipe)
+    - [4.2. 自带插件](#42-自带插件)
+        - [4.2.1. logpipe-input-file](#421-logpipe-input-file)
+        - [4.2.2. logpipe-output-file](#422-logpipe-output-file)
+        - [4.2.3. logpipe-input-tcp](#423-logpipe-input-tcp)
+        - [4.2.4. logpipe-output-tcp](#424-logpipe-output-tcp)
+- [5. 插件开发](#5-插件开发)
+    - [5.1. 输入插件](#51-输入插件)
+    - [5.2. 输出插件](#52-输出插件)
+- [6. 性能压测](#6-性能压测)
+    - [6.1. flume-ng](#61-flume-ng)
+    - [6.2. logpipe](#62-logpipe)
+    - [6.3. 总结](#63-总结)
+- [7. 最后](#7-最后)
 
 <!-- /TOC -->
 # 1. 概述
@@ -22,7 +39,7 @@
 
 作为一个日志采集的本地代理，内存占用应该小而受控，性能应该高效，耗费CPU低对应用影响尽可能小，要能异步实时追踪日志文件增长，某些应用会在目标目录下产生多个日志文件甚至现在不能确定将来的日志文件名，架构上要支持多输入多输出流式日志采集传输，为了达成以上需求，我研究了所需技术，评估实现难度并不高，就自研了logpipe。
 
-logpipe是一个分布式、高可用的用于采集、传输、对接落地的日志工具，采用了插件风格的框架结构设计，支持多输入多输出按需配置组件用于流式日志收集架构。
+logpipe是一个分布式、高可用的用于采集、传输、对接落地的日志工具，采用了插件风格的框架结构设计，支持多输入多输出按需配置组件用于流式日志收集架构，无第三方依赖。
 
 ![logpipe.png](logpipe.png)
 
@@ -31,8 +48,8 @@ logpipe概念朴实、使用方便、配置简练，没有如sink等一大堆新名词。
 logpipe由若干个input、事件总线和若干个output组成。启动logpipe管理进程(monitor)，派生一个工作进程(worker)，监控工作进程崩溃则重启工作进程。工作进程装载配置加载若干个input插件和若干个output插件，进入事件循环，任一input插件产生消息后输出给所有output插件。
 
 logpipe自带了4个插件（今后将开发更多插件），分别是：
-* logpipe-input-file 用inotify异步实时监控日志目录，一旦有文件新建或文件增长，立即捕获文件名和读取文件追加数据。拥有文件大小转档功能，用以替代应用日志库对应功能，提高应用日志库写日志性能。支持数据压缩。
-* logpipe-output-file 一旦输入插件有消息产生后用相同的文件名落地文件数据。支持数据解压。
+* logpipe-input-file 用inotify异步实时监控日志目录，一旦有文件新建或文件增长事件发生（注意：不是周期性轮询文件修改时间和大小），立即捕获文件名和读取文件追加数据。该插件拥有文件大小转档功能，用以替代应用日志库对应功能，提高应用日志库写日志性能。该插件支持数据压缩。
+* logpipe-output-file 一旦输入插件有消息产生后用相同的文件名落地文件数据。该插件支持数据解压。
 * logpipe-input-tcp 创建TCP服务侦听端，接收客户端连接，一旦客户端连接上有新消息到来，立即读取。
 * logpipe-output-tcp 创建TCP客户端，连接服务端，一旦输入插件有消息产生后输出到该连接。
 
@@ -161,14 +178,797 @@ logpipe v0.7.0 build Dec 17 2017 20:02:46
 
 # 3. 使用
 
+## 3.1. 案例A
 
+异步实时采集ecif@158.1.0.56:~/log/*、ecif@158.1.0.57:~/log/*、ecif@158.1.0.58:~/log/*下的新建和追加日志文件，归集到iblog@158.1.0.55:~/log下。
 
-# 4. 插件开发
+### 3.1.1. 部署归集端
 
+在ecif@158.1.0.55:~/etc新建配置文件logpipe.conf
 
+```
+{
+        "log" : 
+        {
+                "log_file" : "/tmp/logpipe_iblog.log" ,
+                "log_level" : "INFO"
+        } ,
 
-# 5. 性能压测
+        "inputs" : 
+        [
+                { "plugin":"so/logpipe-input-tcp.so" , "ip":"158.1.0.55" , "port":5151 }
+        ] ,
 
+        "outputs" : 
+        [
+                { "plugin":"so/logpipe-output-file.so" , "path":"/home/iblog/log" }
+        ]
+}
+```
 
+启动logpipe
 
-# 6. 最后
+```
+$ logpipe -f $HOME/etc/logpipe.conf
+2017-12-17 20:19:21.358464 | INFO  | 36318:logpipe-output-file.c:29 | path[/home/iblog/log]
+2017-12-17 20:19:21.358513 | INFO  | 36318:logpipe-output-file.c:44 | uncompress_algorithm[(null))]
+2017-12-17 20:19:21.358515 | DEBUG | 36318:config.c:321 | [so/logpipe-output-file.so]->pfuncLoadOutputPluginConfig ok
+2017-12-17 20:19:21.358520 | INFO  | 36318:logpipe-input-tcp.c:214 | ip[158.1.0.55]
+2017-12-17 20:19:21.358522 | INFO  | 36318:logpipe-input-tcp.c:221 | port[5151]
+2017-12-17 20:19:21.358525 | DEBUG | 36318:config.c:338 | [so/logpipe-input-tcp.so]->pfuncLoadInputPluginConfig ok
+```
+
+回到命令行界面，进程自动转换为守护进程，确认进程
+
+```
+$ ps -ef | grep logpipe | grep -v grep
+...
+iblog   36320     1  0 20:19 ?        00:00:00 logpipe -f logpipe.conf
+iblog   36321 36320  0 20:19 ?        00:00:00 logpipe -f logpipe.conf
+...
+```
+
+查看日志，确认无ERROR及以上等级日志报错
+
+```
+$ cat /tmp/logpipe_iblog.log
+2017-12-17 20:19:21.358944 | INFO  | 36320:monitor.c:149 | --- monitor begin ---------
+2017-12-17 20:19:21.359079 | INFO  | 36320:monitor.c:91 | parent : [36320] fork [36321]
+2017-12-17 20:19:21.359142 | INFO  | 36320:monitor.c:85 | child : [36320] fork [36321]
+2017-12-17 20:19:21.359176 | INFO  | 36321:worker.c:32 | epoll_create ok , epoll_fd[1]
+2017-12-17 20:19:21.359244 | INFO  | 36321:logpipe-input-tcp.c:281 | listen[158.1.0.55:5151][2] ok
+2017-12-17 20:19:21.359259 | INFO  | 36321:env.c:54 | epoll_ctl[1] add input plugin fd[2] EPOLLIN ok
+2017-12-17 20:19:21.359264 | INFO  | 36321:worker.c:44 | InitEnvironment ok
+2017-12-17 20:19:21.359268 | INFO  | 36321:worker.c:59 | epoll_ctl[1] add quit pipe fd[0] ok
+2017-12-17 20:19:21.359270 | INFO  | 36321:worker.c:67 | epoll_wait[1] ...
+2017-12-17 20:19:23.663377 | INFO  | 36321:worker.c:84 | epoll_wait[1] return[1]events
+2017-12-17 20:19:23.663438 | INFO  | 36321:env.c:162 | epoll_ctl[1] add input plugin fd[3] ok
+2017-12-17 20:19:23.663446 | INFO  | 36321:worker.c:67 | epoll_wait[1] ...
+```
+
+### 3.1.2. 部署采集端
+
+在ecif@158.1.0.56:~/etc、ecif@158.1.0.57:~/etc、ecif@158.1.0.58:~/etc新建配置文件logpipe.conf
+
+```
+{
+        "log" : 
+        {
+                "log_file" : "/tmp/logpipe_ecif.log" ,
+                "log_level" : "INFO"
+        } ,
+
+        "inputs" : 
+        [
+                { "plugin":"so/logpipe-input-file.so" , "path":"/home/ecif/log" }
+        ] ,
+
+        "outputs" : 
+        [
+                { "plugin":"so/logpipe-output-tcp.so" , "ip":"158.1.0.55" , "port":5151 }
+        ]
+}
+```
+
+分别启动logpipe
+
+```
+$ logpipe -f $HOME/etc/logpipe.conf
+2017-12-17 20:19:23.662483 | INFO  | 36322:logpipe-output-tcp.c:73 | ip[158.1.0.55]
+2017-12-17 20:19:23.662533 | INFO  | 36322:logpipe-output-tcp.c:80 | port[5151]
+2017-12-17 20:19:23.662537 | DEBUG | 36322:config.c:321 | [so/logpipe-output-tcp.so]->pfuncLoadOutputPluginConfig ok
+2017-12-17 20:19:23.662549 | INFO  | 36322:logpipe-input-file.c:366 | path[/home/ecif/log]
+2017-12-17 20:19:23.662551 | INFO  | 36322:logpipe-input-file.c:369 | file[(null)]
+2017-12-17 20:19:23.662553 | INFO  | 36322:logpipe-input-file.c:387 | exec_before_rotating[(null)]
+2017-12-17 20:19:23.662554 | INFO  | 36322:logpipe-input-file.c:394 | rotate_size[0]
+2017-12-17 20:19:23.662556 | INFO  | 36322:logpipe-input-file.c:412 | exec_after_rotating[(null)]
+2017-12-17 20:19:23.662557 | INFO  | 36322:logpipe-input-file.c:427 | compress_algorithm[(null)]
+2017-12-17 20:19:23.662559 | DEBUG | 36322:config.c:338 | [so/logpipe-input-file.so]->pfuncLoadInputPluginConfig ok
+```
+
+回到命令行界面，进程自动转换为守护进程，确认进程
+
+```
+$ ps -ef | grep logpipe | grep -v grep
+...
+ecif   36324     1  0 20:19 ?        00:00:00 logpipe -f logpipe.conf
+ecif   36325 36324  0 20:19 ?        00:00:00 logpipe -f logpipe.conf
+...
+```
+
+查看日志，确认无ERROR及以上等级日志报错
+
+```
+$ cat /tmp/logpipe_ecif.log
+2017-12-17 20:19:23.662927 | INFO  | 36324:monitor.c:149 | --- monitor begin ---------
+2017-12-17 20:19:23.663119 | INFO  | 36324:monitor.c:91 | parent : [36324] fork [36325]
+2017-12-17 20:19:23.663150 | INFO  | 36324:monitor.c:85 | child : [36324] fork [36325]
+2017-12-17 20:19:23.663181 | INFO  | 36325:worker.c:32 | epoll_create ok , epoll_fd[1]
+2017-12-17 20:19:23.663334 | INFO  | 36325:logpipe-output-tcp.c:51 | connect[158.1.0.55:5151][2] ok
+2017-12-17 20:19:23.663357 | INFO  | 36325:logpipe-input-file.c:449 | start_once_for_full_dose[0]
+2017-12-17 20:19:23.663395 | INFO  | 36325:logpipe-input-file.c:467 | inotify_add_watch[/home/ecif/log] ok , inotify_fd[3] inotify_wd[1]
+2017-12-17 20:19:23.690558 | INFO  | 36325:env.c:54 | epoll_ctl[1] add input plugin fd[3] EPOLLIN ok
+2017-12-17 20:19:23.690575 | INFO  | 36325:worker.c:44 | InitEnvironment ok
+2017-12-17 20:19:23.690581 | INFO  | 36325:worker.c:59 | epoll_ctl[1] add quit pipe fd[0] ok
+2017-12-17 20:19:23.690583 | INFO  | 36325:worker.c:67 | epoll_wait[1] ...
+```
+
+### 3.1.3. 测试
+
+在`ecif@158.1.0.56:~/log`下新建和追加测试用日志文件
+
+```
+$ cd $HOME/log
+$ echo "Hello logpipe in 158.1.0.56" >test.log
+```
+
+你会在`iblog@158.1.0.55:~/log`下看到采集过来的日志文件
+
+```
+$ cd $HOME/log
+$ ls
+test.log
+$ cat test.log
+Hello logpipe 158.1.0.56
+```
+
+继续在`ecif@158.1.0.57:~/log`、`ecif@158.1.0.58:~/log`下新建和追加测试用日志文件
+
+```
+$ cd $HOME/log
+$ echo "Hello logpipe 158.1.0.57" >test.log
+```
+
+```
+$ cd $HOME/log
+$ echo "Hello logpipe 158.1.0.58" >test.log
+```
+
+你会在`iblog@158.1.0.55:~/log`下看到采集过来的日志文件
+
+```
+$ cd $HOME/log
+$ ls
+a.log
+$ cat test.log
+Hello logpipe 158.1.0.56
+Hello logpipe 158.1.0.57
+Hello logpipe 158.1.0.58
+```
+
+### 3.1.4. 停止logpipe
+
+查询`logpipe`pid，向管理进程发送TERM信号即可 
+
+```
+$ ps -ef | grep logpipe | grep -v grep
+...
+calvin   36320     1  0 20:19 ?        00:00:00 logpipe -f logpipe.conf
+calvin   36321 36320  0 20:19 ?        00:00:00 logpipe -f logpipe.conf
+...
+$ kill 36320
+$ ps -ef | grep logpipe | grep -v grep
+$
+```
+
+# 4. 参考
+
+## 4.1. logpipe
+
+```
+$ logpipe
+USAGE : logpipe -v
+        logpipe -f (config_file) [ --no-daemon ] [ --start-once-for-env "(key) (value)" ]
+```
+
+参数说明：
+
+* -v : 显示当前版本号
+* -f : 指定配置文件名，按相对路径或绝对路径；必选
+* --no-daemon : 以非守护进程模式运行，启动后不会回到命令行界面；可选
+* --start-once-for-env "(key) (value)" : 设置为环境变量传递给所有插件，启动后仅传递一次。可选。如插件logpipe-input-file.so有接收环境变量`start_once_for_full_dose`以决定启动后是否采集已存在全量日志文件，缺省为不采集存量日志而只采集新增文件和新追加文件内容。
+
+```
+$ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_dose 1"
+```
+
+## 4.2. 自带插件
+
+### 4.2.1. logpipe-input-file
+
+配置项
+
+* path : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
+* rotate_size : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间)"并脱离监控；不填或0为关闭；可选
+* exec_before_rotating : 触发文件大小转档前要执行的命令，命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
+* exec_after_rotating : 触发文件大小转档后要执行的命令，命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
+* compress_algorithm : 采集数据后压缩，目前算法只有"deflate"；可选
+
+配置项exec_before_rotating和exec_after_rotating的内置环境变量
+
+* LOGPIPE_ROTATING_PATHNAME : 受到监控的目录，绝对路径
+* LOGPIPE_ROTATING_OLD_FILENAME : 转档前文件名，绝对路径
+* LOGPIPE_ROTATING_NEW_FILENAME : 转档后文件名，绝对路径
+
+环境变量
+
+* start_once_for_full_dose : 启动后是否采集已存在全量日志文件
+
+示例
+
+```
+{ "plugin":"so/logpipe-input-file.so" , "path":"/home/ecif/log" , "compress_algorithm":"deflate" }
+```
+
+```
+{ "plugin":"so/logpipe-input-file.so" , "path":"/home/calvin/log" , "exec_before_rotating":"echo \"BEFORE ROTATING ${LOGPIPE_ROTATING_OLD_FILENAME}\">>/tmp/logpipe_case2_collector.log" , "rotate_size":10 , "exec_after_rotating":"echo \"AFTER ROTATING ${LOGPIPE_ROTATING_NEW_FILENAME}\">>/tmp/logpipe_case2_collector.log" , "compress_algorithm":"deflate" }
+```
+
+### 4.2.2. logpipe-output-file
+
+配置项
+
+* path : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
+* uncompress_algorithm : 落地数据前解压，目前算法只有"deflate"；可选
+
+示例
+
+```
+{ "plugin":"so/logpipe-output-file.so" , "path":"/home/iblog/log" , "uncompress_algorithm":"deflate" }
+```
+
+### 4.2.3. logpipe-input-tcp
+
+配置项
+
+* ip : 服务端侦听IP；必选
+* port : 服务端侦听PORT；必选
+
+示例
+
+```
+{ "plugin":"so/logpipe-input-tcp.so" , "ip":"158.1.0.55" , "port":5151 }
+```
+
+### 4.2.4. logpipe-output-tcp
+
+配置项
+
+* ip : 连接服务端IP；必选
+* port : 连接服务端PORT；必选
+
+示例
+
+```
+{ "plugin":"so/logpipe-output-tcp.so" , "ip":"158.1.0.55" , "port":5151 }
+```
+
+# 5. 插件开发
+
+`logpipe`的插件化框架支持多输入端和多输出端，自带插件实现了最基本需求，也作为插件开发示例，使用者可根据自身需求开发自己的插件，配置到`logpipe`中。
+
+插件编译所需头文件在`$HOME/include/logpipe/*.h`；插件链接所需库文件在`$HOME/lib/liblogpipe_api.so`；插件一般都存放在`$HOME/so/logpipe-(input|output)-(自定义名字).so`。
+
+插件源代码文件一般为一个.c文件，一个插件一般包括一个运行实例上下文+一组回调函数。
+
+## 5.1. 输入插件
+
+输入插件基本代码模板如下：
+
+```
+#include "logpipe_api.h"
+
+char	*__LOGPIPE_INPUT_FILE_VERSION = "0.1.0" ;
+
+/* 插件环境结构 */
+struct InputPluginContext
+{
+	...
+} ;
+
+funcLoadInputPluginConfig LoadInputPluginConfig ;
+int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd )
+{
+	struct InputPluginContext	*p_plugin_ctx = NULL ;
+	char				*p = NULL ;
+	
+	/* 申请内存以存放插件上下文 */
+	p_plugin_ctx = (struct InputPluginContext *)malloc( sizeof(struct InputPluginContext) ) ;
+	if( p_plugin_ctx == NULL )
+	{
+		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		return -1;
+	}
+	memset( p_plugin_ctx , 0x00 , sizeof(struct InputPluginContext) );
+	
+	/* 解析插件配置 */
+	p_plugin_ctx->... = QueryPluginConfigItem( p_plugin_config_items , "..." ) ;
+	INFOLOG( "...[%s]" , p_plugin_ctx->... )
+	
+	...
+
+	/* 设置插件环境上下文 */
+	(*pp_context) = p_plugin_ctx ;
+	
+	return 0;
+}
+
+funcInitInputPluginContext InitInputPluginContext ;
+int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , int *p_fd )
+{
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)(p_context) ;
+	
+	...
+	
+	/* 设置输入描述字 */
+	(*p_fd) = ... ;
+	
+	return 0;
+}
+
+funcOnInputPluginEvent OnInputPluginEvent ;
+int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+{
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcReadInputPlugin ReadInputPlugin ;
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+{
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcCleanInputPluginContext CleanInputPluginContext ;
+int CleanInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+{
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
+	
+	...
+	
+	free( p_plugin_ctx->inotify_read_buffer );
+	
+	return 0;
+}
+
+funcUnloadInputPluginConfig UnloadInputPluginConfig ;
+int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void **pp_context )
+{
+	struct InputPluginContext	**pp_plugin_ctx = (struct InputPluginContext **)pp_context ;
+	
+	/* 释放内存以存放插件上下文 */
+	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
+	
+	return 0;
+}
+```
+
+说明：
+
+* 回调函数LoadInputPluginConfig用于装载配置时构造插件上下文和解析配置参数填充上下文，构造的插件上下文被其它回调函数使用，最后在回调函数UnloadInputPluginConfig里释放。插件上下文由应用自定义。
+* 回调函数InitInputPluginContexth和CleanInputPluginContext负责初始化、清理内部环境。
+* 回调函数OnInputPluginEvent在事件总线上发生属于该插件的事件时被调用。函数里调用WriteAllOutputPlugins触发框架传递消息，流程逻辑如下：
+
+```
+遍历所有输出插件
+	调用输出插件的BeforeWriteOutputPlugin
+循环
+	调用输入插件的ReadInputPlugin
+	遍历所有输出插件
+		调用输出插件的WriteOutputPlugin
+遍历所有输出插件
+	调用输出插件的AfterWriteOutputPlugin
+```
+
+* 回调函数ReadInputPlugin在触发框架传递消息时被迭代调用，直到返回LOGPIPE_READ_END_OF_INPUT。
+
+注意：初始化函数必须设置事件描述字，框架会加入到事件总线中。
+注意：以上所有回调函数（除了ReadInputPlugin返回值LOGPIPE_READ_END_OF_INPUT外），当返回值大于0时中断本次消息传递，当返回值小于0时重启logpipe工作进程。
+
+## 5.2. 输出插件
+
+输出插件基本代码模板如下：
+
+```
+#include "logpipe_api.h"
+
+char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.1.0" ;
+
+struct OutputPluginContext
+{
+	...
+} ;
+
+funcLoadOutputPluginConfig LoadOutputPluginConfig ;
+int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+{
+	struct OutputPluginContext	*p_plugin_ctx = NULL ;
+	
+	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
+	if( p_plugin_ctx == NULL )
+	{
+		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		return -1;
+	}
+	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
+	
+	p_plugin_ctx->... = QueryPluginConfigItem( p_plugin_config_items , "..." ) ;
+	INFOLOG( "...[%s]" , p_plugin_ctx->... )
+	
+	...
+	
+	/* 设置插件环境上下文 */
+	(*pp_context) = p_plugin_ctx ;
+	
+	return 0;
+}
+
+funcInitOutputPluginContext InitOutputPluginContext ;
+int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+{
+	return 0;
+}
+
+funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
+int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
+{
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcWriteOutputPlugin WriteOutputPlugin ;
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
+{
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
+int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+{
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcCleanOutputPluginContext CleanOutputPluginContext ;
+int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+{
+	return 0;
+}
+
+funcUnloadOutputPluginConfig UnloadOutputPluginConfig ;
+int UnloadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void **pp_context )
+{
+	struct OutputPluginContext	**pp_plugin_ctx = (struct OutputPluginContext **)pp_context ;
+	
+	/* 释放内存以存放插件上下文 */
+	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
+	
+	return 0;
+}
+```
+
+说明：
+
+* 回调函数LoadOutputPluginConfig用于装载配置时构造插件上下文和解析配置参数填充上下文，构造的插件上下文被其它回调函数使用，最后在回调函数UnloadoutputPluginConfig里释放。插件上下文由应用自定义。
+* 回调函数InitOutputPluginContexth和CleanOutputPluginContext负责初始化、清理内部环境。
+* 回调函数WriteOutputPlugin在触发框架传递消息时被迭代调用。
+
+注意：以上所有回调函数，当返回值大于0时中断本次消息传递，当返回值小于0时重启logpipe工作进程。
+
+# 6. 性能压测
+
+压测环境：
+
+WINDOWS 10里面装了VMware Workstation 12，VMware里面装了Red Hat Enterprise Linux Server release 7.3 (Maipo)。
+
+硬件环境：
+
+```
+$ cat /proc/cpuinfo | grep "model name"
+model name      : Intel(R) Core(TM) i5-7500 CPU @ 3.40GHz
+model name      : Intel(R) Core(TM) i5-7500 CPU @ 3.40GHz
+model name      : Intel(R) Core(TM) i5-7500 CPU @ 3.40GHz
+model name      : Intel(R) Core(TM) i5-7500 CPU @ 3.40GHz
+$ free -m
+              total        used        free      shared  buff/cache   available
+Mem:            984          90         186           1         708         723
+Swap:          2047          52        1995
+$ df -m
+文件系统                     1M-块  已用  可用 已用% 挂载点
+/dev/mapper/rhel_rhel73-root 17394  7572  9823   44% /
+devtmpfs                       482     0   482    0% /dev
+tmpfs                          493     0   493    0% /dev/shm
+tmpfs                          493     7   486    2% /run
+tmpfs                          493     0   493    0% /sys/fs/cgroup
+/dev/sda1                     1014   139   876   14% /boot
+tmpfs                           99     0    99    0% /run/user/0
+tmpfs                           99     0    99    0% /run/user/1000
+```
+
+日志收集架构：
+
+* flume-ng部署架构为从一个目录中采集日志文件约100MB，经过channel为memory，落地到另一个目录中。
+* logpipe部署架构为从给一个目录中采集日志文件约100MB，经过TCP传输（禁用压缩），落地到另一个目录中。
+
+## 6.1. flume-ng
+
+预先拷入日志文件
+
+```
+$ cd $HOME/log
+$ cp ../a.log.2 a.log
+```
+
+查看flume-ng配置
+
+```
+$ cat conf/test.conf
+a1.sources = s1
+a1.channels = c1
+a1.sinks = k1
+
+a1.sources.s1.type = spooldir
+a1.sources.s1.channels = c1
+a1.sources.s1.spoolDir = /home/calvin/log
+# a1.sources.s1.fileHeader = true
+
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000 
+a1.channels.c1.transactionCapacity = 100
+
+a1.sinks.k1.type = file_roll
+a1.sinks.k1.channel = c1
+a1.sinks.k1.sink.directory = /home/calvin/log3
+```
+
+启动flume-ng采集
+
+```
+$ ./bin/flume-ng agent -n a1 -c conf -f conf/test.conf -Dflume.root.logger=INFO,console
+Info: Including Hive libraries found via () for Hive access
++ exec /home/calvin/expack/jdk1.8.0_152/bin/java -Xmx20m -Dflume.root.logger=INFO,console -cp '/home/calvin/expack/apache-flume-1.8.0-bin/conf:/home/calvin/expack/apache-flume-1.8.0-bin/lib/*:/lib/*' -Djava.library.path= org.apache.flume.node.Application -n a1 -f conf/test.conf
+2017-12-17 23:33:15,347 (lifecycleSupervisor-1-0) [INFO - org.apache.flume.node.PollingPropertiesFileConfigurationProvider.start(PollingPropertiesFileConfigurationProvider.java:62)] Configuration provider starting
+2017-12-17 23:33:15,351 (conf-file-poller-0) [INFO - org.apache.flume.node.PollingPropertiesFileConfigurationProvider$FileWatcherRunnable.run(PollingPropertiesFileConfigurationProvider.java:134)] Reloading configuration file:conf/test.conf
+2017-12-17 23:33:15,357 (conf-file-poller-0) [INFO - org.apache.flume.conf.FlumeConfiguration$AgentConfiguration.addProperty(FlumeConfiguration.java:1016)] Processing:k1
+2017-12-17 23:33:15,357 (conf-file-poller-0) [INFO - org.apache.flume.conf.FlumeConfiguration$AgentConfiguration.addProperty(FlumeConfiguration.java:930)] Added sinks: k1 Agent: a1
+2017-12-17 23:33:15,357 (conf-file-poller-0) [INFO - org.apache.flume.conf.FlumeConfiguration$AgentConfiguration.addProperty(FlumeConfiguration.java:1016)] Processing:k1
+2017-12-17 23:33:15,357 (conf-file-poller-0) [INFO - org.apache.flume.conf.FlumeConfiguration$AgentConfiguration.addProperty(FlumeConfiguration.java:1016)] Processing:k1
+2017-12-17 23:33:15,364 (conf-file-poller-0) [INFO - org.apache.flume.conf.FlumeConfiguration.validateConfiguration(FlumeConfiguration.java:140)] Post-validation flume configuration contains configuration for agents: [a1]
+2017-12-17 23:33:15,364 (conf-file-poller-0) [INFO - org.apache.flume.node.AbstractConfigurationProvider.loadChannels(AbstractConfigurationProvider.java:147)] Creating channels
+2017-12-17 23:33:15,369 (conf-file-poller-0) [INFO - org.apache.flume.channel.DefaultChannelFactory.create(DefaultChannelFactory.java:42)] Creating instance of channel c1 type memory
+2017-12-17 23:33:15,371 (conf-file-poller-0) [INFO - org.apache.flume.node.AbstractConfigurationProvider.loadChannels(AbstractConfigurationProvider.java:201)] Created channel c1
+2017-12-17 23:33:15,372 (conf-file-poller-0) [INFO - org.apache.flume.source.DefaultSourceFactory.create(DefaultSourceFactory.java:41)] Creating instance of source s1, type spooldir
+2017-12-17 23:33:15,378 (conf-file-poller-0) [INFO - org.apache.flume.sink.DefaultSinkFactory.create(DefaultSinkFactory.java:42)] Creating instance of sink: k1, type: file_roll
+2017-12-17 23:33:15,384 (conf-file-poller-0) [INFO - org.apache.flume.node.AbstractConfigurationProvider.getConfiguration(AbstractConfigurationProvider.java:116)] Channel c1 connected to [s1, k1]
+2017-12-17 23:33:15,389 (conf-file-poller-0) [INFO - org.apache.flume.node.Application.startAllComponents(Application.java:137)] Starting new configuration:{ sourceRunners:{s1=EventDrivenSourceRunner: { source:Spool Directory source s1: { spoolDir: /home/calvin/log } }} sinkRunners:{k1=SinkRunner: { policy:org.apache.flume.sink.DefaultSinkProcessor@4224eda0 counterGroup:{ name:null counters:{} } }} channels:{c1=org.apache.flume.channel.MemoryChannel{name: c1}} }
+2017-12-17 23:33:15,394 (conf-file-poller-0) [INFO - org.apache.flume.node.Application.startAllComponents(Application.java:144)] Starting Channel c1
+2017-12-17 23:33:15,395 (conf-file-poller-0) [INFO - org.apache.flume.node.Application.startAllComponents(Application.java:159)] Waiting for channel: c1 to start. Sleeping for 500 ms
+2017-12-17 23:33:15,432 (lifecycleSupervisor-1-2) [INFO - org.apache.flume.instrumentation.MonitoredCounterGroup.register(MonitoredCounterGroup.java:119)] Monitored counter group for type: CHANNEL, name: c1: Successfully registered new MBean.
+2017-12-17 23:33:15,432 (lifecycleSupervisor-1-2) [INFO - org.apache.flume.instrumentation.MonitoredCounterGroup.start(MonitoredCounterGroup.java:95)] Component type: CHANNEL, name: c1 started
+2017-12-17 23:33:15,900 (conf-file-poller-0) [INFO - org.apache.flume.node.Application.startAllComponents(Application.java:171)] Starting Sink k1
+2017-12-17 23:33:15,901 (lifecycleSupervisor-1-0) [INFO - org.apache.flume.sink.RollingFileSink.start(RollingFileSink.java:110)] Starting org.apache.flume.sink.RollingFileSink{name:k1, channel:c1}...
+2017-12-17 23:33:15,901 (conf-file-poller-0) [INFO - org.apache.flume.node.Application.startAllComponents(Application.java:182)] Starting Source s1
+2017-12-17 23:33:15,903 (lifecycleSupervisor-1-4) [INFO - org.apache.flume.source.SpoolDirectorySource.start(SpoolDirectorySource.java:83)] SpoolDirectorySource source starting with directory: /home/calvin/log
+2017-12-17 23:33:15,904 (lifecycleSupervisor-1-0) [INFO - org.apache.flume.instrumentation.MonitoredCounterGroup.register(MonitoredCounterGroup.java:119)] Monitored counter group for type: SINK, name: k1: Successfully registered new MBean.
+2017-12-17 23:33:15,904 (lifecycleSupervisor-1-0) [INFO - org.apache.flume.instrumentation.MonitoredCounterGroup.start(MonitoredCounterGroup.java:95)] Component type: SINK, name: k1 started
+2017-12-17 23:33:15,908 (lifecycleSupervisor-1-0) [INFO - org.apache.flume.sink.RollingFileSink.start(RollingFileSink.java:142)] RollingFileSink k1 started.
+2017-12-17 23:33:15,962 (lifecycleSupervisor-1-4) [INFO - org.apache.flume.instrumentation.MonitoredCounterGroup.register(MonitoredCounterGroup.java:119)] Monitored counter group for type: SOURCE, name: s1: Successfully registered new MBean.
+2017-12-17 23:33:15,962 (lifecycleSupervisor-1-4) [INFO - org.apache.flume.instrumentation.MonitoredCounterGroup.start(MonitoredCounterGroup.java:95)] Component type: SOURCE, name: s1 started
+2017-12-17 23:33:23,822 (pool-3-thread-1) [INFO - org.apache.flume.client.avro.ReliableSpoolingFileEventReader.readEvents(ReliableSpoolingFileEventReader.java:324)] Last read took us just up to a file boundary. Rolling to the next file, if there is one.
+2017-12-17 23:33:23,823 (pool-3-thread-1) [INFO - org.apache.flume.client.avro.ReliableSpoolingFileEventReader.rollCurrentFile(ReliableSpoolingFileEventReader.java:433)] Preparing to move file /home/calvin/log/a.log to /home/calvin/log/a.log.COMPLETED
+```
+
+查看采集目录和归集目录
+
+```
+$ cd $HOME/log
+$ ls -l 
+总用量 109896
+-rw-rw-r-- 1 calvin calvin 112530011 12月 17 23:33 a.log.COMPLETED
+$ cd $HOME/log3
+$ ls -l
+总用量 131008
+-rw-rw-r-- 1 calvin calvin 112530011 12月 17 23:33 1513524795383-1
+```
+
+查看内存占用
+
+```
+$ ps aux | grep java
+calvin   39254  2.4  8.0 3136484 81028 pts/8   Sl+  23:33   0:15 /home/calvin/expack/jdk1.8.0_152/bin/java -Xmx20m -Dflume.root.logger=INFO,console -cp /home/calvin/expack/apache-flume-1.8.0-bin/conf:/home/calvin/expack/apache-flume-1.8.0-bin/lib/*:/lib/* -Djava.library.path= org.apache.flume.node.Application -n a1 -f conf/test.conf
+```
+
+采集时间由flume-ng输出中取得"23:33:15,962"至"23:33:23,822"，约8秒。
+
+## 6.2. logpipe
+
+查看采集端和归集端配置文件
+
+```
+$ cat $HOME/etc/logpipe_case1_collector.conf
+{
+        "log" :
+        {
+                "log_file" : "/tmp/logpipe_case1_collector.log" ,
+                "log_level" : "INFO"
+        } ,
+
+        "inputs" :
+        [
+                { "plugin":"so/logpipe-input-file.so" , "path":"/home/calvin/log" }
+        ] ,
+
+        "outputs" :
+        [
+                { "plugin":"so/logpipe-output-tcp.so" , "ip":"127.0.0.1" , "port":10101 }
+        ]
+}
+```
+
+```
+$ cat $HOME/etc/logpipe_case1_dump.conf
+{
+        "log" :
+        {
+                "log_file" : "/tmp/logpipe_case1_dump.log" ,
+                "log_level" : "INFO"
+        } ,
+
+        "inputs" :
+        [
+                { "plugin":"so/logpipe-input-tcp.so" , "ip":"127.0.0.1" , "port":10101 }
+        ] ,
+
+        "outputs" :
+        [
+                { "plugin":"so/logpipe-output-file.so" , "path":"/home/calvin/log3" }
+        ]
+}
+```
+
+启动归集端和采集端
+
+```
+$ logpipe -f logpipe_case1_dump.conf 
+logpipe -f logpipe_case1_dump.conf 
+2017-12-17 23:45:33.378112 | INFO  | 39309:logpipe-output-file.c:30 | path[/home/calvin/log3]
+2017-12-17 23:45:33.378161 | INFO  | 39309:logpipe-output-file.c:45 | uncompress_algorithm[(null)]
+2017-12-17 23:45:33.378163 | DEBUG | 39309:config.c:307 | [so/logpipe-output-file.so]->pfuncLoadOutputPluginConfig ok
+2017-12-17 23:45:33.378167 | INFO  | 39309:logpipe-input-tcp.c:46 | ip[127.0.0.1]
+2017-12-17 23:45:33.378169 | INFO  | 39309:logpipe-input-tcp.c:53 | port[10101]
+2017-12-17 23:45:33.378172 | DEBUG | 39309:config.c:324 | [so/logpipe-input-tcp.so]->pfuncLoadInputPluginConfig ok
+$ logpipe -f logpipe_case1_collector.conf
+2017-12-17 23:45:34.449968 | INFO  | 39313:logpipe-output-tcp.c:74 | ip[127.0.0.1]
+2017-12-17 23:45:34.450018 | INFO  | 39313:logpipe-output-tcp.c:81 | port[10101]
+2017-12-17 23:45:34.450022 | DEBUG | 39313:config.c:307 | [so/logpipe-output-tcp.so]->pfuncLoadOutputPluginConfig ok
+2017-12-17 23:45:34.450038 | INFO  | 39313:logpipe-input-file.c:367 | path[/home/calvin/log]
+2017-12-17 23:45:34.450040 | INFO  | 39313:logpipe-input-file.c:370 | file[(null)]
+2017-12-17 23:45:34.450041 | INFO  | 39313:logpipe-input-file.c:388 | exec_before_rotating[(null)]
+2017-12-17 23:45:34.450043 | INFO  | 39313:logpipe-input-file.c:395 | rotate_size[0]
+2017-12-17 23:45:34.450044 | INFO  | 39313:logpipe-input-file.c:413 | exec_after_rotating[(null)]
+2017-12-17 23:45:34.450046 | INFO  | 39313:logpipe-input-file.c:428 | compress_algorithm[(null)]
+2017-12-17 23:45:34.450047 | DEBUG | 39313:config.c:324 | [so/logpipe-input-file.so]->pfuncLoadInputPluginConfig ok
+$ ps -ef | grep "logpipe -f" | grep -v grep
+calvin   39311     1  0 23:45 ?        00:00:00 logpipe -f logpipe_case1_dump.conf
+calvin   39312 39311  0 23:45 ?        00:00:00 logpipe -f logpipe_case1_dump.conf
+calvin   39315     1  0 23:45 ?        00:00:00 logpipe -f logpipe_case1_collector.conf
+calvin   39316 39315  0 23:45 ?        00:00:00 logpipe -f logpipe_case1_collector.conf
+```
+
+拷入日志文件
+
+```
+$ cd $HOME/log
+$ cp ../a.log.2 a.log
+$ ls -l
+总用量 131008
+-rw-rw-r-- 1 calvin calvin 112530011 12月 17 23:45 a.log
+```
+
+观察采集端和归集端处理日志
+
+```
+$ head /tmp/logpipe.log
+2017-12-17 23:45:43.714113 | INFO  | 39316:worker.c:84 | epoll_wait[1] return[1]events
+2017-12-17 23:45:43.715549 | INFO  | 39316:logpipe-input-file.c:539 | read inotify[3] ok , [32]bytes
+2017-12-17 23:45:43.715603 | INFO  | 39316:logpipe-input-file.c:289 | inotify_add_watch[/home/calvin/log/a.log] ok , inotify_fd[3] inotify_wd[2] trace_offset[0]
+2017-12-17 23:45:43.715682 | INFO  | 39316:logpipe-output-tcp.c:158 | send comm magic and filename ok , [8]bytes
+2017-12-17 23:45:43.715915 | INFO  | 39316:logpipe-input-file.c:669 | read file ok , [102400]bytes
+2017-12-17 23:45:43.715961 | INFO  | 39316:logpipe-output-tcp.c:181 | send block len to socket ok , [4]bytes
+2017-12-17 23:45:43.716071 | INFO  | 39316:logpipe-output-tcp.c:193 | send block data to socket ok , [102400]bytes
+2017-12-17 23:45:43.716284 | INFO  | 39316:logpipe-input-file.c:669 | read file ok , [102400]bytes
+2017-12-17 23:45:43.716319 | INFO  | 39316:logpipe-output-tcp.c:181 | send block len to socket ok , [4]bytes
+2017-12-17 23:45:43.716337 | INFO  | 39316:logpipe-output-tcp.c:193 | send block data to socket ok , [102400]bytes
+2017-12-17 23:45:43.716494 | INFO  | 39316:logpipe-input-file.c:669 | read file ok , [102400]bytes
+2017-12-17 23:45:43.716521 | INFO  | 39316:logpipe-output-tcp.c:181 | send block len to socket ok , [4]bytes
+2017-12-17 23:45:43.716557 | INFO  | 39316:logpipe-output-tcp.c:193 | send block data to socket ok , [102400]bytes
+```
+
+```
+$ tail /tmp/logpipe.log
+2017-12-17 23:45:44.471734 | INFO  | 39312:logpipe-input-tcp.c:305 | recv block length from accepted session sock ok , [4]bytes
+2017-12-17 23:45:44.471747 | INFO  | 39312:logpipe-input-tcp.c:334 | recv block from accepted session sock ok , [102400]bytes
+2017-12-17 23:45:44.471812 | INFO  | 39312:logpipe-output-file.c:103 | write block data to file ok , [102400]bytes
+2017-12-17 23:45:44.471817 | INFO  | 39312:logpipe-input-tcp.c:305 | recv block length from accepted session sock ok , [4]bytes
+2017-12-17 23:45:44.471823 | INFO  | 39312:logpipe-input-tcp.c:334 | recv block from accepted session sock ok , [33371]bytes
+2017-12-17 23:45:44.471849 | INFO  | 39312:logpipe-output-file.c:103 | write block data to file ok , [33371]bytes
+2017-12-17 23:45:44.471856 | INFO  | 39312:logpipe-input-tcp.c:305 | recv block length from accepted session sock ok , [4]bytes
+2017-12-17 23:45:44.471858 | INFO  | 39312:output.c:45 | [accepted_session]->pfuncReadInputPlugin done
+2017-12-17 23:45:44.471860 | INFO  | 39312:logpipe-output-file.c:180 | close file
+2017-12-17 23:45:44.471863 | INFO  | 39312:worker.c:67 | epoll_wait[1] ...
+```
+
+查看归集端目录
+
+```
+$ cd $HOME/log3
+$ ls -l
+总用量 129600
+-rwxrwxrwx 1 calvin calvin 112530011 12月 17 23:45 a.log
+```
+
+```
+$ ps aux | grep "logpipe -f"
+calvin   39311  0.0  0.0  14744   400 ?        S    23:45   0:00 logpipe -f logpipe_case1_dump.conf
+calvin   39312  0.2  0.0  14952   644 ?        S    23:45   0:00 logpipe -f logpipe_case1_dump.conf
+calvin   39315  0.0  0.0  14756   424 ?        S    23:45   0:00 logpipe -f logpipe_case1_collector.conf
+calvin   39316  0.3  1.6  31348 17080 ?        S    23:45   0:00 logpipe -f logpipe_case1_collector.conf
+```
+
+采集时间由采集端和归集端处理日志中取得"23:10:51.950398"至"23:10:52.576147"，约0.6秒。
+
+## 6.3. 总结
+
+|  | flume-ng | logpipe |
+|---|---|---|
+| 测试用日志文件大小 | 100MB | 100MB |
+| 内存占用(RSS) | 81MB | 17MB |
+| 备注 |  | 多了TCP传输；未开启压缩 |
+| 耗时 | 8秒 | 0.6秒 |
+
+结论： logpipe性能完全碾压flume-ng。
+
+# 7. 最后
+
+欢迎使用logpipe，如果你使用中碰到了问题请告诉我，谢谢 ^_^
+
+源码托管地址 : [开源中国](https://gitee.com/calvinwilliams/logpipe)、[github](https://github.com/calvinwilliams/logpipe)
+
+作者邮箱 : [网易](mailto:calvinwilliams@163.com)、[Gmail](mailto:calvinwilliams.c@gmail.com)
