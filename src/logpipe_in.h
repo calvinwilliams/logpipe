@@ -30,9 +30,7 @@ struct LogpipeInputPlugin
 	funcLoadInputPluginConfig	*pfuncLoadInputPluginConfig ;
 	funcInitInputPluginContext	*pfuncInitInputPluginContext ;
 	funcOnInputPluginEvent		*pfuncOnInputPluginEvent ;
-	funcBeforeReadInputPlugin	*pfuncBeforeReadInputPlugin ;
 	funcReadInputPlugin		*pfuncReadInputPlugin ;
-	funcAfterReadInputPlugin	*pfuncAfterReadInputPlugin ;
 	funcCleanInputPluginContext	*pfuncCleanInputPluginContext ;
 	funcUnloadInputPluginConfig	*pfuncUnloadInputPluginConfig ;
 	int				fd ;

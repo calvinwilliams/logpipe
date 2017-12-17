@@ -7,9 +7,7 @@
 char	*__LOGPIPE_INPUT_TCP_VERSION = "0.1.0" ;
 
 funcOnInputPluginEvent OnInputPluginEvent_accepted_session ;
-funcBeforeReadInputPlugin BeforeReadInputPlugin_accepted_session ;
 funcReadInputPlugin ReadInputPlugin_accepted_session ;
-funcAfterReadInputPlugin AfterReadInputPlugin_accepted_session ;
 funcCleanInputPluginContext CleanInputPluginContext_accepted_session ;
 funcUnloadInputPluginConfig UnloadInputPluginConfig_accepted_session ;
 
@@ -34,6 +32,7 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	struct InputPluginContext	*p_plugin_ctx = NULL ;
 	char				*p = NULL ;
 	
+	/* 申请内存以存放插件上下文 */
 	p_plugin_ctx = (struct InputPluginContext *)malloc( sizeof(struct InputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
@@ -162,7 +161,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	
 	p_accepted_session = AddInputPluginSession( p_env , "accepted_session"
 					, & OnInputPluginEvent_accepted_session
-					, & BeforeReadInputPlugin_accepted_session , & ReadInputPlugin_accepted_session , & AfterReadInputPlugin_accepted_session
+					, & ReadInputPlugin_accepted_session
 					, & CleanInputPluginContext_accepted_session , & UnloadInputPluginConfig_accepted_session
 					, p_accepted_session_ctx->accepted_sock , p_accepted_session_ctx ) ;
 	if( p_accepted_session == NULL )
@@ -173,24 +172,6 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		return -1;
 	}
 	
-	return 0;
-}
-
-funcBeforeReadInputPlugin BeforeReadInputPlugin ;
-int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	return 0;
-}
-
-funcReadInputPlugin ReadInputPlugin ;
-int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
-{
-	return 0;
-}
-
-funcAfterReadInputPlugin AfterReadInputPlugin ;
-int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
 	return 0;
 }
 
@@ -213,6 +194,7 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 {
 	struct InputPluginContext	**pp_plugin_ctx = (struct InputPluginContext **)pp_context ;
 	
+	/* 释放内存以存放插件上下文 */
 	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
 	
 	return 0;
@@ -298,12 +280,6 @@ int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct Logpi
 	return 0;
 }
 
-funcBeforeReadInputPlugin BeforeReadInputPlugin_accepted_session ;
-int BeforeReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
-	return 0;
-}
-
 funcReadInputPlugin ReadInputPlugin_accepted_session ;
 int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
@@ -359,12 +335,6 @@ int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeI
 		DEBUGHEXLOG( block_buf , len , NULL )
 	}
 	
-	return 0;
-}
-
-funcAfterReadInputPlugin AfterReadInputPlugin_accepted_session ;
-int AfterReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
-{
 	return 0;
 }
 
