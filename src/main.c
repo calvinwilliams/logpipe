@@ -16,7 +16,6 @@ static void version()
 static void usage()
 {
 	printf( "USAGE : logpipe -v\n" );
-	printf( "        logpipe -i\n" );
 	printf( "        logpipe -f (config_file) [ --no-daemon ] [ --start-once-for-env \"(key) (value)\" ]\n" );
 	return;
 }
