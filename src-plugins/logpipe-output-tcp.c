@@ -108,6 +108,36 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	if( nret )
 		return -1;
 	
+	/* 设置输入描述字 */
+	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->forward_sock );
+	
+	return 0;
+}
+
+funcOnOutputPluginEvent OnOutputPluginEvent;
+int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+{
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	int				nret = 0 ;
+	
+	/* 关闭连接 */
+	DeleteOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->forward_sock );
+	ERRORLOG( "remote socket closed , close forward sock[%d]" , p_plugin_ctx->forward_sock )
+	close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
+	
+	/* 连接服务端 */
+	while( p_plugin_ctx->forward_sock == -1 )
+	{
+		sleep(2);
+		nret = ConnectForwardSocket( p_plugin_ctx ) ;
+		if( nret < 0 )
+			return nret;
+	}
+	
+	/* 设置输入描述字 */
+	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->forward_sock );
+	
 	return 0;
 }
 
@@ -126,8 +156,9 @@ _GOTO_RETRY_SEND :
 	
 	while( p_plugin_ctx->forward_sock == -1 )
 	{
+		sleep(2);
 		nret = ConnectForwardSocket( p_plugin_ctx ) ;
-		if( nret )
+		if( nret < 0 )
 			return nret;
 	}
 	

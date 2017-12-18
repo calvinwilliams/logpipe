@@ -27,9 +27,20 @@ struct LogpipePluginConfigItem
 	struct list_head	this_node ;
 } ;
 
+/* 通用插件环境结构 */
+#define LOGPIPE_PLUGIN_TYPE_INPUT	'I'
+#define LOGPIPE_PLUGIN_TYPE_OUTPUT	'O'
+
+struct LogpipePlugin
+{
+	unsigned char			type ;
+} ;
+
 /* 输入插件环境结构 */
 struct LogpipeInputPlugin
 {
+	unsigned char			type ;
+	
 	struct LogpipePluginConfigItem	plugin_config_items ;
 	
 	char				so_filename[ PATH_MAX + 1 ] ;
@@ -50,6 +61,8 @@ struct LogpipeInputPlugin
 /* 输出插件环境结构 */
 struct LogpipeOutputPlugin
 {
+	unsigned char			type ;
+	
 	struct LogpipePluginConfigItem	plugin_config_items ;
 	
 	char				so_filename[ PATH_MAX + 1 ] ;
@@ -57,11 +70,13 @@ struct LogpipeOutputPlugin
 	void				*so_handler ;
 	funcLoadOutputPluginConfig	*pfuncLoadOutputPluginConfig ;
 	funcInitOutputPluginContext	*pfuncInitOutputPluginContext ;
+	funcOnOutputPluginEvent		*pfuncOnOutputPluginEvent ;
 	funcBeforeWriteOutputPlugin	*pfuncBeforeWriteOutputPlugin ;
 	funcWriteOutputPlugin		*pfuncWriteOutputPlugin ;
 	funcAfterWriteOutputPlugin	*pfuncAfterWriteOutputPlugin ;
 	funcCleanOutputPluginContext	*pfuncCleanOutputPluginContext ;
 	funcUnloadOutputPluginConfig	*pfuncUnloadOutputPluginConfig ;
+	int				fd ;
 	void				*context ;
 	
 	struct list_head		this_node ;

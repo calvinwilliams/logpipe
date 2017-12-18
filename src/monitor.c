@@ -112,7 +112,14 @@ _GOTO_WAITPID :
 				/* 如果被退出信号中断，退出 */
 				if( g_QUIT_flag )
 				{
-					close( p_env->quit_pipe[1] );
+					if( p_env->quit_pipe[1] >= 0 )
+					{
+						close( p_env->quit_pipe[1] ); p_env->quit_pipe[1] = -1 ;
+					}
+					else
+					{
+						kill( pid , SIGKILL );
+					}
 					goto _GOTO_WAITPID;
 				}
 			}
@@ -135,7 +142,10 @@ _GOTO_WAITPID :
 			FATALLOG( "waitpid[%d] WEXITSTATUS[%d] WIFSIGNALED[%d] WTERMSIG[%d]" , pid , WEXITSTATUS(status) , WIFSIGNALED(status) , WTERMSIG(status) )
 		}
 		
-		close( p_env->quit_pipe[1] );
+		if( p_env->quit_pipe[1] >= 0 )
+		{
+			close( p_env->quit_pipe[1] ); p_env->quit_pipe[1] = -1 ;
+		}
 		
 		sleep(1);
 		

@@ -19,7 +19,6 @@ int worker( struct LogpipeEnv *p_env )
 	int				epoll_nfds ;
 	int				i ;
 	struct epoll_event		*p_event = NULL ;
-	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
 	
 	int				nret = 0 ;
 	
@@ -96,39 +95,90 @@ int worker( struct LogpipeEnv *p_env )
 		{
 			if( p_event->data.ptr == p_env->quit_pipe )
 			{
+				DEBUGLOG( "p_event->data.ptr[%p] quit_pipe" , p_event->data.ptr )
 				quit_flag = 1 ;
 			}
 			else
 			{
-				char		so_filename[ sizeof(((struct LogpipeInputPlugin *)0)->so_filename) ] ;
+				struct LogpipePlugin	*p_logpipe_plugin = NULL ;
 				
-				p_logpipe_input_plugin = (struct LogpipeInputPlugin *)(p_event->data.ptr) ;
-				strcpy( so_filename , p_logpipe_input_plugin->so_filename );
-				
-				/* 可读事件 */
-				if( p_event->events & EPOLLIN )
+				p_logpipe_plugin = (struct LogpipePlugin *)(p_event->data.ptr) ;
+				if( p_logpipe_plugin->type == LOGPIPE_PLUGIN_TYPE_INPUT )
 				{
-					nret = p_logpipe_input_plugin->pfuncOnInputPluginEvent( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
-					if( nret < 0 )
+					struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+					char				so_filename[ sizeof(((struct LogpipeInputPlugin *)0)->so_filename) ] ;
+					
+					DEBUGLOG( "p_event->data.ptr[%p] p_logpipe_input_plugin" , p_event->data.ptr )
+					
+					p_logpipe_input_plugin = (struct LogpipeInputPlugin *)(p_event->data.ptr) ;
+					strcpy( so_filename , p_logpipe_input_plugin->so_filename );
+					
+					/* 可读事件 */
+					if( p_event->events & EPOLLIN )
 					{
-						FATALLOG( "[%s]->pfuncOnInputPluginEvent failed[%d]" , so_filename , nret )
-						return -1;
+						nret = p_logpipe_input_plugin->pfuncOnInputPluginEvent( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
+						if( nret < 0 )
+						{
+							FATALLOG( "[%s]->pfuncOnInputPluginEvent failed[%d]" , so_filename , nret )
+							return -1;
+						}
+						else if( nret > 0 )
+						{
+							WARNLOG( "[%s]->pfuncOnInputPluginEvent return[%d]" , so_filename , nret )
+						}
+						else
+						{
+							DEBUGLOG( "[%s]->pfuncOnInputPluginEvent ok" , so_filename )
+						}
 					}
-					else if( nret > 0 )
-					{
-						WARNLOG( "[%s]->pfuncOnInputPluginEvent return[%d]" , so_filename , nret )
-					}
+					/* 其它事件 */
 					else
 					{
-						DEBUGLOG( "[%s]->pfuncOnInputPluginEvent ok" , so_filename )
+						FATALLOG( "[%s]->pfuncOnInputPluginEvent unknow event[0x%X]" , so_filename , p_event->events )
+						return -1;
 					}
 				}
-				/* 其它事件 */
+				else if( p_logpipe_plugin->type == LOGPIPE_PLUGIN_TYPE_OUTPUT )
+				{
+					struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
+					char				so_filename[ sizeof(((struct LogpipeOutputPlugin *)0)->so_filename) ] ;
+					
+					DEBUGLOG( "p_event->data.ptr[%p] p_logpipe_output_plugin" , p_event->data.ptr )
+					
+					p_logpipe_output_plugin = (struct LogpipeOutputPlugin *)(p_event->data.ptr) ;
+					strcpy( so_filename , p_logpipe_output_plugin->so_filename );
+					
+					/* 可读事件 */
+					if( p_event->events & EPOLLIN )
+					{
+						nret = p_logpipe_output_plugin->pfuncOnOutputPluginEvent( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
+						if( nret < 0 )
+						{
+							FATALLOG( "[%s]->pfuncOnOutputPluginEvent failed[%d]" , so_filename , nret )
+							return -1;
+						}
+						else if( nret > 0 )
+						{
+							WARNLOG( "[%s]->pfuncOnOutputPluginEvent return[%d]" , so_filename , nret )
+						}
+						else
+						{
+							DEBUGLOG( "[%s]->pfuncOnOutputPluginEvent ok" , so_filename )
+						}
+					}
+					/* 其它事件 */
+					else
+					{
+						FATALLOG( "[%s]->pfuncOnOutputPluginEvent unknow event[0x%X]" , so_filename , p_event->events )
+						return -1;
+					}
+				}
 				else
 				{
-					FATALLOG( "[%s]->pfuncOnInputPluginEvent unknow event[0x%X]" , so_filename , p_event->events )
+					FATALLOG( "unknow plugin[%p] type[%c]" , p_event->data.ptr , p_logpipe_plugin->type )
 					return -1;
 				}
+				
 			}
 		}
 	}

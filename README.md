@@ -949,7 +949,7 @@ $ ps aux | grep "logpipe -f"
 calvin   39311  0.0  0.0  14744   400 ?        S    23:45   0:00 logpipe -f logpipe_case1_dump.conf
 calvin   39312  0.2  0.0  14952   644 ?        S    23:45   0:00 logpipe -f logpipe_case1_dump.conf
 calvin   39315  0.0  0.0  14756   424 ?        S    23:45   0:00 logpipe -f logpipe_case1_collector.conf
-calvin   39316  0.3  1.6  31348 17080 ?        S    23:45   0:00 logpipe -f logpipe_case1_collector.conf
+calvin   39316  0.3  1.6  18140  2248 ?        S    23:45   0:00 logpipe -f logpipe_case1_collector.conf
 ```
 
 采集时间由采集端和归集端处理日志中取得"23:10:51.950398"至"23:10:52.576147"，约0.6秒。
@@ -959,7 +959,7 @@ calvin   39316  0.3  1.6  31348 17080 ?        S    23:45   0:00 logpipe -f logp
 |  | flume-ng | logpipe |
 |---|---|---|
 | 测试用日志文件大小 | 100MB | 100MB |
-| 内存占用(RSS) | 81MB | 17MB |
+| 内存占用(RSS) | 81MB | 2MB |
 | 备注 |  | 多了TCP传输；未开启压缩 |
 | 耗时 | 8秒 | 0.6秒 |
 

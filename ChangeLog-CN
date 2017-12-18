@@ -1,3 +1,7 @@
+0.8.0		2017-12-18	calvin
+		* 再次修正了文件大小转档在长打开文件应用模式中的一个遗漏目标文件末尾的问题
+		* 输出描述字不可用时及时通知插件
+
 0.7.0		2017-12-16	calvin
 		* logpipe-input-file配置exec_before_rotating和exec_after_rotating命令中可以使用环境变量LOGPIPE_ROTATING_PATHNAME了
 		* 修正了文件大小转档在长打开文件应用模式中的一个遗漏目标文件末尾的问题

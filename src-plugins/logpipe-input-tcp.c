@@ -27,7 +27,7 @@ struct InputPluginContext_AcceptedSession
 } ;
 
 funcLoadInputPluginConfig LoadInputPluginConfig ;
-int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd )
+int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
 {
 	struct InputPluginContext	*p_plugin_ctx = NULL ;
 	char				*p = NULL ;
@@ -68,7 +68,7 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 }
 
 funcInitInputPluginContext InitInputPluginContext ;
-int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , int *p_fd )
+int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	
@@ -114,7 +114,7 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	}
 	
 	/* ÉèÖÃÊäÈëÃèÊö×Ö */
-	(*p_fd) = p_plugin_ctx->listen_sock ;
+	AddInputPluginEvent( p_env , p_logpipe_input_plugin , p_plugin_ctx->listen_sock );
 	
 	return 0;
 }
