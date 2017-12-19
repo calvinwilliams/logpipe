@@ -487,7 +487,7 @@ struct InputPluginContext
 } ;
 
 funcLoadInputPluginConfig LoadInputPluginConfig ;
-int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context , int *p_fd )
+int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
 {
 	struct InputPluginContext	*p_plugin_ctx = NULL ;
 	char				*p = NULL ;
@@ -514,14 +514,14 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 }
 
 funcInitInputPluginContext InitInputPluginContext ;
-int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , int *p_fd )
+int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)(p_context) ;
 	
 	...
 	
 	/* 设置输入描述字 */
-	(*p_fd) = ... ;
+	AddInputPluginEvent( p_env , p_logpipe_input_plugin , ... ); /* 订阅可读事件，当产生消息时回调OnInputPluginEvent */
 	
 	return 0;
 }
@@ -633,6 +633,23 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 funcInitOutputPluginContext InitOutputPluginContext ;
 int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	...
+	
+	/* 设置输出描述字 */
+	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , . ); /* 订阅可读事件，当不可用时回调函数OnOutputPluginEvent */
+	
+	return 0;
+}
+
+funcOnOutputPluginEvent OnOutputPluginEvent;
+int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+{
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	...
+	
 	return 0;
 }
 
@@ -867,29 +884,28 @@ $ cat $HOME/etc/logpipe_case1_dump.conf
 
 ```
 $ logpipe -f logpipe_case1_dump.conf 
-logpipe -f logpipe_case1_dump.conf 
-2017-12-17 23:45:33.378112 | INFO  | 39309:logpipe-output-file.c:30 | path[/home/calvin/log3]
-2017-12-17 23:45:33.378161 | INFO  | 39309:logpipe-output-file.c:45 | uncompress_algorithm[(null)]
-2017-12-17 23:45:33.378163 | DEBUG | 39309:config.c:307 | [so/logpipe-output-file.so]->pfuncLoadOutputPluginConfig ok
-2017-12-17 23:45:33.378167 | INFO  | 39309:logpipe-input-tcp.c:46 | ip[127.0.0.1]
-2017-12-17 23:45:33.378169 | INFO  | 39309:logpipe-input-tcp.c:53 | port[10101]
-2017-12-17 23:45:33.378172 | DEBUG | 39309:config.c:324 | [so/logpipe-input-tcp.so]->pfuncLoadInputPluginConfig ok
+2017-12-19 22:16:39.077334 | INFO  | 45485:logpipe-output-file.c:30 | path[/home/calvin/log3]
+2017-12-19 22:16:39.077396 | INFO  | 45485:logpipe-output-file.c:45 | uncompress_algorithm[(null)]
+2017-12-19 22:16:39.077399 | DEBUG | 45485:config.c:327 | [so/logpipe-output-file.so]->pfuncLoadOutputPluginConfig ok
+2017-12-19 22:16:39.077404 | INFO  | 45485:logpipe-input-tcp.c:46 | ip[127.0.0.1]
+2017-12-19 22:16:39.077406 | INFO  | 45485:logpipe-input-tcp.c:53 | port[10101]
+2017-12-19 22:16:39.077409 | DEBUG | 45485:config.c:344 | [so/logpipe-input-tcp.so]->pfuncLoadInputPluginConfig ok
 $ logpipe -f logpipe_case1_collector.conf
-2017-12-17 23:45:34.449968 | INFO  | 39313:logpipe-output-tcp.c:74 | ip[127.0.0.1]
-2017-12-17 23:45:34.450018 | INFO  | 39313:logpipe-output-tcp.c:81 | port[10101]
-2017-12-17 23:45:34.450022 | DEBUG | 39313:config.c:307 | [so/logpipe-output-tcp.so]->pfuncLoadOutputPluginConfig ok
-2017-12-17 23:45:34.450038 | INFO  | 39313:logpipe-input-file.c:367 | path[/home/calvin/log]
-2017-12-17 23:45:34.450040 | INFO  | 39313:logpipe-input-file.c:370 | file[(null)]
-2017-12-17 23:45:34.450041 | INFO  | 39313:logpipe-input-file.c:388 | exec_before_rotating[(null)]
-2017-12-17 23:45:34.450043 | INFO  | 39313:logpipe-input-file.c:395 | rotate_size[0]
-2017-12-17 23:45:34.450044 | INFO  | 39313:logpipe-input-file.c:413 | exec_after_rotating[(null)]
-2017-12-17 23:45:34.450046 | INFO  | 39313:logpipe-input-file.c:428 | compress_algorithm[(null)]
-2017-12-17 23:45:34.450047 | DEBUG | 39313:config.c:324 | [so/logpipe-input-file.so]->pfuncLoadInputPluginConfig ok
+2017-12-19 22:16:42.037446 | INFO  | 45489:logpipe-output-tcp.c:74 | ip[127.0.0.1]
+2017-12-19 22:16:42.037513 | INFO  | 45489:logpipe-output-tcp.c:81 | port[10101]
+2017-12-19 22:16:42.037517 | DEBUG | 45489:config.c:327 | [so/logpipe-output-tcp.so]->pfuncLoadOutputPluginConfig ok
+2017-12-19 22:16:42.037531 | INFO  | 45489:logpipe-input-file.c:373 | path[/home/calvin/log]
+2017-12-19 22:16:42.037533 | INFO  | 45489:logpipe-input-file.c:376 | file[(null)]
+2017-12-19 22:16:42.037535 | INFO  | 45489:logpipe-input-file.c:394 | exec_before_rotating[(null)]
+2017-12-19 22:16:42.037537 | INFO  | 45489:logpipe-input-file.c:401 | rotate_size[0]
+2017-12-19 22:16:42.037538 | INFO  | 45489:logpipe-input-file.c:419 | exec_after_rotating[(null)]
+2017-12-19 22:16:42.037540 | INFO  | 45489:logpipe-input-file.c:434 | compress_algorithm[(null)]
+2017-12-19 22:16:42.037541 | DEBUG | 45489:config.c:344 | [so/logpipe-input-file.so]->pfuncLoadInputPluginConfig ok
 $ ps -ef | grep "logpipe -f" | grep -v grep
-calvin   39311     1  0 23:45 ?        00:00:00 logpipe -f logpipe_case1_dump.conf
-calvin   39312 39311  0 23:45 ?        00:00:00 logpipe -f logpipe_case1_dump.conf
-calvin   39315     1  0 23:45 ?        00:00:00 logpipe -f logpipe_case1_collector.conf
-calvin   39316 39315  0 23:45 ?        00:00:00 logpipe -f logpipe_case1_collector.conf
+calvin   45487     1  0 22:16 ?        00:00:00 logpipe -f logpipe_case1_dump.conf
+calvin   45488 45487  0 22:16 ?        00:00:00 logpipe -f logpipe_case1_dump.conf
+calvin   45491     1  0 22:16 ?        00:00:00 logpipe -f logpipe_case1_collector.conf
+calvin   45492 45491  0 22:16 ?        00:00:00 logpipe -f logpipe_case1_collector.conf
 ```
 
 拷入日志文件
@@ -899,40 +915,57 @@ $ cd $HOME/log
 $ cp ../a.log.2 a.log
 $ ls -l
 总用量 131008
--rw-rw-r-- 1 calvin calvin 112530011 12月 17 23:45 a.log
+-rw-rw-r-- 1 calvin calvin 112530011 12月 19 22:17 a.log
 ```
 
 观察采集端和归集端处理日志
 
 ```
-$ head /tmp/logpipe.log
-2017-12-17 23:45:43.714113 | INFO  | 39316:worker.c:84 | epoll_wait[1] return[1]events
-2017-12-17 23:45:43.715549 | INFO  | 39316:logpipe-input-file.c:539 | read inotify[3] ok , [32]bytes
-2017-12-17 23:45:43.715603 | INFO  | 39316:logpipe-input-file.c:289 | inotify_add_watch[/home/calvin/log/a.log] ok , inotify_fd[3] inotify_wd[2] trace_offset[0]
-2017-12-17 23:45:43.715682 | INFO  | 39316:logpipe-output-tcp.c:158 | send comm magic and filename ok , [8]bytes
-2017-12-17 23:45:43.715915 | INFO  | 39316:logpipe-input-file.c:669 | read file ok , [102400]bytes
-2017-12-17 23:45:43.715961 | INFO  | 39316:logpipe-output-tcp.c:181 | send block len to socket ok , [4]bytes
-2017-12-17 23:45:43.716071 | INFO  | 39316:logpipe-output-tcp.c:193 | send block data to socket ok , [102400]bytes
-2017-12-17 23:45:43.716284 | INFO  | 39316:logpipe-input-file.c:669 | read file ok , [102400]bytes
-2017-12-17 23:45:43.716319 | INFO  | 39316:logpipe-output-tcp.c:181 | send block len to socket ok , [4]bytes
-2017-12-17 23:45:43.716337 | INFO  | 39316:logpipe-output-tcp.c:193 | send block data to socket ok , [102400]bytes
-2017-12-17 23:45:43.716494 | INFO  | 39316:logpipe-input-file.c:669 | read file ok , [102400]bytes
-2017-12-17 23:45:43.716521 | INFO  | 39316:logpipe-output-tcp.c:181 | send block len to socket ok , [4]bytes
-2017-12-17 23:45:43.716557 | INFO  | 39316:logpipe-output-tcp.c:193 | send block data to socket ok , [102400]bytes
+$ head -30 logpipe_case1_collector.log
+2017-12-19 22:16:42.037923 | INFO  | 45491:monitor.c:167 | --- monitor begin ---------
+2017-12-19 22:16:42.038068 | INFO  | 45491:monitor.c:99 | parent : [45491] fork [45492]
+2017-12-19 22:16:42.038131 | INFO  | 45491:monitor.c:93 | child : [45491] fork [45492]
+2017-12-19 22:16:42.038162 | INFO  | 45492:worker.c:39 | epoll_create ok , epoll_fd[1]
+2017-12-19 22:16:42.038257 | INFO  | 45492:logpipe-output-tcp.c:51 | connect[127.0.0.1:10101][2] ok
+2017-12-19 22:16:42.038274 | INFO  | 45492:env.c:158 | epoll_ctl[1] add output plugin fd[2] EPOLLIN ok
+2017-12-19 22:16:42.038291 | INFO  | 45492:logpipe-input-file.c:456 | start_once_for_full_dose[0]
+2017-12-19 22:16:42.038313 | INFO  | 45492:logpipe-input-file.c:474 | inotify_add_watch[/home/calvin/log] ok , inotify_fd[3] inotify_wd[1]
+2017-12-19 22:16:42.038653 | INFO  | 45492:env.c:133 | epoll_ctl[1] add input plugin fd[3] EPOLLIN ok
+2017-12-19 22:16:42.038659 | INFO  | 45492:worker.c:51 | InitEnvironment ok
+2017-12-19 22:16:42.038662 | INFO  | 45492:worker.c:66 | epoll_ctl[1] add quit pipe fd[0] ok
+2017-12-19 22:16:42.038665 | INFO  | 45492:worker.c:74 | epoll_wait[1] ...
+2017-12-19 22:17:50.297113 | INFO  | 45492:worker.c:91 | epoll_wait[1] return[1]events
+2017-12-19 22:17:50.297240 | INFO  | 45492:logpipe-input-file.c:545 | read inotify[3] ok , [32]bytes
+2017-12-19 22:17:50.297261 | INFO  | 45492:logpipe-input-file.c:295 | inotify_add_watch[/home/calvin/log/a.log] ok , inotify_fd[3] inotify_wd[2] trace_offset[0]
+2017-12-19 22:17:50.297332 | INFO  | 45492:logpipe-output-tcp.c:189 | send comm magic and filename ok , [8]bytes
+2017-12-19 22:17:50.297366 | INFO  | 45492:logpipe-input-file.c:673 | read file ok , [65536]bytes
+2017-12-19 22:17:50.297376 | INFO  | 45492:logpipe-output-tcp.c:212 | send block len to socket ok , [4]bytes
+2017-12-19 22:17:50.297393 | INFO  | 45492:logpipe-output-tcp.c:224 | send block data to socket ok , [65536]bytes
+2017-12-19 22:17:50.297397 | INFO  | 45492:output.c:53 | [so/logpipe-input-file.so]->pfuncReadInputPlugin done
+2017-12-19 22:17:50.297403 | INFO  | 45492:logpipe-output-tcp.c:247 | send block len to socket ok , [4]bytes
+2017-12-19 22:17:50.297410 | INFO  | 45492:worker.c:74 | epoll_wait[1] ...
+2017-12-19 22:17:50.297422 | INFO  | 45492:worker.c:91 | epoll_wait[1] return[1]events
+2017-12-19 22:17:50.297486 | INFO  | 45492:logpipe-input-file.c:545 | read inotify[3] ok , [16]bytes
+2017-12-19 22:17:50.297496 | INFO  | 45492:logpipe-output-tcp.c:189 | send comm magic and filename ok , [8]bytes
+2017-12-19 22:17:50.297508 | INFO  | 45492:logpipe-input-file.c:673 | read file ok , [65536]bytes
+2017-12-19 22:17:50.297513 | INFO  | 45492:logpipe-output-tcp.c:212 | send block len to socket ok , [4]bytes
+2017-12-19 22:17:50.297525 | INFO  | 45492:logpipe-output-tcp.c:224 | send block data to socket ok , [65536]bytes
+2017-12-19 22:17:50.297528 | INFO  | 45492:output.c:53 | [so/logpipe-input-file.so]->pfuncReadInputPlugin done
+2017-12-19 22:17:50.297534 | INFO  | 45492:logpipe-output-tcp.c:247 | send block len to socket ok , [4]bytes
 ```
 
 ```
-$ tail /tmp/logpipe.log
-2017-12-17 23:45:44.471734 | INFO  | 39312:logpipe-input-tcp.c:305 | recv block length from accepted session sock ok , [4]bytes
-2017-12-17 23:45:44.471747 | INFO  | 39312:logpipe-input-tcp.c:334 | recv block from accepted session sock ok , [102400]bytes
-2017-12-17 23:45:44.471812 | INFO  | 39312:logpipe-output-file.c:103 | write block data to file ok , [102400]bytes
-2017-12-17 23:45:44.471817 | INFO  | 39312:logpipe-input-tcp.c:305 | recv block length from accepted session sock ok , [4]bytes
-2017-12-17 23:45:44.471823 | INFO  | 39312:logpipe-input-tcp.c:334 | recv block from accepted session sock ok , [33371]bytes
-2017-12-17 23:45:44.471849 | INFO  | 39312:logpipe-output-file.c:103 | write block data to file ok , [33371]bytes
-2017-12-17 23:45:44.471856 | INFO  | 39312:logpipe-input-tcp.c:305 | recv block length from accepted session sock ok , [4]bytes
-2017-12-17 23:45:44.471858 | INFO  | 39312:output.c:45 | [accepted_session]->pfuncReadInputPlugin done
-2017-12-17 23:45:44.471860 | INFO  | 39312:logpipe-output-file.c:180 | close file
-2017-12-17 23:45:44.471863 | INFO  | 39312:worker.c:67 | epoll_wait[1] ...
+$ tail logpipe_case1_dump.log
+2017-12-19 22:17:50.995087 | INFO  | 45488:worker.c:91 | epoll_wait[1] return[1]events
+2017-12-19 22:17:50.995090 | INFO  | 45488:logpipe-input-tcp.c:232 | recv comm magic and filename len ok , [3]bytes
+2017-12-19 22:17:50.995092 | INFO  | 45488:logpipe-input-tcp.c:268 | recv filename from socket ok , [5]bytes
+2017-12-19 22:17:50.995096 | INFO  | 45488:logpipe-input-tcp.c:305 | recv block length from accepted session sock ok , [4]bytes
+2017-12-19 22:17:50.995099 | INFO  | 45488:logpipe-input-tcp.c:334 | recv block from accepted session sock ok , [4699]bytes
+2017-12-19 22:17:50.995133 | INFO  | 45488:logpipe-output-file.c:109 | write block data to file ok , [4699]bytes
+2017-12-19 22:17:50.995143 | INFO  | 45488:logpipe-input-tcp.c:305 | recv block length from accepted session sock ok , [4]bytes
+2017-12-19 22:17:50.995146 | INFO  | 45488:output.c:53 | [accepted_session]->pfuncReadInputPlugin done
+2017-12-19 22:17:50.995148 | INFO  | 45488:logpipe-output-file.c:186 | close file
+2017-12-19 22:17:50.995151 | INFO  | 45488:worker.c:74 | epoll_wait[1] ...
 ```
 
 查看归集端目录
@@ -941,27 +974,28 @@ $ tail /tmp/logpipe.log
 $ cd $HOME/log3
 $ ls -l
 总用量 129600
--rwxrwxrwx 1 calvin calvin 112530011 12月 17 23:45 a.log
+-rwxrwxrwx 1 calvin calvin 112530011 12月 19 22:17 a.log
 ```
 
 ```
-$ ps aux | grep "logpipe -f"
-calvin   39311  0.0  0.0  14744   400 ?        S    23:45   0:00 logpipe -f logpipe_case1_dump.conf
-calvin   39312  0.2  0.0  14952   644 ?        S    23:45   0:00 logpipe -f logpipe_case1_dump.conf
-calvin   39315  0.0  0.0  14756   424 ?        S    23:45   0:00 logpipe -f logpipe_case1_collector.conf
-calvin   39316  0.3  1.6  18140  2248 ?        S    23:45   0:00 logpipe -f logpipe_case1_collector.conf
+$ ps aux | grep "logpipe -f" | grep -v grep
+calvin   45487  0.0  0.0  14748   400 ?        S    22:16   0:00 logpipe -f logpipe_case1_dump.conf
+calvin   45488  0.2  0.0  14952   644 ?        S    22:16   0:00 logpipe -f logpipe_case1_dump.conf
+calvin   45491  0.0  0.0  14760   424 ?        S    22:16   0:00 logpipe -f logpipe_case1_collector.conf
+calvin   45492  0.1  0.1  15988  1712 ?        S    22:16   0:00 logpipe -f logpipe_case1_collector.conf
 ```
 
-采集时间由采集端和归集端处理日志中取得"23:10:51.950398"至"23:10:52.576147"，约0.6秒。
+采集时间由采集端和归集端处理日志中取得"22:17:50.297113"至"22:17:50.995151"，约0.7秒。
 
 ## 6.3. 总结
 
+测试用日志文件大小 : 100MB
+
 |  | flume-ng | logpipe |
 |---|---|---|
-| 测试用日志文件大小 | 100MB | 100MB |
-| 内存占用(RSS) | 81MB | 2MB |
+| 内存占用(RSS) | 81MB | 1.7MB |
 | 备注 |  | 多了TCP传输；未开启压缩 |
-| 耗时 | 8秒 | 0.6秒 |
+| 耗时 | 8秒 | 0.7秒 |
 
 结论： logpipe性能完全碾压flume-ng。
 
@@ -972,3 +1006,4 @@ calvin   39316  0.3  1.6  18140  2248 ?        S    23:45   0:00 logpipe -f logp
 源码托管地址 : [开源中国](https://gitee.com/calvinwilliams/logpipe)、[github](https://github.com/calvinwilliams/logpipe)
 
 作者邮箱 : [网易](mailto:calvinwilliams@163.com)、[Gmail](mailto:calvinwilliams.c@gmail.com)
+
