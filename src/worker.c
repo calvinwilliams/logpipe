@@ -12,6 +12,9 @@
 
 int worker( struct LogpipeEnv *p_env )
 {
+	time_t				tt ;
+	struct tm			stime ;
+	
 	int				quit_flag ;
 	
 	struct epoll_event		event ;
@@ -24,7 +27,10 @@ int worker( struct LogpipeEnv *p_env )
 	
 	signal( SIGTERM , SIG_DFL );
 	
-	SetLogFile( p_env->log_file );
+	time( & tt );
+	memset( & stime , 0x00 , sizeof(struct tm) );
+	localtime_r( & tt , & stime );
+	SetLogFile( "%s.%d" , p_env->log_file , stime.tm_hour );
 	SetLogLevel( p_env->log_level );
 	
 	/* 创建事件总线 */
@@ -70,6 +76,11 @@ int worker( struct LogpipeEnv *p_env )
 	quit_flag = 0 ;
 	while( quit_flag == 0 )
 	{
+		time( & tt );
+		memset( & stime , 0x00 , sizeof(struct tm) );
+		localtime_r( & tt , & stime );
+		SetLogFile( "%s.%d" , p_env->log_file , stime.tm_hour );
+		
 		/* 等待epoll事件，或者1秒超时 */
 		INFOLOG( "epoll_wait[%d] ..." , p_env->epoll_fd );
 		memset( events , 0x00 , sizeof(events) );

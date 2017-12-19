@@ -158,10 +158,15 @@ _GOTO_WAITPID :
 int _monitor( void *pv )
 {
 	struct LogpipeEnv	*p_env = (struct LogpipeEnv *)pv ;
+	time_t			tt ;
+	struct tm		stime ;
 	
 	int			nret = 0 ;
 	
-	SetLogFile( p_env->log_file );
+	time( & tt );
+	memset( & stime , 0x00 , sizeof(struct tm) );
+	localtime_r( & tt , & stime );
+	SetLogFile( "%s.%d" , p_env->log_file , stime.tm_hour );
 	SetLogLevel( p_env->log_level );
 	
 	INFOLOG( "--- monitor begin ---------" )

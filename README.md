@@ -173,7 +173,7 @@ USAGE : logpipe -v
 
 ```
 $ logpipe -v
-logpipe v0.7.0 build Dec 17 2017 20:02:46
+logpipe v0.9.0 build Dec 19 2017 22:44:54
 ```
 
 # 3. 使用
@@ -370,6 +370,10 @@ $ kill 36320
 $ ps -ef | grep logpipe | grep -v grep
 $
 ```
+
+### 3.1.5. 其它注意事项
+
+* logpipe也会产生日志，配置在配置文件/log段，实际产生日志文件会自动补充后缀".(24小时制钟点)"，每天循环；推荐logpipe日志放在/tmp。
 
 # 4. 参考
 
