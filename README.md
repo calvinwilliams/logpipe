@@ -400,8 +400,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 * `path` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
 * `rotate_size` : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间)"并脱离监控；不填或0为关闭；可选
-* `exec_before_rotating` : 触发文件大小转档前要执行的命令，命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
-* `exec_after_rotating` : 触发文件大小转档后要执行的命令，命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
+* `exec_before_rotating` : 触发文件大小转档前要执行的命令（如转档前向Nginx发送USR1信号触发重新打开日志文件），命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
+* `exec_after_rotating` : 触发文件大小转档后要执行的命令（如转档后压缩保存日志文件节省存储空间），命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
 * `compress_algorithm` : 采集数据后压缩，目前算法只有"deflate"；可选
 
 配置项`exec_before_rotating`和`exec_after_rotating`的内置环境变量
