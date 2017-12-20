@@ -73,7 +73,7 @@ DESTROY_RBTREE( DestroyTraceFileTree , struct InputPluginContext , inotify_wd_rb
 
 static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathname , char *filename , int filename_len )
 {
-	time_t		tt ;
+	struct timeval	tv ;
 	struct tm	tm ;
 	char		old_filename[ PATH_MAX + 1 ] ;
 	char		new_filename[ PATH_MAX + 1 ] ;
@@ -81,11 +81,11 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathnam
 	int		nret = 0 ;
 	
 	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%.*s" , pathname , filename_len , filename );
-	time( & tt );
+	gettimeofday( & tv , NULL );
 	memset( & tm , 0x00 , sizeof(struct tm) );
-	localtime_r( & tt , & tm );
+	localtime_r( & (tv.tv_sec) , & tm );
 	memset( new_filename , 0x00 , sizeof(new_filename) );
-	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec );
+	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d_%06ld" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec , tv.tv_usec );
 	
 	setenv( "LOGPIPE_ROTATING_PATHNAME" , pathname , 1 );
 	setenv( "LOGPIPE_ROTATING_OLD_FILENAME" , old_filename , 1 );
@@ -158,7 +158,7 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	
 	if( p_plugin_ctx->rotate_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_size )
 	{
-		INFOLOG( "file_stat.st_size[%d] > p_env->conf.rotate.file_rotate_max_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
+		INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
 		RotatingFile( p_plugin_ctx , p_trace_file->pathname , p_trace_file->filename , p_trace_file->filename_len );
 		
 		memset( & file_stat , 0x00 , sizeof(struct stat) );
@@ -286,6 +286,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	if( p_trace_file->inotify_file_wd == -1 )
 	{
 		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+		free( p_trace_file->filename );
 		free( p_trace_file->path_filename );
 		free( p_trace_file );
 		return -1;
@@ -304,6 +305,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 			ERRORLOG( "LinkTraceFileWdTreeNode[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 			INFOLOG( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
 			inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd );
+			free( p_trace_file->filename );
 			free( p_trace_file->path_filename );
 			free( p_trace_file );
 			return -1;

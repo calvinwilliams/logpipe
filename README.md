@@ -435,6 +435,13 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 * `path` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
 * `uncompress_algorithm` : 落地数据前解压，目前算法只有"deflate"；可选
+* `rotate_size` : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间_微秒)"并脱离监控；不填或0为关闭；可选
+* `exec_after_rotating` : 触发文件大小转档后要执行的命令（如转档后压缩保存日志文件节省存储空间），命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
+
+配置项exec_after_rotating`的内置环境变量
+
+* `LOGPIPE_ROTATING_PATHNAME` : 受到监控的目录，绝对路径
+* `LOGPIPE_ROTATING_NEW_FILENAME` : 转档后文件名，绝对路径
 
 示例
 
@@ -679,7 +686,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 }
 
 funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
-int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	

@@ -1,3 +1,7 @@
+0.10.0		2017-12-20	calvin
+		* logpipe-output-file新增配置参数rotate_size,exec_after_rotating
+		* logpipe日志大小转档后缀改为"-YYYYMMDD_hhmmss_06us"
+
 0.9.0		2017-12-19	calvin
 		* logpipe日志自动补充后缀".(24小时制钟点)"，每天循环
 

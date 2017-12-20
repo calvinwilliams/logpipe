@@ -32,7 +32,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 			WARNLOG( "[%s]->pfuncBeforeWriteOutputPlugin failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno )
 			list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 			{
-				nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
+				nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , filename_len , filename ) ;
 				WARNLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret )
 			}
 			return 0;
@@ -63,7 +63,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 			WARNLOG( "[%s]->pfuncReadInputPlugin return[%d]" , p_logpipe_input_plugin->so_filename , nret )
 			list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 			{
-				nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
+				nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , filename_len , filename ) ;
 				WARNLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret )
 			}
 			return 0;
@@ -88,7 +88,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 				WARNLOG( "[%s]->pfuncWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret );
 				list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 				{
-					nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
+					nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , filename_len , filename ) ;
 					WARNLOG( "[%s]->pfuncAfterWriteOutputPlugin return[%d]" , p_logpipe_output_plugin->so_filename , nret )
 				}
 				return 0;
@@ -104,7 +104,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
 		DEBUGLOG( "[%s]->pfuncAfterWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
-		nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
+		nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , filename_len , filename ) ;
 		if( nret < 0 )
 		{
 			ERRORLOG( "[%s]->pfuncAfterWriteOutputPlugin failed[%d]" , p_logpipe_output_plugin->so_filename , nret )

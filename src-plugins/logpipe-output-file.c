@@ -8,6 +8,9 @@ struct OutputPluginContext
 {
 	char		*path ;
 	char		*uncompress_algorithm ;
+	int		rotate_size ;
+	char		exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
+	char		*exec_after_rotating ;
 	
 	int		fd ;
 } ;
@@ -16,6 +19,7 @@ funcLoadOutputPluginConfig LoadOutputPluginConfig ;
 int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
 {
 	struct OutputPluginContext	*p_plugin_ctx = NULL ;
+	char				*p = NULL ;
 	
 	/* 申请内存以存放插件上下文 */
 	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
@@ -43,6 +47,31 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		}
 	}
 	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "rotate_size" ) ;
+	if( p )
+		p_plugin_ctx->rotate_size = atoi(p) ;
+	else
+		p_plugin_ctx->rotate_size = 0 ;
+	INFOLOG( "rotate_size[%d]" , p_plugin_ctx->rotate_size )
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "exec_after_rotating" ) ;
+	if( p )
+	{
+		int		buffer_len = 0 ;
+		int		remain_len = sizeof(p_plugin_ctx->exec_after_rotating_buffer)-1 ;
+		
+		memset( p_plugin_ctx->exec_after_rotating_buffer , 0x00 , sizeof(p_plugin_ctx->exec_after_rotating_buffer) );
+		JSONUNESCAPE_FOLD( p , strlen(p) , p_plugin_ctx->exec_after_rotating_buffer , buffer_len , remain_len )
+		if( buffer_len == -1 )
+		{
+			ERRORLOG( "p[%s] invalid" , p );
+			return -1;
+		}
+		
+		p_plugin_ctx->exec_after_rotating = p_plugin_ctx->exec_after_rotating_buffer ;
+	}
+	INFOLOG( "exec_after_rotating[%s]" , p_plugin_ctx->exec_after_rotating )
 	
 	p_plugin_ctx->fd = -1 ;
 	
@@ -176,13 +205,69 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	return 0;
 }
 
+static int RotatingFile( struct OutputPluginContext *p_plugin_ctx , char *pathname , char *filename , int filename_len )
+{
+	struct timeval	tv ;
+	struct tm	tm ;
+	char		old_filename[ PATH_MAX + 1 ] ;
+	char		new_filename[ PATH_MAX + 1 ] ;
+	
+	int		nret = 0 ;
+	
+	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%.*s" , pathname , filename_len , filename );
+	gettimeofday( & tv , NULL );
+	memset( & tm , 0x00 , sizeof(struct tm) );
+	localtime_r( & (tv.tv_sec) , & tm );
+	memset( new_filename , 0x00 , sizeof(new_filename) );
+	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d_%06ld" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec , tv.tv_usec );
+	
+	setenv( "LOGPIPE_ROTATING_PATHNAME" , pathname , 1 );
+	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
+	
+	nret = rename( old_filename , new_filename ) ;
+	
+	if( p_plugin_ctx->exec_after_rotating )
+	{
+		system( p_plugin_ctx->exec_after_rotating );
+	}
+	
+	if( nret )
+	{
+		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
+		return -1;
+	}
+	else
+	{
+		INFOLOG( "rename [%s] to [%s] ok" , old_filename , new_filename )
+	}
+	
+	return 0;
+}
+
 funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
-int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	struct stat			file_stat ;
+	
+	int				nret = 0 ;
 	
 	if( p_plugin_ctx->fd >= 0 )
 	{
+		if( p_plugin_ctx->rotate_size > 0 )
+		{
+			memset( & file_stat , 0x00 , sizeof(struct stat) );
+			nret = fstat( p_plugin_ctx->fd , & file_stat ) ;
+			if( nret == 0 )
+			{
+				if( file_stat.st_size >= p_plugin_ctx->rotate_size )
+				{
+					INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
+					RotatingFile( p_plugin_ctx , p_plugin_ctx->path , filename , filename_len );
+				}
+			}
+		}
+		
 		INFOLOG( "close file" )
 		close( p_plugin_ctx->fd ); p_plugin_ctx->fd = -1 ;
 	}
