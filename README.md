@@ -22,6 +22,7 @@
         - [4.2.2. logpipe-output-file](#422-logpipe-output-file)
         - [4.2.3. logpipe-input-tcp](#423-logpipe-input-tcp)
         - [4.2.4. logpipe-output-tcp](#424-logpipe-output-tcp)
+        - [4.2.5. logpipe-input-exec](#425-logpipe-input-exec)
 - [5. 插件开发](#5-插件开发)
     - [5.1. 输入插件](#51-输入插件)
     - [5.2. 输出插件](#52-输出插件)
@@ -42,17 +43,20 @@
 
 logpipe是一个分布式、高可用的用于采集、传输、对接落地的日志工具，采用了插件风格的框架结构设计，支持多输入多输出按需配置组件用于流式日志收集架构，无第三方依赖。
 
+logpipe的一种用法是能异步实时监控集群里的所有日志目录，一旦有文件新增或追加写，立即采集并传输到大存储上以相同日志文件名合并落地，或者写入HDFS。异步意味着不影响应用输出日志的性能，实时意味着一有日志立即采集，很多日志采集工具如flume-ng、logstash介绍文档通篇不提采集方式是否实时还是周期性的，这很关键。
+
 ![logpipe.png](logpipe.png)
 
 logpipe概念朴实、使用方便、配置简练，没有如sink等一大堆新名词。
 
 logpipe由若干个input、事件总线和若干个output组成。启动logpipe管理进程(monitor)，派生一个工作进程(worker)，监控工作进程崩溃则重启工作进程。工作进程装载配置加载若干个input插件和若干个output插件，进入事件循环，任一input插件产生消息后输出给所有output插件。
 
-logpipe自带了4个插件（今后将开发更多插件），分别是：
+logpipe自带了5个插件（今后将开发更多插件），分别是：
 * logpipe-input-file 用inotify异步实时监控日志目录，一旦有文件新建或文件增长事件发生（注意：不是周期性轮询文件修改时间和大小），立即捕获文件名和读取文件追加数据。该插件拥有文件大小转档功能，用以替代应用日志库对应功能，提高应用日志库写日志性能。该插件支持数据压缩。
 * logpipe-output-file 一旦输入插件有消息产生后用相同的文件名落地文件数据。该插件支持数据解压。
 * logpipe-input-tcp 创建TCP服务侦听端，接收客户端连接，一旦客户端连接上有新消息到来，立即读取。
 * logpipe-output-tcp 创建TCP客户端，连接服务端，一旦输入插件有消息产生后输出到该连接。
+* logpipe-input-exec 执行长命令并捕获输出
 
 使用者可根据自身需求，按照插件开发规范，开发定制插件，如IBMMQ输入插件、HDFS输出插件等。
 
@@ -473,6 +477,20 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 ```
 { "plugin":"so/logpipe-output-tcp.so" , "ip":"158.1.0.55" , "port":5151 }
+```
+
+### 4.2.5. logpipe-input-exec
+
+配置项
+
+* `cmd` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
+* `compress_algorithm` : 采集数据后压缩，目前算法只有"deflate"；可选
+* `output_filename` : 假装文件名；必选
+
+示例
+
+```
+{ "plugin":"so/logpipe-input-exec.so" , "cmd":"tail -F /home/ecif/log/a.log" , "compress_algorithm":"deflate" , "output_filename":"my_filename.log" }
 ```
 
 # 5. 插件开发
