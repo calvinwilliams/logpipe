@@ -12,6 +12,7 @@ c_FILE		=	\
 			logpipe-output-file.c \
 			logpipe-input-tcp.c \
 			logpipe-output-tcp.c \
+			logpipe-input-exec.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -20,6 +21,7 @@ LIB		=	\
 			logpipe-output-file.so \
 			logpipe-input-tcp.so \
 			logpipe-output-tcp.so \
+			logpipe-input-exec.so \
 
 LIBINST		=	$(_LIBINST)
 
@@ -60,4 +62,7 @@ logpipe-input-tcp.so		:	logpipe-input-tcp.o
 
 logpipe-output-tcp.so		:	logpipe-output-tcp.o
 	$(CC) -o $@ logpipe-output-tcp.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-input-exec.so		:	logpipe-input-exec.o
+	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
 

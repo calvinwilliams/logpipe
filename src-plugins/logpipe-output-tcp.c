@@ -72,13 +72,25 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	/* 解析插件配置 */
 	p_plugin_ctx->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
 	INFOLOG( "ip[%s]" , p_plugin_ctx->ip )
+	if( p_plugin_ctx->ip == NULL || p_plugin_ctx->ip[0] == '\0' )
+	{
+		ERRORLOG( "expect config for 'ip'" );
+		return -1;
+	}
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
-	if( p )
-		p_plugin_ctx->port = atoi(p) ;
-	else
-		p_plugin_ctx->port = 0 ;
+	if( p == NULL || p[0] == '\0' )
+	{
+		ERRORLOG( "expect config for 'port'" );
+		return -1;
+	}
+	p_plugin_ctx->port = atoi(p) ;
 	INFOLOG( "port[%d]" , p_plugin_ctx->port )
+	if( p_plugin_ctx->port <= 0 )
+	{
+		ERRORLOG( "port[%s] invalid" , p );
+		return -1;
+	}
 	
 	/* 初始化插件环境内部数据 */
 	memset( & (p_plugin_ctx->forward_addr) , 0x00 , sizeof(struct sockaddr_in) );

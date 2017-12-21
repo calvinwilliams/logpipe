@@ -32,6 +32,11 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
 	INFOLOG( "path[%s]" , p_plugin_ctx->path )
+	if( p_plugin_ctx->path == NULL || p_plugin_ctx->path[0] == '\0' )
+	{
+		ERRORLOG( "expect config for 'path'" );
+		return -1;
+	}
 	
 	p_plugin_ctx->uncompress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "uncompress_algorithm" ) ;
 	if( p_plugin_ctx->uncompress_algorithm )

@@ -373,6 +373,11 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	/* ½âÎö²å¼þÅäÖÃ */
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
 	INFOLOG( "path[%s]" , p_plugin_ctx->path )
+	if( p_plugin_ctx->path == NULL || p_plugin_ctx->path[0] == '\0' )
+	{
+		ERRORLOG( "expect config for 'path'" );
+		return -1;
+	}
 	
 	p_plugin_ctx->file = QueryPluginConfigItem( p_plugin_config_items , "file" ) ;
 	INFOLOG( "file[%s]" , p_plugin_ctx->file )
