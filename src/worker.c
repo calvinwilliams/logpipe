@@ -12,18 +12,19 @@
 
 int worker( struct LogpipeEnv *p_env )
 {
-	time_t				tt ;
-	struct tm			stime ;
+	time_t			tt ;
+	struct tm		stime ;
+	struct tm		old_stime ;
 	
-	int				quit_flag ;
+	int			quit_flag ;
 	
-	struct epoll_event		event ;
-	struct epoll_event		events[ MAX_EPOLL_EVENTS ] ;
-	int				epoll_nfds ;
-	int				i ;
-	struct epoll_event		*p_event = NULL ;
+	struct epoll_event	event ;
+	struct epoll_event	events[ MAX_EPOLL_EVENTS ] ;
+	int			epoll_nfds ;
+	int			i ;
+	struct epoll_event	*p_event = NULL ;
 	
-	int				nret = 0 ;
+	int			nret = 0 ;
 	
 	signal( SIGTERM , SIG_DFL );
 	
@@ -32,6 +33,7 @@ int worker( struct LogpipeEnv *p_env )
 	localtime_r( & tt , & stime );
 	SetLogFile( "%s.%d" , p_env->log_file , stime.tm_hour );
 	SetLogLevel( p_env->log_level );
+	memcpy( & old_stime , & stime , sizeof(struct tm) );
 	
 	/* 创建事件总线 */
 	p_env->epoll_fd = epoll_create( 1024 ) ;
@@ -80,6 +82,9 @@ int worker( struct LogpipeEnv *p_env )
 		memset( & stime , 0x00 , sizeof(struct tm) );
 		localtime_r( & tt , & stime );
 		SetLogFile( "%s.%d" , p_env->log_file , stime.tm_hour );
+		if( stime.tm_hour != old_stime.tm_hour )
+			unlink( g_log_pathfilename );
+		memcpy( & old_stime , & stime , sizeof(struct tm) );
 		
 		/* 等待epoll事件，或者1秒超时 */
 		INFOLOG( "epoll_wait[%d] ..." , p_env->epoll_fd );

@@ -91,7 +91,9 @@ void SetLogLevel( int log_level );
 
 #if ( defined __STDC_VERSION__ ) && ( __STDC_VERSION__ >= 199901 )
 
+extern TLS char		g_log_pathfilename[ MAXLEN_FILENAME + 1 ] ;
 extern TLS int		g_log_level ;
+extern TLS pid_t	g_pid ;
 
 int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *format , va_list valist );
 int WriteLogBase( int log_level , char *c_filename , long c_fileline , char *format , ... );
