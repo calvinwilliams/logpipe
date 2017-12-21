@@ -143,57 +143,32 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	{
 		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
 		{
-			z_stream		inflate_strm ;
-			
 			char			block_out_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
 			uint32_t		block_out_len ;
 			
-			memset( & inflate_strm , 0x00 , sizeof(z_stream) );
-			nret = inflateInit( & inflate_strm ) ;
-			if( nret != Z_OK )
+			memset( block_out_buf , 0x00 , sizeof(block_out_buf) );
+			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len ) ;
+			if( nret )
 			{
-				FATALLOG( "inflateInit failed[%d]" , nret );
+				ERRORLOG( "UncompressInputPluginData failed[%d]" , nret )
 				return -1;
 			}
-			
-			inflate_strm.avail_in = block_len ;
-			inflate_strm.next_in = (Bytef*)block_buf ;
-			
-			do
+			else
 			{
-				inflate_strm.avail_out = sizeof(block_out_buf)-1 ;
-				inflate_strm.next_out = (Bytef*)block_out_buf ;
-				nret = inflate( & inflate_strm , Z_NO_FLUSH ) ;
-				if( nret == Z_STREAM_ERROR )
-				{
-					FATALLOG( "inflate return Z_STREAM_ERROR" )
-					inflateEnd( & inflate_strm );
-					return 1;
-				}
-				else if( nret == Z_NEED_DICT || nret == Z_DATA_ERROR || nret == Z_MEM_ERROR )
-				{
-					FATALLOG( "inflate return[%d]" , nret )
-					inflateEnd( & inflate_strm );
-					return 1;
-				}
-				block_out_len = sizeof(block_out_buf)-1 - inflate_strm.avail_out ;
-				
-				len = writen( p_plugin_ctx->fd , block_out_buf , block_out_len ) ;
-				if( len == -1 )
-				{
-					ERRORLOG( "write uncompress block data to file failed , errno[%d]" , errno )
-					inflateEnd( & inflate_strm );
-					return 1;
-				}
-				else
-				{
-					INFOLOG( "write uncompress block data to file ok , [%d]bytes" , block_out_len )
-					DEBUGHEXLOG( block_out_buf , len , NULL )
-				}
+				DEBUGLOG( "UncompressInputPluginData ok" )
 			}
-			while( inflate_strm.avail_out == 0 );
 			
-			inflateEnd( & inflate_strm );
+			len = writen( p_plugin_ctx->fd , block_out_buf , block_out_len ) ;
+			if( len == -1 )
+			{
+				ERRORLOG( "write uncompress block data to file failed , errno[%d]" , errno )
+				return 1;
+			}
+			else
+			{
+				INFOLOG( "write uncompress block data to file ok , [%d]bytes" , block_out_len )
+				DEBUGHEXLOG( block_out_buf , len , NULL )
+			}
 		}
 		else
 		{

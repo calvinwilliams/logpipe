@@ -98,6 +98,11 @@ void RemoveInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlu
 /* 导出所有输出端 */
 int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , uint16_t filename_len , char *filename );
 
+/* 加密输入插件读取的块数据 */
+int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uint32_t block_in_len , char *block_out_buf , uint32_t *p_block_out_len );
+/* 解密输出插件读取的块数据 */
+int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf , uint32_t block_in_len , char *block_out_buf , uint32_t *p_block_out_len );
+
 #ifdef __cplusplus
 extern }
 #endif

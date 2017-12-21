@@ -21,6 +21,7 @@ c_FILE2		=	\
 			env.c \
 			util.c \
 			output.c \
+			crypto.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall

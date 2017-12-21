@@ -680,62 +680,36 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	}
 	else
 	{
-		if( STRCMP( p_plugin_ctx->compress_algorithm , == , "deflate" ) )
+		char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
+		uint32_t		block_in_len ;
+		
+		if( p_plugin_ctx->remain_len > sizeof(block_in_buf) - 1 )
+			block_in_len = sizeof(block_in_buf) - 1 ;
+		else
+			block_in_len = p_plugin_ctx->remain_len ;
+		
+		p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_in_buf , block_in_len ) ;
+		if( p_plugin_ctx->read_len == -1 )
 		{
-			z_stream		deflate_strm ;
-			char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
-			uint32_t		block_in_len ;
-			
-			if( p_plugin_ctx->remain_len > sizeof(block_in_buf) - 1 )
-				block_in_len = sizeof(block_in_buf) - 1 ;
-			else
-				block_in_len = p_plugin_ctx->remain_len ;
-			
-			p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_in_buf , block_in_len ) ;
-			if( p_plugin_ctx->read_len == -1 )
-			{
-				ERRORLOG( "read file failed , errno[%d]" , errno )
-				return -1;
-			}
-			else
-			{
-				INFOLOG( "read file ok , [%d]bytes" , p_plugin_ctx->read_len )
-				DEBUGHEXLOG( block_in_buf , p_plugin_ctx->read_len , NULL )
-			}
-			
-			memset( & deflate_strm , 0x00 , sizeof(z_stream) );
-			nret = deflateInit( & deflate_strm , Z_DEFAULT_COMPRESSION ) ;
-			if( nret != Z_OK )
-			{
-				FATALLOG( "deflateInit failed[%d]" , nret );
-				return -1;
-			}
-			
-			deflate_strm.avail_in = p_plugin_ctx->read_len ;
-			deflate_strm.next_in = (Bytef*)block_in_buf ;
-			deflate_strm.avail_out = block_bufsize ;
-			deflate_strm.next_out = (Bytef*)block_buf ;
-			nret = deflate( & deflate_strm , Z_FINISH ) ;
-			if( nret == Z_STREAM_ERROR )
-			{
-				FATALLOG( "deflate return Z_STREAM_ERROR" )
-				deflateEnd( & deflate_strm );
-				return -1;
-			}
-			if( deflate_strm.avail_out == 0 )
-			{
-				FATALLOG( "deflate remain data [%d]bytes" , deflate_strm.avail_out )
-				deflateEnd( & deflate_strm );
-				return -1;
-			}
-			(*p_block_len) = block_bufsize-1 - deflate_strm.avail_out ;
-			
-			deflateEnd( & deflate_strm );
+			ERRORLOG( "read file failed , errno[%d]" , errno )
+			return -1;
 		}
 		else
 		{
-			ERRORLOG( "compress_algorithm[%s] invalid" , p_plugin_ctx->compress_algorithm );
+			INFOLOG( "read file ok , [%d]bytes" , p_plugin_ctx->read_len )
+			DEBUGHEXLOG( block_in_buf , p_plugin_ctx->read_len , NULL )
+		}
+		
+		memset( block_buf , 0x00 , block_bufsize );
+		nret = CompressInputPluginData( p_plugin_ctx->compress_algorithm , block_in_buf , p_plugin_ctx->read_len , block_buf , p_block_len ) ;
+		if( nret )
+		{
+			ERRORLOG( "CompressInputPluginData failed[%d]" , nret )
 			return -1;
+		}
+		else
+		{
+			DEBUGLOG( "CompressInputPluginData ok" )
 		}
 	}
 	
