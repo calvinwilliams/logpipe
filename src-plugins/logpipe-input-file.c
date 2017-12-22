@@ -224,6 +224,59 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 	return 0;
 }
 
+static int IsMatchString(char *pcMatchString, char *pcObjectString, char cMatchMuchCharacters, char cMatchOneCharacters)
+{
+	int el=strlen(pcMatchString);
+	int sl=strlen(pcObjectString);
+	char cs,ce;
+
+	int is,ie;
+	int last_xing_pos=-1;
+
+	for(is=0,ie=0;is<sl && ie<el;){
+		cs=pcObjectString[is];
+		ce=pcMatchString[ie];
+
+		if(cs!=ce){
+			if(ce==cMatchMuchCharacters){
+				last_xing_pos=ie;
+				ie++;
+			}else if(ce==cMatchOneCharacters){
+				is++;
+				ie++;
+			}else if(last_xing_pos>=0){
+				while(ie>last_xing_pos){
+					ce=pcMatchString[ie];
+					if(ce==cs)
+						break;
+					ie--;
+				}
+
+				if(ie==last_xing_pos)
+					is++;
+			}else
+				return -1;
+		}else{
+			is++;
+			ie++;
+		}
+	}
+
+	if(pcObjectString[is]==0 && pcMatchString[ie]==0)
+		return 0;
+
+	if(pcMatchString[ie]==0)
+		ie--;
+
+	if(ie>=0){
+		while(pcMatchString[ie])
+			if(pcMatchString[ie++]!=cMatchMuchCharacters)
+				return -2;
+	} 
+
+	return 0;
+}
+
 static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , char *filename , int check_flag_offset_flag , int remove_watcher_flag )
 {
 	struct TraceFile	*p_trace_file = NULL ;
@@ -235,8 +288,17 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	if( filename[0] == '.' || filename[0] == '_' )
 	{
-		INFOLOG( "file[%s] ignored" , filename )
+		DEBUGLOG( "filename[%s] ignored" , filename )
 		return 0;
+	}
+	
+	if( p_plugin_ctx->file && p_plugin_ctx->file[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->file , filename , '*' , '?' ) )
+		{
+			DEBUGLOG( "filename[%s] not match" , filename )
+			return 0;
+		}
 	}
 	
 	p_trace_file = (struct TraceFile *)malloc( sizeof(struct TraceFile) ) ;
