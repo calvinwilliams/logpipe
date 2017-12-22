@@ -127,6 +127,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		int			len ;
 		
 		INFOLOG( "fread popen ..." )
+		memset( block_buf , 0x00 , block_bufsize );
 		len = fread( block_buf , 1 , block_bufsize-1 , p_plugin_ctx->pp ) ;
 		if( len == -1 )
 		{
@@ -162,6 +163,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		int			len ;
 		
 		INFOLOG( "fread popen ..." )
+		memset( block_in_buf , 0x00 , sizeof(block_in_buf) );
 		len = fread( block_in_buf , 1 , LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE , p_plugin_ctx->pp ) ;
 		if( len == -1 )
 		{

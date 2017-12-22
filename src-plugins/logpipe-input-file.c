@@ -664,6 +664,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			len = block_bufsize - 1 ;
 		else
 			len = p_plugin_ctx->remain_len ;
+		memset( block_buf , 0x00 , len+1 );
 		p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_buf , len ) ;
 		if( p_plugin_ctx->read_len == -1 )
 		{
@@ -693,6 +694,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		else
 			block_in_len = p_plugin_ctx->remain_len ;
 		
+		memset( block_in_buf , 0x00 , block_in_len+1 );
 		p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_in_buf , block_in_len ) ;
 		if( p_plugin_ctx->read_len == -1 )
 		{

@@ -226,6 +226,7 @@ int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct Logpi
 	
 	int						nret = 0 ;
 	
+	memset( comm_buf , 0x00 , sizeof(comm_buf) );
 	len = readn( p_accepted_session_context->accepted_sock , comm_buf , 1+sizeof(uint16_t) ) ;
 	if( len == -1 )
 	{
@@ -328,6 +329,7 @@ int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeI
 		return 1;
 	}
 	
+	memset( block_buf , 0x00 , (*p_block_len)+1 );
 	len = readn( p_accepted_session_context->accepted_sock , block_buf , (*p_block_len) ) ;
 	if( len == -1 )
 	{

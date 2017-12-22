@@ -47,6 +47,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		/* Ö´ÐÐÊäÈë¶Ë¶Áº¯Êý */
 		DEBUGLOG( "[%s]->pfuncReadInputPlugin ..." , p_logpipe_input_plugin->so_filename );
+		memset( block_buf , 0x00 , sizeof(block_buf) );
 		nret = p_logpipe_input_plugin->pfuncReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & block_len , block_buf , sizeof(block_buf) ) ;
 		if( nret == LOGPIPE_READ_END_OF_INPUT )
 		{
