@@ -484,7 +484,7 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 配置项
 
-* `cmd` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
+* `cmd` : 长时间运行的命令；建议用绝对路径；必选
 * `compress_algorithm` : 采集数据后压缩，目前算法只有"deflate"；可选
 * `output_filename` : 假装文件名；必选
 
