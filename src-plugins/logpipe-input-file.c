@@ -1,7 +1,5 @@
 #include "logpipe_api.h"
 
-#include "zlib.h"
-
 /* cmd for testing
 logpipe -f logpipe_case1_collector.conf --start-once-for-env "start_once_for_full_dose 1"
 */

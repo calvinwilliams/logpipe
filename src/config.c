@@ -55,49 +55,49 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 	p_logpipe_input_plugin->so_handler = dlopen( p_logpipe_input_plugin->so_path_filename , RTLD_LAZY ) ;
 	if( p_logpipe_input_plugin->so_handler == NULL )
 	{
-		ERRORLOG( "dlopen[%s] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlopen[%s] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_input_plugin->pfuncLoadInputPluginConfig = (funcLoadInputPluginConfig *)dlsym( p_logpipe_input_plugin->so_handler , "LoadInputPluginConfig" ) ;
 	if( p_logpipe_input_plugin->pfuncLoadInputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][LoadInputPluginConfig] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][LoadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_input_plugin->pfuncInitInputPluginContext = (funcInitInputPluginContext *)dlsym( p_logpipe_input_plugin->so_handler , "InitInputPluginContext" ) ;
 	if( p_logpipe_input_plugin->pfuncInitInputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][LoadInputPluginConfig] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][LoadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_input_plugin->pfuncOnInputPluginEvent = (funcOnInputPluginEvent *)dlsym( p_logpipe_input_plugin->so_handler , "OnInputPluginEvent" ) ;
 	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
 	{
-		ERRORLOG( "dlsym[%s][OnInputPluginEvent] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][OnInputPluginEvent] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_input_plugin->pfuncReadInputPlugin = (funcReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "ReadInputPlugin" ) ;
 	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
 	{
-		ERRORLOG( "dlsym[%s][ReadInputPlugin] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][ReadInputPlugin] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_input_plugin->pfuncCleanInputPluginContext = (funcCleanInputPluginContext *)dlsym( p_logpipe_input_plugin->so_handler , "CleanInputPluginContext" ) ;
 	if( p_logpipe_input_plugin->pfuncCleanInputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][CleanInputPluginContext] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][CleanInputPluginContext] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_input_plugin->pfuncUnloadInputPluginConfig = (funcUnloadInputPluginConfig *)dlsym( p_logpipe_input_plugin->so_handler , "UnloadInputPluginConfig" ) ;
 	if( p_logpipe_input_plugin->pfuncUnloadInputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][UnloadInputPluginConfig] failed , errno[%d]" , p_logpipe_input_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][UnloadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
@@ -130,63 +130,63 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	p_logpipe_output_plugin->so_handler = dlopen( p_logpipe_output_plugin->so_path_filename , RTLD_LAZY ) ;
 	if( p_logpipe_output_plugin->so_handler == NULL )
 	{
-		ERRORLOG( "dlopen[%s] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlopen[%s] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncLoadOutputPluginConfig = (funcLoadOutputPluginConfig *)dlsym( p_logpipe_output_plugin->so_handler , "LoadOutputPluginConfig" ) ;
 	if( p_logpipe_output_plugin->pfuncLoadOutputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncInitOutputPluginContext = (funcInitOutputPluginContext *)dlsym( p_logpipe_output_plugin->so_handler , "InitOutputPluginContext" ) ;
 	if( p_logpipe_output_plugin->pfuncInitOutputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncOnOutputPluginEvent = (funcOnOutputPluginEvent *)dlsym( p_logpipe_output_plugin->so_handler , "OnOutputPluginEvent" ) ;
 	if( p_logpipe_output_plugin->pfuncOnOutputPluginEvent == NULL )
 	{
-		ERRORLOG( "dlsym[%s][OnOutputPluginEvent] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][OnOutputPluginEvent] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin = (funcBeforeWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "BeforeWriteOutputPlugin" ) ;
 	if( p_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][BeforeWriteOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][BeforeWriteOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncWriteOutputPlugin = (funcWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "WriteOutputPlugin" ) ;
 	if( p_logpipe_output_plugin->pfuncWriteOutputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][WriteOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][WriteOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin = (funcAfterWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "AfterWriteOutputPlugin" ) ;
 	if( p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][AfterWriteOutputPlugin] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][AfterWriteOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncCleanOutputPluginContext = (funcCleanOutputPluginContext *)dlsym( p_logpipe_output_plugin->so_handler , "CleanOutputPluginContext" ) ;
 	if( p_logpipe_output_plugin->pfuncCleanOutputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][CleanOutputPluginContext] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][CleanOutputPluginContext] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncUnloadOutputPluginConfig = (funcUnloadOutputPluginConfig *)dlsym( p_logpipe_output_plugin->so_handler , "UnloadOutputPluginConfig" ) ;
 	if( p_logpipe_output_plugin->pfuncUnloadOutputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][UnloadOutputPluginConfig] failed , errno[%d]" , p_logpipe_output_plugin->so_path_filename , errno );
+		ERRORLOG( "dlsym[%s][UnloadOutputPluginConfig] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
 	

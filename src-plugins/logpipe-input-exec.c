@@ -1,7 +1,5 @@
 #include "logpipe_api.h"
 
-#include "zlib.h"
-
 char	*__LOGPIPE_INPUT_EXEC_VERSION = "0.1.0" ;
 
 struct InputPluginContext

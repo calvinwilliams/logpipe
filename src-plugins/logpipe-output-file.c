@@ -1,7 +1,5 @@
 #include "logpipe_api.h"
 
-#include "zlib.h"
-
 char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.1.0" ;
 
 struct OutputPluginContext

@@ -13,6 +13,7 @@ c_FILE		=	\
 			logpipe-input-tcp.c \
 			logpipe-output-tcp.c \
 			logpipe-input-exec.c \
+			logpipe-output-hdfs.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -65,4 +66,14 @@ logpipe-output-tcp.so		:	logpipe-output-tcp.o
 
 logpipe-input-exec.so		:	logpipe-input-exec.o
 	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
+
+CFLAGS_hdfs			=	$(CFLAGS) -I/home/hdfs/hadoop/include
+
+logpipe-output-hdfs.o		:	logpipe-output-hdfs.c
+	$(CC) $(CFLAGS_hdfs) -c logpipe-output-hdfs.c
+
+LFLAGS_hdfs			=	$(LFLAGS) -L/home/hdfs/hadoop/lib/native -lhdfs -L$(HOME)/expack/jdk1.8.0_152/jre/lib/amd64/server -ljvm
+
+logpipe-output-hdfs.so		:	logpipe-output-hdfs.o
+	$(CC) -o $@ logpipe-output-hdfs.o $(SOFLAGS) $(LFLAGS_hdfs)
 
