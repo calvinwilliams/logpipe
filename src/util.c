@@ -239,3 +239,104 @@ ssize_t readn(int fd, void *vptr, size_t n)
     
     return (n-nleft);
 }
+
+/* ×Ö·û´®Õ¹¿ª */
+static struct timeval *GetTimeval( struct timeval *p_tv , struct timeval *tv )
+{
+	if( p_tv )
+		return NULL;
+	
+	gettimeofday( tv , NULL );
+	return tv;
+}
+
+static struct tm *GetTm( struct tm *p_stime , struct timeval *p_tv , struct tm *stime )
+{
+	if( p_stime )
+		return p_stime;
+	
+	return localtime_r( & (p_tv->tv_sec) , stime );
+}
+
+int ExpandStringBuffer( char *base , int buf_size )
+{
+	struct timeval	tv , *p_tv = NULL ;
+	struct tm	stime , *p_stime = NULL ;
+	int		str_len ;
+	char		*p1 = NULL , *p2 = NULL ;
+	
+	str_len = strlen(base) ;
+	p1 = base ;
+	while(*p1)
+	{
+		if( (*p1) == '%' )
+		{
+			p2 = p1 + 1 ;
+			if( (*p2) == 'Y' )
+			{
+				char	buf[ 4 + 1 ] ;
+				p_tv = GetTimeval( p_tv , & tv ) ;
+				p_stime = GetTm( p_stime , p_tv , & stime ) ;
+				snprintf( buf , sizeof(buf) , "%04d" , p_stime->tm_year+1900 );
+				if( str_len + 4 > buf_size-1 )
+					return -1;
+				memmove( p2+1+2 , p2+1 , strlen(p2+1)+1 );
+				memcpy( p1 , buf , 4 );
+				p1 = p2 + 1 + 2 ;
+				str_len += 2 ;
+			}
+			else if( (*p2) == 'M' )
+			{
+				char	buf[ 2 + 1 ] ;
+				p_tv = GetTimeval( p_tv , & tv ) ;
+				p_stime = GetTm( p_stime , p_tv , & stime ) ;
+				snprintf( buf , sizeof(buf) , "%02d" , p_stime->tm_mon );
+				memcpy( p1 , buf , 2 );
+				p1 = p2 + 1 ;
+			}
+			else if( (*p2) == 'D' )
+			{
+				char	buf[ 2 + 1 ] ;
+				p_tv = GetTimeval( p_tv , & tv ) ;
+				p_stime = GetTm( p_stime , p_tv , & stime ) ;
+				snprintf( buf , sizeof(buf) , "%02d" , p_stime->tm_mday );
+				memcpy( p1 , buf , 2 );
+				p1 = p2 + 1 ;
+			}
+			else if( (*p2) == 'h' )
+			{
+				char	buf[ 2 + 1 ] ;
+				p_tv = GetTimeval( p_tv , & tv ) ;
+				p_stime = GetTm( p_stime , p_tv , & stime ) ;
+				snprintf( buf , sizeof(buf) , "%02d" , p_stime->tm_hour );
+				memcpy( p1 , buf , 2 );
+				p1 = p2 + 1 ;
+			}
+			else if( (*p2) == 'm' )
+			{
+				char	buf[ 2 + 1 ] ;
+				p_tv = GetTimeval( p_tv , & tv ) ;
+				p_stime = GetTm( p_stime , p_tv , & stime ) ;
+				snprintf( buf , sizeof(buf) , "%02d" , p_stime->tm_min );
+				memcpy( p1 , buf , 2 );
+				p1 = p2 + 1 ;
+			}
+			else if( (*p2) == 's' )
+			{
+				char	buf[ 2 + 1 ] ;
+				p_tv = GetTimeval( p_tv , & tv ) ;
+				p_stime = GetTm( p_stime , p_tv , & stime ) ;
+				snprintf( buf , sizeof(buf) , "%02d" , p_stime->tm_sec );
+				memcpy( p1 , buf , 2 );
+				p1 = p2 + 1 ;
+			}
+		}
+		else
+		{
+			p1++;
+		}
+	}
+	
+	return 0;
+}
+

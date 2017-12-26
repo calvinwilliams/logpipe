@@ -103,6 +103,9 @@ int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uin
 /* 解密输出插件读取的块数据 */
 int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf , uint32_t block_in_len , char *block_out_buf , uint32_t *p_block_out_len );
 
+/* 字符串展开 */        
+int ExpandStringBuffer( char *base , int buf_size );
+
 #ifdef __cplusplus
 extern }
 #endif

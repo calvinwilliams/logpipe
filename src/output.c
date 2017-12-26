@@ -25,7 +25,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		if( nret < 0 )
 		{
 			ERRORLOG( "[%s]->pfuncBeforeWriteOutputPlugin failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno )
-			return -1;
+			return 1;
 		}
 		else if( nret > 0 )
 		{
@@ -57,7 +57,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		else if( nret < 0 )
 		{
 			ERRORLOG( "[%s]->pfuncReadInputPlugin failed[%d]" , p_logpipe_input_plugin->so_filename , nret )
-			return -1;
+			return 1;
 		}
 		else if( nret > 0 )
 		{
@@ -109,7 +109,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		if( nret < 0 )
 		{
 			ERRORLOG( "[%s]->pfuncAfterWriteOutputPlugin failed[%d]" , p_logpipe_output_plugin->so_filename , nret )
-			return -1;
+			return 1;
 		}
 		else if( nret > 0 )
 		{

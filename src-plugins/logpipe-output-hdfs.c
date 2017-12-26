@@ -6,6 +6,23 @@
 make logpipe-output-hdfs.so && cp logpipe-output-hdfs.so ~/so/
 */
 
+/* add to ~/.profile
+# for hadoop
+export HADOOP_HOME=/home/hdfs/expack/hadoop
+export PATH=$HADOOP_HOME/bin:$PATH
+export HADOOP_CLASSPATH=`hadoop classpath --glob`
+export CLASSPATH=$HADOOP_CLASSPATH:$CLASSPATH
+export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/amd64/server:$LD_LIBRARY_PATH
+*/
+
+/* add to $HADOOP/etc/hadoop/hdfs-site.xml
+<property>
+    <name>dfs.support.append</name>
+    <value>true</value>
+</property>
+*/
+
 char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.1.0" ;
 
 struct OutputPluginContext
@@ -111,7 +128,6 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 			else
 			{
 				INFOLOG( "hdfsConnectAsUser ok , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
-				return -1;
 			}
 		}
 		else
@@ -126,7 +142,6 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 			else
 			{
 				INFOLOG( "hdfsConnect ok , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
-				return -1;
 			}
 		}
 	}
@@ -140,11 +155,68 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	return 0;
 }
 
+static int ReMkdirPath( hdfsFS fs , char *path )
+{
+	hdfsFileInfo		*file_info = NULL ;
+	char			up_path[ PATH_MAX + 1 ] ;
+	char			*p = NULL ;
+	
+	int			nret = 0 ;
+	
+	if( path[0] == '\0' )
+		return 0;
+	
+	file_info = hdfsGetPathInfo( fs , path ) ;
+	if( file_info )
+	{
+		DEBUGLOG( "hdfs path[%s] exist" , path )
+		if( file_info->mKind != kObjectKindDirectory )
+		{
+			ERRORLOG( "hdfs path[%s] is't a directory" , path )
+			hdfsFreeFileInfo( file_info , 1 );
+			return -1;
+		}
+		hdfsFreeFileInfo( file_info , 1 );
+		
+		return 0;
+	}
+	else
+	{
+		WARNLOG( "hdfs path[%s] not exist" , path )
+	}
+	
+	strcpy( up_path , path );
+	p = strrchr( up_path , '/' ) ;
+	if( p == NULL )
+	{
+		ERRORLOG( "hdfs path[%s] invalid" , up_path )
+		return -2;
+	}
+	(*p) = '\0' ;
+	nret = ReMkdirPath( fs , up_path ) ;
+	if( nret )
+		return nret;
+	
+	nret = hdfsCreateDirectory( fs , path ) ;
+	if( nret )
+	{
+		ERRORLOG( "mkdir hdfs path[%s] failed[%d]" , path , nret )
+		return nret;
+	}
+	else
+	{
+		DEBUGLOG( "mkdir hdfs path[%s] ok" , path )
+	}
+	
+	return 0;
+}
+
 funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
 int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
+	char				path_expand[ PATH_MAX + 1 ] ;
 	hdfsFileInfo			*file_info = NULL ;
 	
 	int				nret = 0 ;
@@ -152,25 +224,51 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	p_plugin_ctx->filename_len = filename_len ;
 	p_plugin_ctx->filename = filename ;
 	
-	memset( p_plugin_ctx->path_filename , 0x00 , sizeof(p_plugin_ctx->path_filename) );
-	snprintf( p_plugin_ctx->path_filename , sizeof(p_plugin_ctx->path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , filename_len , filename );
-	
-	file_info = hdfsGetPathInfo( p_plugin_ctx->fs , p_plugin_ctx->path_filename ) ;
-	if( file_info == NULL )
+	memset( path_expand , 0x00 , sizeof(path_expand) );
+	strncpy( path_expand , p_plugin_ctx->path , sizeof(path_expand)-1 );
+	nret = ExpandStringBuffer( path_expand , sizeof(path_expand) ) ;
+	if( nret )
 	{
-		ERRORLOG( "hdfsGetPathInfo[%s] failed" , p_plugin_ctx->path_filename )
+		ERRORLOG( "ExpandStringBuffer[%s] failed[%d]" , p_plugin_ctx->path , nret )
 		return 1;
 	}
 	else
 	{
-		DEBUGLOG( "hdfsGetPathInfo[%s] ok" , p_plugin_ctx->path_filename )
+		DEBUGLOG( "ExpandStringBuffer[%s] ok , path_expand[%s]" , p_plugin_ctx->path , path_expand )
+	}
+	nret = ReMkdirPath( p_plugin_ctx->fs , path_expand );
+	if( nret )
+	{
+		ERRORLOG( "ReMkdirPath[%s] failed[%d]" , path_expand , nret )
+	}
+	else
+	{
+		DEBUGLOG( "ReMkdirPath[%s] ok" , path_expand )
+	}
+	
+	memset( p_plugin_ctx->path_filename , 0x00 , sizeof(p_plugin_ctx->path_filename) );
+	snprintf( p_plugin_ctx->path_filename , sizeof(p_plugin_ctx->path_filename)-1 , "%s/%.*s" , path_expand , filename_len , filename );
+	
+	file_info = hdfsGetPathInfo( p_plugin_ctx->fs , p_plugin_ctx->path_filename ) ;
+	if( file_info == NULL )
+	{
+		DEBUGLOG( "file[%s] not exist" , p_plugin_ctx->path_filename )
+	}
+	else
+	{
+		DEBUGLOG( "file[%s] exist" , p_plugin_ctx->path_filename )
 	}
 	
 	p_plugin_ctx->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->path_filename , O_CREAT|O_WRONLY , 0 , 0 , 0 ) ;
+	// p_plugin_ctx->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->path_filename , O_WRONLY|O_APPEND , 0 , 0 , 0 ) ;
+	// p_plugin_ctx->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->path_filename , O_CREAT|O_APPEND , 0 , 0 , 0 ) ;
 	if( p_plugin_ctx->file == NULL )
 	{
-		ERRORLOG( "hdfsOpenFile[%s] failed" , p_plugin_ctx->path_filename )
-		free( file_info );
+		ERRORLOG( "hdfsOpenFile[%s] failed , errno[%d]" , p_plugin_ctx->path_filename , errno )
+		if( file_info )
+		{
+			hdfsFreeFileInfo( file_info , 1 );
+		}
 		return 1;
 	}
 	else
@@ -178,20 +276,28 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		DEBUGLOG( "hdfsOpenFile[%s] ok" , p_plugin_ctx->path_filename )
 	}
 	
-	nret = hdfsSeek( p_plugin_ctx->fs , p_plugin_ctx->file , file_info->mSize ) ;
-	if( nret == -1 )
+	/*
+	if( file_info && file_info->mSize > 0 )
 	{
-		ERRORLOG( "hdfsSeek[%s][%d] failed" , p_plugin_ctx->path_filename , file_info->mSize )
-		hdfsCloseFile( p_plugin_ctx->fs , p_plugin_ctx->file ); p_plugin_ctx->file = NULL ;
-		free( file_info );
-		return 1;
+		nret = hdfsSeek( p_plugin_ctx->fs , p_plugin_ctx->file , file_info->mSize ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "hdfsSeek[%s][%d] failed" , p_plugin_ctx->path_filename , file_info->mSize )
+			hdfsCloseFile( p_plugin_ctx->fs , p_plugin_ctx->file ); p_plugin_ctx->file = NULL ;
+			hdfsFreeFileInfo( file_info , 1 );
+			return 1;
+		}
+		else
+		{
+			DEBUGLOG( "hdfsSeek[%s][%d] ok" , p_plugin_ctx->path_filename , file_info->mSize )
+		}
 	}
-	else
-	{
-		DEBUGLOG( "hdfsSeek[%s][%d] ok" , p_plugin_ctx->path_filename , file_info->mSize )
-	}
+	*/
 	
-	free( file_info );
+	if( file_info )
+	{
+		hdfsFreeFileInfo( file_info , 1 );
+	}
 	
 	return 0;
 }
