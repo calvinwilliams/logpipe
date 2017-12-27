@@ -23,22 +23,59 @@ export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/amd64/server:$LD_LIBRARY_PATH
 </property>
 */
 
-char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.1.0" ;
+char	*__LOGPIPE_OUTPUT_HDFS_VERSION = "0.1.0" ;
 
+/* 跟踪文件信息结构 */
+struct TraceFile
+{
+	char			path_filename[ PATH_MAX + 1 ] ;
+	
+	hdfsFS			fs ;
+	hdfsFile		file ;
+	
+	struct rb_node		filename_rbnode ;
+} ;
+
+/* 插件环境结构 */
 struct OutputPluginContext
 {
-	char		*name_node ;
-	int		port ;
-	char		*user ;
-	char		*path ;
-	char		*uncompress_algorithm ;
+	char			*name_node ;
+	int			port ;
+	char			*user ;
+	char			*path ;
+	char			*uncompress_algorithm ;
 	
-	hdfsFS		fs ;
-	char		path_filename[ PATH_MAX + 1 ] ;
-	hdfsFile	file ;
-	uint16_t	filename_len ;
-	char		*filename ;
+	hdfsFS			fs ;
+	
+	char			pathname[ PATH_MAX + 1 ] ;
+	struct tm		stime ;
+	
+	struct TraceFile	*p_trace_file ;
+	
+	struct rb_root		filename_rbtree ;
 } ;
+
+LINK_RBTREENODE_STRING( LinkTraceFilenameTreeNode , struct OutputPluginContext , filename_rbtree , struct TraceFile , filename_rbnode , path_filename )
+QUERY_RBTREENODE_STRING( QueryTraceFilenameTreeNode , struct OutputPluginContext , filename_rbtree , struct TraceFile , filename_rbnode , path_filename )
+UNLINK_RBTREENODE( UnlinkTraceFileWdTreeNode , struct OutputPluginContext , filename_rbtree , struct TraceFile , filename_rbnode )
+
+void FreeTraceFile( void *pv )
+{
+	struct TraceFile      *p_trace_file = (struct TraceFile *) pv ;
+	
+	if( p_trace_file )
+	{
+		INFOLOG( "hdfsCloseFile[%s]" , p_trace_file->path_filename )
+		hdfsCloseFile( p_trace_file->fs , p_trace_file->file );
+		
+		free( p_trace_file );
+		p_trace_file = NULL ;
+	}
+	
+	return;
+}
+
+DESTROY_RBTREE( DestroyTraceFilenameTree , struct OutputPluginContext , filename_rbtree , struct TraceFile , filename_rbnode , FreeTraceFile )
 
 funcLoadOutputPluginConfig LoadOutputPluginConfig ;
 int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
@@ -114,36 +151,52 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
-	if( p_plugin_ctx->fs == NULL )
+	time_t				tt ;
+	
+	int				nret = 0 ;
+	
+	if( p_plugin_ctx->user && p_plugin_ctx->user[0] )
 	{
-		if( p_plugin_ctx->user && p_plugin_ctx->user[0] )
+		INFOLOG( "hdfsConnectAsUser ... name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
+		p_plugin_ctx->fs = hdfsConnectAsUser( p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user ) ;
+		if( p_plugin_ctx->fs == NULL )
 		{
-			INFOLOG( "hdfsConnectAsUser ... name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
-			p_plugin_ctx->fs = hdfsConnectAsUser( p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user ) ;
-			if( p_plugin_ctx->fs == NULL )
-			{
-				ERRORLOG( "hdfsConnectAsUser failed , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
-				return -1;
-			}
-			else
-			{
-				INFOLOG( "hdfsConnectAsUser ok , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
-			}
+			ERRORLOG( "hdfsConnectAsUser failed , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
+			return -1;
 		}
 		else
 		{
-			INFOLOG( "hdfsConnect ... name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
-			p_plugin_ctx->fs = hdfsConnect( p_plugin_ctx->name_node , p_plugin_ctx->port ) ;
-			if( p_plugin_ctx->fs == NULL )
-			{
-				ERRORLOG( "hdfsConnect failed , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
-				return -1;
-			}
-			else
-			{
-				INFOLOG( "hdfsConnect ok , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
-			}
+			INFOLOG( "hdfsConnectAsUser ok , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
 		}
+	}
+	else
+	{
+		INFOLOG( "hdfsConnect ... name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
+		p_plugin_ctx->fs = hdfsConnect( p_plugin_ctx->name_node , p_plugin_ctx->port ) ;
+		if( p_plugin_ctx->fs == NULL )
+		{
+			ERRORLOG( "hdfsConnect failed , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "hdfsConnect ok , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
+		}
+	}
+	
+	time( & tt );
+	localtime_r( & tt , & (p_plugin_ctx->stime) );
+	memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
+	snprintf( p_plugin_ctx->pathname , sizeof(p_plugin_ctx->pathname) , "%s/%04d%02d%02d_%02d%02d%02d" , p_plugin_ctx->path , p_plugin_ctx->stime.tm_year+1900 , p_plugin_ctx->stime.tm_mon , p_plugin_ctx->stime.tm_mday , p_plugin_ctx->stime.tm_hour , p_plugin_ctx->stime.tm_min , p_plugin_ctx->stime.tm_sec );
+	nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
+	if( nret )
+	{
+		ERRORLOG( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
+		return -1;
+	}
+	else
+	{
+		DEBUGLOG( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
 	}
 	
 	return 0;
@@ -155,148 +208,76 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	return 0;
 }
 
-static int ReMkdirPath( hdfsFS fs , char *path )
-{
-	hdfsFileInfo		*file_info = NULL ;
-	char			up_path[ PATH_MAX + 1 ] ;
-	char			*p = NULL ;
-	
-	int			nret = 0 ;
-	
-	if( path[0] == '\0' )
-		return 0;
-	
-	file_info = hdfsGetPathInfo( fs , path ) ;
-	if( file_info )
-	{
-		DEBUGLOG( "hdfs path[%s] exist" , path )
-		if( file_info->mKind != kObjectKindDirectory )
-		{
-			ERRORLOG( "hdfs path[%s] is't a directory" , path )
-			hdfsFreeFileInfo( file_info , 1 );
-			return -1;
-		}
-		hdfsFreeFileInfo( file_info , 1 );
-		
-		return 0;
-	}
-	else
-	{
-		WARNLOG( "hdfs path[%s] not exist" , path )
-	}
-	
-	strcpy( up_path , path );
-	p = strrchr( up_path , '/' ) ;
-	if( p == NULL )
-	{
-		ERRORLOG( "hdfs path[%s] invalid" , up_path )
-		return -2;
-	}
-	(*p) = '\0' ;
-	nret = ReMkdirPath( fs , up_path ) ;
-	if( nret )
-		return nret;
-	
-	nret = hdfsCreateDirectory( fs , path ) ;
-	if( nret )
-	{
-		ERRORLOG( "mkdir hdfs path[%s] failed[%d]" , path , nret )
-		return nret;
-	}
-	else
-	{
-		DEBUGLOG( "mkdir hdfs path[%s] ok" , path )
-	}
-	
-	return 0;
-}
-
 funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
 int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
-	char				path_expand[ PATH_MAX + 1 ] ;
-	hdfsFileInfo			*file_info = NULL ;
+	time_t				tt ;
+	struct tm			stime ;
+	struct TraceFile		trace_file ;
 	
 	int				nret = 0 ;
 	
-	p_plugin_ctx->filename_len = filename_len ;
-	p_plugin_ctx->filename = filename ;
-	
-	memset( path_expand , 0x00 , sizeof(path_expand) );
-	strncpy( path_expand , p_plugin_ctx->path , sizeof(path_expand)-1 );
-	nret = ExpandStringBuffer( path_expand , sizeof(path_expand) ) ;
-	if( nret )
+	time( & tt );
+	localtime_r( & tt , & stime );
+	if( stime.tm_year != p_plugin_ctx->stime.tm_year || stime.tm_mon != p_plugin_ctx->stime.tm_mon || stime.tm_mday != p_plugin_ctx->stime.tm_mday )
 	{
-		ERRORLOG( "ExpandStringBuffer[%s] failed[%d]" , p_plugin_ctx->path , nret )
-		return 1;
-	}
-	else
-	{
-		DEBUGLOG( "ExpandStringBuffer[%s] ok , path_expand[%s]" , p_plugin_ctx->path , path_expand )
-	}
-	nret = ReMkdirPath( p_plugin_ctx->fs , path_expand );
-	if( nret )
-	{
-		ERRORLOG( "ReMkdirPath[%s] failed[%d]" , path_expand , nret )
-	}
-	else
-	{
-		DEBUGLOG( "ReMkdirPath[%s] ok" , path_expand )
-	}
-	
-	memset( p_plugin_ctx->path_filename , 0x00 , sizeof(p_plugin_ctx->path_filename) );
-	snprintf( p_plugin_ctx->path_filename , sizeof(p_plugin_ctx->path_filename)-1 , "%s/%.*s" , path_expand , filename_len , filename );
-	
-	file_info = hdfsGetPathInfo( p_plugin_ctx->fs , p_plugin_ctx->path_filename ) ;
-	if( file_info == NULL )
-	{
-		DEBUGLOG( "file[%s] not exist" , p_plugin_ctx->path_filename )
-	}
-	else
-	{
-		DEBUGLOG( "file[%s] exist" , p_plugin_ctx->path_filename )
-	}
-	
-	p_plugin_ctx->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->path_filename , O_CREAT|O_WRONLY , 0 , 0 , 0 ) ;
-	// p_plugin_ctx->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->path_filename , O_WRONLY|O_APPEND , 0 , 0 , 0 ) ;
-	// p_plugin_ctx->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->path_filename , O_CREAT|O_APPEND , 0 , 0 , 0 ) ;
-	if( p_plugin_ctx->file == NULL )
-	{
-		ERRORLOG( "hdfsOpenFile[%s] failed , errno[%d]" , p_plugin_ctx->path_filename , errno )
-		if( file_info )
+		INFOLOG( "DestroyTraceFilenameTree" )
+		DestroyTraceFilenameTree( p_plugin_ctx );
+		
+		memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
+		snprintf( p_plugin_ctx->pathname , sizeof(p_plugin_ctx->pathname) , "%s/%04d%02d%02d" , p_plugin_ctx->path , p_plugin_ctx->stime.tm_year+1900 , p_plugin_ctx->stime.tm_mon , p_plugin_ctx->stime.tm_mday );
+		nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
+		if( nret )
 		{
-			hdfsFreeFileInfo( file_info , 1 );
-		}
-		return 1;
-	}
-	else
-	{
-		DEBUGLOG( "hdfsOpenFile[%s] ok" , p_plugin_ctx->path_filename )
-	}
-	
-	/*
-	if( file_info && file_info->mSize > 0 )
-	{
-		nret = hdfsSeek( p_plugin_ctx->fs , p_plugin_ctx->file , file_info->mSize ) ;
-		if( nret == -1 )
-		{
-			ERRORLOG( "hdfsSeek[%s][%d] failed" , p_plugin_ctx->path_filename , file_info->mSize )
-			hdfsCloseFile( p_plugin_ctx->fs , p_plugin_ctx->file ); p_plugin_ctx->file = NULL ;
-			hdfsFreeFileInfo( file_info , 1 );
-			return 1;
+			ERRORLOG( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
+			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "hdfsSeek[%s][%d] ok" , p_plugin_ctx->path_filename , file_info->mSize )
+			DEBUGLOG( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
 		}
 	}
-	*/
 	
-	if( file_info )
+	memset( & trace_file , 0x00 , sizeof(struct TraceFile) );
+	snprintf( trace_file.path_filename , sizeof(trace_file.path_filename)-1 , "%s/%.*s" , p_plugin_ctx->pathname , filename_len , filename );
+	p_plugin_ctx->p_trace_file = QueryTraceFilenameTreeNode( p_plugin_ctx , & trace_file ) ;
+	if( p_plugin_ctx->p_trace_file == NULL )
 	{
-		hdfsFreeFileInfo( file_info , 1 );
+		p_plugin_ctx->p_trace_file = (struct TraceFile *)malloc( sizeof(struct TraceFile) ) ;
+		if( p_plugin_ctx->p_trace_file == NULL )
+		{
+			ERRORLOG( "malloc failed , errno[%d]" , errno )
+			return -1;
+		}
+		memset( p_plugin_ctx->p_trace_file , 0x00 , sizeof(struct TraceFile) );
+		
+		strcpy( p_plugin_ctx->p_trace_file->path_filename , trace_file.path_filename );
+		
+		p_plugin_ctx->p_trace_file->fs = p_plugin_ctx->fs ;
+		
+		p_plugin_ctx->p_trace_file->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->path_filename , O_CREAT|O_WRONLY , 0 , 0 , 0 ) ;
+		if( p_plugin_ctx->p_trace_file->file == NULL )
+		{
+			ERRORLOG( "hdfsOpenFile[%s] failed , errno[%d]" , p_plugin_ctx->p_trace_file->path_filename , errno )
+			free( p_plugin_ctx->p_trace_file );
+			return -1;
+		}
+		else
+		{
+			DEBUGLOG( "hdfsOpenFile[%s] ok" , p_plugin_ctx->p_trace_file->path_filename )
+		}
+		
+		nret = LinkTraceFilenameTreeNode( p_plugin_ctx , p_plugin_ctx->p_trace_file ) ;
+		if( nret )
+		{
+			INFOLOG( "hdfsCloseFile[%s]" , p_plugin_ctx->p_trace_file->path_filename )
+			hdfsCloseFile( p_plugin_ctx->p_trace_file->fs , p_plugin_ctx->p_trace_file->file );
+			free( p_plugin_ctx->p_trace_file );
+			ERRORLOG( "LinkTraceFilenameTreeNode failed , errno[%d]" , errno )
+			return 1;
+		}
 	}
 	
 	return 0;
@@ -313,30 +294,27 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	
 	if( p_plugin_ctx->uncompress_algorithm == NULL )
 	{
-		if( p_plugin_ctx->fs )
-		{
-			nret = InitOutputPluginContext( p_env , p_logpipe_output_plugin , p_context ) ;
-			if( nret )
-				return nret;
-		}
-		
-		if( p_plugin_ctx->file )
-		{
-			nret = BeforeWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_context , p_plugin_ctx->filename_len , p_plugin_ctx->filename ) ;
-			if( nret )
-				return nret;
-		}
-		
-		len = hdfsWrite( p_plugin_ctx->fs , p_plugin_ctx->file , block_buf , block_len ) ;
+		len = hdfsWrite( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file , block_buf , block_len ) ;
 		if( len == -1 )
 		{
 			ERRORLOG( "hdfsWrite data to hdfs failed , errno[%d]" , errno )
-			return 1;
+			return -1;
 		}
 		else
 		{
 			INFOLOG( "hdfsWrite data to hdfs ok , [%d]bytes" , block_len )
 			DEBUGHEXLOG( block_buf , len , NULL )
+		}
+		
+		nret = hdfsHFlush( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file ) ;
+		if( nret )
+		{
+			ERRORLOG( "hdfsHFlush data to hdfs failed , errno[%d]" , errno )
+			return -1;
+		}
+		else
+		{
+			INFOLOG( "hdfsHFlush data to hdfs ok , [%d]bytes" , block_len )
 		}
 	}
 	else
@@ -358,16 +336,27 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 				DEBUGLOG( "UncompressInputPluginData ok" )
 			}
 			
-			len = hdfsWrite( p_plugin_ctx->fs , p_plugin_ctx->file , block_out_buf , block_out_len ) ;
+			len = hdfsWrite( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file , block_out_buf , block_out_len ) ;
 			if( len == -1 )
 			{
 				ERRORLOG( "hdfsWrite data to hdfs failed , errno[%d]" , errno )
-				return 1;
+				return -1;
 			}
 			else
 			{
 				INFOLOG( "hdfsWrite data to hdfs ok , [%d]bytes" , block_len )
 				DEBUGHEXLOG( block_out_buf , len , NULL )
+			}
+			
+			nret = hdfsHFlush( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file ) ;
+			if( nret )
+			{
+				ERRORLOG( "dfsWrite data to hdfs failed , errno[%d]" , errno )
+				return -1;
+			}
+			else
+			{
+				INFOLOG( "dfsWrite data to hdfs ok , [%d]bytes" , block_len )
 			}
 		}
 		else
@@ -383,14 +372,6 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
 int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	
-	if( p_plugin_ctx->file )
-	{
-		INFOLOG( "hdfsCloseFile[%s]" , p_plugin_ctx->path_filename )
-		hdfsCloseFile( p_plugin_ctx->fs , p_plugin_ctx->file ); p_plugin_ctx->file = NULL ;
-	}
-	
 	return 0;
 }
 
@@ -399,11 +380,11 @@ int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
-	if( p_plugin_ctx->fs )
-	{
-		INFOLOG( "hdfsDisconnect" )
-		hdfsDisconnect( p_plugin_ctx->fs ); p_plugin_ctx->fs = NULL ;
-	}
+	INFOLOG( "DestroyTraceFilenameTree" )
+	DestroyTraceFilenameTree( p_plugin_ctx );
+	
+	INFOLOG( "hdfsDisconnect" )
+	hdfsDisconnect( p_plugin_ctx->fs ); p_plugin_ctx->fs = NULL ;
 	
 	return 0;
 }
