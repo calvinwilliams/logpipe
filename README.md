@@ -7,7 +7,9 @@
     - [2.1. 源码编译安装](#21-源码编译安装)
         - [2.1.1. 编译安装logpipe](#211-编译安装logpipe)
         - [2.1.2. 编译安装自带logpipe插件](#212-编译安装自带logpipe插件)
-        - [2.1.3. 确认安装](#213-确认安装)
+        - [2.1.3. 编译安装选带logpipe插件](#213-编译安装选带logpipe插件)
+            - [2.1.3.1. logpipe-output-hdfs](#2131-logpipe-output-hdfs)
+        - [2.1.4. 确认安装](#214-确认安装)
 - [3. 使用](#3-使用)
     - [3.1. 案例A](#31-案例a)
         - [3.1.1. 部署归集端](#311-部署归集端)
@@ -23,6 +25,7 @@
         - [4.2.3. logpipe-input-tcp](#423-logpipe-input-tcp)
         - [4.2.4. logpipe-output-tcp](#424-logpipe-output-tcp)
         - [4.2.5. logpipe-input-exec](#425-logpipe-input-exec)
+        - [4.2.6. logpipe-output-hdfs](#426-logpipe-output-hdfs)
 - [5. 插件开发](#5-插件开发)
     - [5.1. 输入插件](#51-输入插件)
     - [5.2. 输出插件](#52-输出插件)
@@ -57,6 +60,7 @@ logpipe自带了5个插件（今后将开发更多插件），分别是：
 * logpipe-input-tcp 创建TCP服务侦听端，接收客户端连接，一旦客户端连接上有新消息到来，立即读取。
 * logpipe-output-tcp 创建TCP客户端，连接服务端，一旦输入插件有消息产生后输出到该连接。
 * logpipe-input-exec 执行长命令并捕获输出
+* logpipe-output-hdfs 一旦输入插件有消息产生后用相同的文件名落地到HDFS中。该插件支持数据解压。
 
 使用者可根据自身需求，按照插件开发规范，开发定制插件，如IBMMQ输入插件、HDFS输出插件等。
 
@@ -164,7 +168,44 @@ rm -f /home/calvin/so/logpipe-output-tcp.so
 cp -rf logpipe-output-tcp.so /home/calvin/so/
 ```
 
-### 2.1.3. 确认安装
+### 2.1.3. 编译安装选带logpipe插件
+
+#### 2.1.3.1. logpipe-output-hdfs
+
+注意先修改好里你的编译链接环境，包含但不限于
+
+`~/.bash_profile`
+
+```
+# for hadoop
+export HADOOP_HOME=/home/hdfs/expack/hadoop
+export PATH=$HADOOP_HOME/bin:$PATH
+export HADOOP_CLASSPATH=`hadoop classpath --glob`
+export CLASSPATH=$HADOOP_CLASSPATH:$CLASSPATH
+export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/amd64/server:$LD_LIBRARY_PATH
+```
+
+`makefile.Linux`
+
+```
+...
+CFLAGS_hdfs                     =       $(CFLAGS) -I/home/hdfs/expack/hadoop/include
+...
+LFLAGS_hdfs                     =       $(LFLAGS) -L/home/hdfs/expack/hadoop/lib/native -lhdfs -L$(HOME)/expack/jdk1.8.0_152/jre/lib/amd64/server -ljvm
+...
+```
+
+在`src-plugins`，手工编译插件并复制到`$HOME/so`目录
+
+```
+$ make -f makefile.Linux logpipe-output-hdfs.so
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/home/calvin/include/logpipe  -I/home/hdfs/expack/hadoop/include -c logpipe-output-hdfs.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o logpipe-output-hdfs.so logpipe-output-hdfs.o -shared -L. -L/home/calvin/so -L/home/calvin/lib -llogpipe_api -rdynamic  -L/home/hdfs/expack/hadoop/lib/native -lhdfs -L/home/calvin/expack/jdk1.8.0_152/jre/lib/amd64/server -ljvm
+$ cp logpipe-output-hdfs.so ~/so/
+```
+
+### 2.1.4. 确认安装
 
 确认`$HOME/bin`已经加入到`$PATH`中，不带参数执行`logpipe`，输出以下信息表示源码编译安装成功
 
@@ -492,6 +533,22 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 ```
 { "plugin":"so/logpipe-input-exec.so" , "cmd":"tail -F /home/ecif/log/a.log" , "compress_algorithm":"deflate" , "output_filename":"my_filename.log" }
+```
+
+### 4.2.6. logpipe-output-hdfs
+
+配置项
+
+* `name_node` : HDFS名字节点名或主机名；必选
+* `port` : HDFS名字节点端口；必选
+* `user` : 登录用户名；可选
+* `path` : HDFS输出目录，绝对路径，启动时会创建目录"path/%Y%m%d_%H%M%S"，输出相同文件名到该目录下，切换日期后自动创建目录"path/%Y%m%d"，输出相同文件名到该目录下；必选
+* `uncompress_algorithm` : 落地数据前解压，目前算法只有"deflate"；可选
+
+示例
+
+```
+{ "plugin":"so/logpipe-output-hdfs.so" , "name_node":"192.168.6.21" , "port":9000 , "user":"hdfs" , "path":"/log" }
 ```
 
 # 5. 插件开发
