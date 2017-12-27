@@ -16,13 +16,6 @@ export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/amd64/server:$LD_LIBRARY_PATH
 */
 
-/* add to $HADOOP/etc/hadoop/hdfs-site.xml
-<property>
-    <name>dfs.support.append</name>
-    <value>true</value>
-</property>
-*/
-
 char	*__LOGPIPE_OUTPUT_HDFS_VERSION = "0.1.0" ;
 
 /* 跟踪文件信息结构 */
