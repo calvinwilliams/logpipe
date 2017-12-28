@@ -14,6 +14,7 @@ c_FILE		=	\
 			logpipe-output-tcp.c \
 			logpipe-input-exec.c \
 			logpipe-output-hdfs.c \
+			logpipe-output-ek.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -39,6 +40,8 @@ LFLAGS		=	$(_LFLAGS) \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=	logpipe-output-hdfs.so \
+			fasterhttp.o \
+			logpipe-output-ek.so \
 
 ###### 加载mktpl模板库
 #@ make_all
@@ -76,4 +79,10 @@ LFLAGS_hdfs			=	$(LFLAGS) -L/home/hdfs/expack/hadoop/lib/native -lhdfs -L$(HOME)
 
 logpipe-output-hdfs.so		:	logpipe-output-hdfs.o
 	$(CC) -o $@ logpipe-output-hdfs.o $(SOFLAGS) $(LFLAGS_hdfs)
+
+fasterhttp.o			:	fasterhttp.c
+	$(CC) $(CFLAGS) -c fasterhttp.c
+
+logpipe-output-ek.so		:	logpipe-output-ek.o fasterhttp.o
+	$(CC) -o $@ logpipe-output-ek.o fasterhttp.o $(SOFLAGS) $(LFLAGS)
 

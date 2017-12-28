@@ -15,6 +15,50 @@ struct OutputPluginContext
 	int			forward_sock ;
 } ;
 
+funcLoadOutputPluginConfig LoadOutputPluginConfig ;
+int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+{
+	struct OutputPluginContext	*p_plugin_ctx = NULL ;
+	char				*p = NULL ;
+	
+	/* 申请内存以存放插件上下文 */
+	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
+	if( p_plugin_ctx == NULL )
+	{
+		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		return -1;
+	}
+	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
+	
+	/* 解析插件配置 */
+	p_plugin_ctx->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
+	INFOLOG( "ip[%s]" , p_plugin_ctx->ip )
+	if( p_plugin_ctx->ip == NULL || p_plugin_ctx->ip[0] == '\0' )
+	{
+		ERRORLOG( "expect config for 'ip'" );
+		return -1;
+	}
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
+	if( p == NULL || p[0] == '\0' )
+	{
+		ERRORLOG( "expect config for 'port'" );
+		return -1;
+	}
+	p_plugin_ctx->port = atoi(p) ;
+	INFOLOG( "port[%d]" , p_plugin_ctx->port )
+	if( p_plugin_ctx->port <= 0 )
+	{
+		ERRORLOG( "port[%s] invalid" , p );
+		return -1;
+	}
+	
+	/* 设置插件环境上下文 */
+	(*pp_context) = p_plugin_ctx ;
+	
+	return 0;
+}
+
 static int ConnectForwardSocket( struct OutputPluginContext *p_plugin_ctx )
 {
 	int		nret = 0 ;
@@ -54,43 +98,12 @@ static int ConnectForwardSocket( struct OutputPluginContext *p_plugin_ctx )
 	return 0;
 }
 
-funcLoadOutputPluginConfig LoadOutputPluginConfig ;
-int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+funcInitOutputPluginContext InitOutputPluginContext ;
+int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
-	struct OutputPluginContext	*p_plugin_ctx = NULL ;
-	char				*p = NULL ;
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
-	/* 申请内存以存放插件上下文 */
-	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
-	if( p_plugin_ctx == NULL )
-	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
-		return -1;
-	}
-	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
-	
-	/* 解析插件配置 */
-	p_plugin_ctx->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
-	INFOLOG( "ip[%s]" , p_plugin_ctx->ip )
-	if( p_plugin_ctx->ip == NULL || p_plugin_ctx->ip[0] == '\0' )
-	{
-		ERRORLOG( "expect config for 'ip'" );
-		return -1;
-	}
-	
-	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
-	if( p == NULL || p[0] == '\0' )
-	{
-		ERRORLOG( "expect config for 'port'" );
-		return -1;
-	}
-	p_plugin_ctx->port = atoi(p) ;
-	INFOLOG( "port[%d]" , p_plugin_ctx->port )
-	if( p_plugin_ctx->port <= 0 )
-	{
-		ERRORLOG( "port[%s] invalid" , p );
-		return -1;
-	}
+	int				nret = 0 ;
 	
 	/* 初始化插件环境内部数据 */
 	memset( & (p_plugin_ctx->forward_addr) , 0x00 , sizeof(struct sockaddr_in) );
@@ -100,19 +113,6 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	else
 		p_plugin_ctx->forward_addr.sin_addr.s_addr = inet_addr(p_plugin_ctx->ip) ;
 	p_plugin_ctx->forward_addr.sin_port = htons( (unsigned short)(p_plugin_ctx->port) );
-	
-	/* 设置插件环境上下文 */
-	(*pp_context) = p_plugin_ctx ;
-	
-	return 0;
-}
-
-funcInitOutputPluginContext InitOutputPluginContext ;
-int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
-{
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	
-	int				nret = 0 ;
 	
 	/* 连接服务端 */
 	p_plugin_ctx->forward_sock = -1 ;
