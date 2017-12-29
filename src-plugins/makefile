@@ -48,10 +48,8 @@ CLEAN_ADDITION	=	logpipe-output-hdfs.so \
 #@ make_clean
 #@ make_install
 #@ make_install_LIBINST
-#@ make_install_DFTHDERINST
 #@ make_uninstall
 #@ make_uninstall_LIBINST
-#@ make_uninstall_DFTHDERINST
 include $(MKTPLDIR)/makeobj_$(MKTPLOS).inc
 
 ###### 目标文件依赖关系

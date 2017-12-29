@@ -132,25 +132,6 @@ ifneq ($(strip $(LIB2)),)
 endif
 endif
 
-ifneq ($(strip $(DFTHDERINST)),)
-	@if [ ! -d "$(DFTHDERINST)" ] ; then \
-		echo $(MKDIR) $(DFTHDERINST) ; \
-		$(MKDIR) $(DFTHDERINST) ; \
-	fi
-ifneq ($(strip $(DFTHDER)),)
-	@for FILE in `echo $(DFTHDER)` ; do \
-		if [ -f $(DFTHDERINST)/$$FILE ] ; then \
-			echo $(RM) $(DFTHDERINST)/$$FILE ; \
-			$(RM) $(DFTHDERINST)/$$FILE ; \
-		fi ; \
-		if [ -f $$FILE ] ; then \
-			echo $(CP) $$FILE $(DFTHDERINST)/ ; \
-			$(CP) $$FILE $(DFTHDERINST)/ ; \
-		fi ; \
-	done
-endif
-endif
-
 
 # 预定义源代码缺省头文件宏
 DFTHDER		=	$(csm_FILE_DFTHDER) $(cui_FILE_DFTHDER) $(dtd_FILE_DFTHDER) $(prt_FILE_DFTHDER) $(fmd_FILE_DFTHDER) $(smd_FILE_DFTHDER) $(def_FILE_DFTHDER) $(act_FILE_DFTHDER) $(sml2c_FILE_DFTHDER)
@@ -175,17 +156,6 @@ ifneq ($(strip $(LIBINST2)),)
 		if [ -f $(LIBINST2)/$$FILE ] ; then \
 			echo $(RM) $(LIBINST2)/$$FILE ; \
 			$(RM) $(LIBINST2)/$$FILE ; \
-		fi ; \
-	done
-endif
-endif
-
-ifneq ($(strip $(DFTHDER)),)
-ifneq ($(strip $(DFTHDERINST)),)
-	@for FILE in `echo $(DFTHDER)` ; do \
-		if [ -f $(DFTHDERINST)/$$FILE ] ; then \
-			echo $(RM) $(DFTHDERINST)/$$FILE ; \
-			$(RM) $(DFTHDERINST)/$$FILE ; \
 		fi ; \
 	done
 endif

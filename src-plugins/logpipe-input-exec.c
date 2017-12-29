@@ -2,8 +2,11 @@
 
 char	*__LOGPIPE_INPUT_EXEC_VERSION = "0.1.0" ;
 
+#define CMD_BUFSIZE		1024*1024
+
 struct InputPluginContext
 {
+	char		cmd_buffer[ CMD_BUFSIZE + 1 ] ;
 	char		*cmd ;
 	char		*compress_algorithm ;
 	char		*output_filename ;
@@ -33,6 +36,22 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		ERRORLOG( "expect config for 'cmd'" );
 		return -1;
 	}
+	
+	{
+		int		buffer_len = 0 ;
+		int		remain_len = sizeof(p_plugin_ctx->cmd_buffer)-1 ;
+		
+		memset( p_plugin_ctx->cmd_buffer , 0x00 , sizeof(p_plugin_ctx->cmd_buffer) );
+		JSONUNESCAPE_FOLD( p_plugin_ctx->cmd , strlen(p_plugin_ctx->cmd) , p_plugin_ctx->cmd_buffer , buffer_len , remain_len )
+		if( buffer_len == -1 )
+		{
+			ERRORLOG( "output_tempalte[%s] invalid" , p_plugin_ctx->cmd );
+			return -1;
+		}
+		
+		p_plugin_ctx->cmd = p_plugin_ctx->cmd_buffer ;
+	}
+	INFOLOG( "cmd[%s]" , p_plugin_ctx->cmd )
 	
 	p_plugin_ctx->compress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "compress_algorithm" ) ;
 	if( p_plugin_ctx->compress_algorithm )

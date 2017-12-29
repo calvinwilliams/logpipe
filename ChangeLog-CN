@@ -1,3 +1,6 @@
+0.14.0		2017-12-29	calvin
+		* 新增插件logpipe-output-ek，自带系统（CPU、内存、硬盘、网络）监控示例
+
 0.13.0		2017-12-27	calvin
 		* 新增插件logpipe-output-hdfs
 

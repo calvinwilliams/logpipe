@@ -28,6 +28,8 @@ struct OutputPluginContext
 	char				output_template_buffer[ FORMAT_BUFFER_SIZE + 1 ] ;
 	char				*output_template ;
 	int				output_template_len ;
+	char				*grep ;
+	char				*fields_strictly ;
 	char				*ip ;
 	int				port ;
 	char				*index ;
@@ -109,6 +111,14 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		p_plugin_ctx->output_template_len = buffer_len ;
 	}
 	INFOLOG( "output_template[%s]" , p_plugin_ctx->output_template )
+	
+	p_plugin_ctx->grep = QueryPluginConfigItem( p_plugin_config_items , "grep" ) ;
+	INFOLOG( "grep[%s]" , p_plugin_ctx->grep )
+	
+	p_plugin_ctx->fields_strictly = QueryPluginConfigItem( p_plugin_config_items , "fields_strictly" ) ;
+	if( p_plugin_ctx->fields_strictly && ( STRICMP( p_plugin_ctx->fields_strictly , == , "false" ) || STRICMP( p_plugin_ctx->fields_strictly , == , "no" ) ) )
+		p_plugin_ctx->fields_strictly = NULL ;
+	INFOLOG( "fields_strictly[%s]" , p_plugin_ctx->fields_strictly )
 	
 	p_plugin_ctx->translate_charset = QueryPluginConfigItem( p_plugin_config_items , "translate_charset" ) ;
 	INFOLOG( "translate_charset[%s]" , p_plugin_ctx->translate_charset )
@@ -331,7 +341,7 @@ static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 	}
 	else
 	{
-		INFOLOG( "status code[%d]" , status_code )
+		DEBUGLOG( "status code[%d]" , status_code )
 	}
 	
 	return 0;
@@ -349,7 +359,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	
 	strcpy( p_plugin_ctx->format_buffer , p_plugin_ctx->output_template );
 	p_plugin_ctx->format_buflen = p_plugin_ctx->output_template_len ;
-	DEBUGLOG( "before format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
+	INFOLOG( "before format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
 	
 	p = p_plugin_ctx->format_buffer ;
 	while(1)
@@ -398,7 +408,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	}
 	else
 	{
-		INFOLOG( "PostToEk ok" );
+		DEBUGLOG( "PostToEk ok" );
 	}
 	
 	return 0;
@@ -412,13 +422,23 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 	
 	int				nret = 0 ;
 	
+	INFOLOG( "parse [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	
+	if( p_plugin_ctx->grep )
+	{
+		if( strstr( p_plugin_ctx->parse_buffer , p_plugin_ctx->grep ) == NULL )
+		{
+			INFOLOG( "grep return false" )
+			return 0;
+		}
+	}
+	
 	if( p_plugin_ctx->translate_charset && p_plugin_ctx->translate_charset[0] )
 	{
-		DEBUGLOG( "before translate [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 		for( p = p_plugin_ctx->parse_buffer ; (*p) ; p++ )
 			if( strchr( p_plugin_ctx->translate_charset , (*p) ) )
 				(*p) = p_plugin_ctx->separator_charset[0] ;
-		DEBUGLOG( "after translate  [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+		INFOLOG( "translated [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	}
 	
 	if( p_plugin_ctx->field_separator_array_size > 0 )
@@ -447,13 +467,17 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 		for( p_field_separator->end = p_field_separator->begin ; *(p_field_separator->end) ; p_field_separator->end++ )
 			if( strchr( p_plugin_ctx->separator_charset , p_field_separator->end[0] ) )
 				break;
-		if( *(p_field_separator->end) == '\0' )
-			break;
 		
 		p_field_separator->len = p_field_separator->end - p_field_separator->begin ;
 		DEBUGLOG( "parse field [%d]-[%d][%.*s]" , field_index , p_field_separator->len , p_field_separator->len , p_field_separator->begin )
 		
 		p = p_field_separator->end + 1 ;
+	}
+	
+	if( p_plugin_ctx->fields_strictly )
+	{
+		if( p_plugin_ctx->field_separator_array[p_plugin_ctx->field_separator_array_size-1].end == NULL )
+			return 0;
 	}
 	
 	nret = FormatOutputTemplate( p_plugin_ctx ) ;
@@ -478,8 +502,8 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	
 	int		nret = 0 ;
 	
-	DEBUGLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
-	DEBUGLOG( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
+	INFOLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOG( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
 	
 	if( p_plugin_ctx->parse_buflen + block_len <= sizeof(p_plugin_ctx->parse_buffer)-1 )
 	{
@@ -535,7 +559,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		p_plugin_ctx->parse_buflen = remain_len ;
 	}
 	
-	DEBUGLOG( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOG( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	
 	return 0;
 }
@@ -610,6 +634,8 @@ funcCleanOutputPluginContext CleanOutputPluginContext ;
 int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	free( p_plugin_ctx->field_separator_array );
 	
 	INFOLOG( "DestroyHttpEnv" )
 	DestroyHttpEnv( p_plugin_ctx->http_env );
