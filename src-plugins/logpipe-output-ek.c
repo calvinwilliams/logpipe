@@ -6,62 +6,6 @@
 make logpipe-output-ek.so && cp logpipe-output-ek.so ~/so/
 */
 
-/* collect command
-echo "`date +"%Y-%m-%d %H:%M:%S"` `vmstat | tail -1 | awk '{printf "%d %d %d %d",$13,$14,$16,$15}'`"
-*/
-
-/* ElasticSearch DDL
-查询所有index
-curl -XGET 'http://localhost:9200/_cat/indices?v'
-
-新建index
-curl -H 'Content-Type: application/json' -XPUT 'localhost:9200/cpu_monitor' -d'
-{
-    "mappings" :
-    {
-        "cpu" :
-        {
-            "properties" :
-            {
-                "trans_date" :
-                {
-                    "type" : "date" ,
-                    "format" : "yyy-MM-dd"
-                } ,
-                "trans_time" :
-                {
-                    "type" : "date" ,
-                    "format" : "HH:mm:ss"
-                } ,
-                "usr" :
-                {
-                    "type" : "long"
-                } ,
-                "sys" :
-                {
-                    "type" : "long"
-                } ,
-                "iowait" :
-                {
-                    "type" : "long"
-                } ,
-                "idle" :
-                {
-                    "type" : "long"
-                } ,
-            }
-        }
-    }
-}
-'
-
-删除index
-curl -XDELETE 'localhost:9200/cpu_monitor'
-
-导入数据
-curl -H 'Content-Type: application/json' -XPOST 'localhost:9200/cpu_monitor/cpu' -d'{ "trans_date":"$1" "trans_time":"$2" , "usr":$3 , "sys":$4 , "iowait":$5 , "idle":$6 }'
-*/
-
 char	*__LOGPIPE_OUTPUT_EK_VERSION = "0.1.0" ;
 
 /* 字段分隔信息结构 */
@@ -81,6 +25,7 @@ struct OutputPluginContext
 	char				*uncompress_algorithm ;
 	char				*translate_charset ;
 	char				*separator_charset ;
+	char				output_template_buffer[ FORMAT_BUFFER_SIZE + 1 ] ;
 	char				*output_template ;
 	int				output_template_len ;
 	char				*ip ;
@@ -92,6 +37,9 @@ struct OutputPluginContext
 	
 	int				field_separator_array_size ;
 	struct FieldSeparatorInfo	*field_separator_array ;
+	
+	char				*filename ;
+	int				filename_len ;
 	
 	char				parse_buffer[ PARSE_BUFFER_SIZE + 1 ] ;
 	int				parse_buflen ;
@@ -131,19 +79,36 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	}
 	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
 	
-	p_plugin_ctx->output_template = QueryPluginConfigItem( p_plugin_config_items , "output_template" ) ;
-	INFOLOG( "output_template[%s]" , p_plugin_ctx->output_template )
-	if( p_plugin_ctx->output_template == NULL || p_plugin_ctx->output_template[0] == '\0' )
+	p = QueryPluginConfigItem( p_plugin_config_items , "output_template" ) ;
+	if( p == NULL || p[0] == '\0' )
 	{
 		ERRORLOG( "expect config for 'output_template'" );
 		return -1;
 	}
-	p_plugin_ctx->output_template_len = strlen(p_plugin_ctx->output_template) ;
+	
+	p_plugin_ctx->output_template_len = strlen(p) ;
 	if( p_plugin_ctx->output_template_len > FORMAT_BUFFER_SIZE )
 	{
 		ERRORLOG( "'output_template' too long" );
 		return -1;
 	}
+	
+	{
+		int		buffer_len = 0 ;
+		int		remain_len = sizeof(p_plugin_ctx->output_template_buffer)-1 ;
+		
+		memset( p_plugin_ctx->output_template_buffer , 0x00 , sizeof(p_plugin_ctx->output_template_buffer) );
+		JSONUNESCAPE_FOLD( p , p_plugin_ctx->output_template_len , p_plugin_ctx->output_template_buffer , buffer_len , remain_len )
+		if( buffer_len == -1 )
+		{
+			ERRORLOG( "output_tempalte[%s] invalid" , p );
+			return -1;
+		}
+		
+		p_plugin_ctx->output_template = p_plugin_ctx->output_template_buffer ;
+		p_plugin_ctx->output_template_len = buffer_len ;
+	}
+	INFOLOG( "output_template[%s]" , p_plugin_ctx->output_template )
 	
 	p_plugin_ctx->translate_charset = QueryPluginConfigItem( p_plugin_config_items , "translate_charset" ) ;
 	INFOLOG( "translate_charset[%s]" , p_plugin_ctx->translate_charset )
@@ -227,17 +192,15 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		
 		p = p2 ;
 	}
-	if( max_field_index > 0 )
+	
+	p_plugin_ctx->field_separator_array_size = max_field_index + 1 ; /* 第一个单元放filename */
+	p_plugin_ctx->field_separator_array = (struct FieldSeparatorInfo *)malloc( sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size ) ;
+	if( p_plugin_ctx->field_separator_array == NULL )
 	{
-		p_plugin_ctx->field_separator_array_size = max_field_index ;
-		p_plugin_ctx->field_separator_array = (struct FieldSeparatorInfo *)malloc( sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size ) ;
-		if( p_plugin_ctx->field_separator_array == NULL )
-		{
-			ERRORLOG( "malloc faild , size[%d]" , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size )
-			return -1;
-		}
-		memset( p_plugin_ctx->field_separator_array , 0x00 , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size );
+		ERRORLOG( "malloc faild , size[%d]" , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size )
+		return -1;
 	}
+	memset( p_plugin_ctx->field_separator_array , 0x00 , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size );
 	
 	p_plugin_ctx->http_env = CreateHttpEnv() ;
 	if( p_plugin_ctx->http_env == NULL )
@@ -266,6 +229,11 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
 int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	p_plugin_ctx->filename = filename ;
+	p_plugin_ctx->filename_len = filename_len ;
+	
 	return 0;
 }
 
@@ -314,15 +282,16 @@ static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 	ResetHttpEnv( p_plugin_ctx->http_env );
 	
 	/* 组织HTTP请求 */
+	DEBUGLOG( "StrcpyfHttpBuffer http body [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
 	http_req = GetHttpRequestBuffer( p_plugin_ctx->http_env ) ;
 	nret = StrcpyfHttpBuffer( http_req , "POST /%s/%s HTTP/1.0" HTTP_RETURN_NEWLINE
-							"Content-Type: application/json" , HTTP_RETURN_NEWLINE
-							"Content-length: %d" HTTP_RETURN_NEWLINE
-							HTTP_RETURN_NEWLINE
-							"%.*s"
-							, p_plugin_ctx->index , p_plugin_ctx->type
-							, p_plugin_ctx->format_buflen
-							, p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer ) ;
+						"Content-Type: application/json" HTTP_RETURN_NEWLINE
+						"Content-length: %d" HTTP_RETURN_NEWLINE
+						HTTP_RETURN_NEWLINE
+						"%.*s"
+						, p_plugin_ctx->index , p_plugin_ctx->type
+						, p_plugin_ctx->format_buflen
+						, p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer ) ;
 	if( nret )
 	{
 		ERRORLOG( "StrcpyfHttpBuffer failed[%d]" , nret )
@@ -380,6 +349,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	
 	strcpy( p_plugin_ctx->format_buffer , p_plugin_ctx->output_template );
 	p_plugin_ctx->format_buflen = p_plugin_ctx->output_template_len ;
+	DEBUGLOG( "before format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
 	
 	p = p_plugin_ctx->format_buffer ;
 	while(1)
@@ -411,8 +381,11 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 				return 1;
 			}
 			memmove( p_endptr + d_len , p_endptr , strlen(p_endptr)+1 );
+			memcpy( p , p_field_separator->begin , p_field_separator->len );
 			p_plugin_ctx->format_buflen += d_len ;
 		}
+		
+		DEBUGLOG( "       format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
 		
 		p = p_endptr ;
 	}
@@ -433,22 +406,38 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 
 static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 {
-	char				*base = NULL ;
+	char				*p = NULL ;
 	int				field_index ;
 	struct FieldSeparatorInfo	*p_field_separator = NULL ;
 	
 	int				nret = 0 ;
+	
+	if( p_plugin_ctx->translate_charset && p_plugin_ctx->translate_charset[0] )
+	{
+		DEBUGLOG( "before translate [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+		for( p = p_plugin_ctx->parse_buffer ; (*p) ; p++ )
+			if( strchr( p_plugin_ctx->translate_charset , (*p) ) )
+				(*p) = p_plugin_ctx->separator_charset[0] ;
+		DEBUGLOG( "after translate  [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	}
 	
 	if( p_plugin_ctx->field_separator_array_size > 0 )
 	{
 		memset( p_plugin_ctx->field_separator_array , 0x00 , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size );
 	}
 	
-	base = p_plugin_ctx->parse_buffer ;
-	for( field_index = 0 , p_field_separator = p_plugin_ctx->field_separator_array ; field_index < p_plugin_ctx->field_separator_array_size ; field_index++ , p_field_separator++ )
+	field_index = 0 ;
+	p_field_separator = p_plugin_ctx->field_separator_array ;
+	p_field_separator->begin = p_plugin_ctx->filename ;
+	p_field_separator->end = p_plugin_ctx->filename + p_plugin_ctx->filename_len ;
+	p_field_separator->len = p_plugin_ctx->filename_len ;
+	DEBUGLOG( "parse field [%d]-[%d][%.*s]" , field_index , p_field_separator->len , p_field_separator->len , p_field_separator->begin )
+	
+	p = p_plugin_ctx->parse_buffer ;
+	for( field_index++ , p_field_separator++ ; field_index < p_plugin_ctx->field_separator_array_size ; field_index++ , p_field_separator++ )
 	{
 		/* 寻找第一个非分隔字符 */
-		for( p_field_separator->begin = base ; *(p_field_separator->begin) ; p_field_separator->begin++ )
+		for( p_field_separator->begin = p ; *(p_field_separator->begin) ; p_field_separator->begin++ )
 			if( ! strchr( p_plugin_ctx->separator_charset , p_field_separator->begin[0] ) )
 				break;
 		if( *(p_field_separator->begin) == '\0' )
@@ -462,8 +451,9 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 			break;
 		
 		p_field_separator->len = p_field_separator->end - p_field_separator->begin ;
+		DEBUGLOG( "parse field [%d]-[%d][%.*s]" , field_index , p_field_separator->len , p_field_separator->len , p_field_separator->begin )
 		
-		base = p_field_separator->end + 1 ;
+		p = p_field_separator->end + 1 ;
 	}
 	
 	nret = FormatOutputTemplate( p_plugin_ctx ) ;
@@ -488,9 +478,15 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	
 	int		nret = 0 ;
 	
-	DEBUGHEXLOG( p_plugin_ctx->parse_buffer , p_plugin_ctx->parse_buflen , "before combine , [%d]bytes" , p_plugin_ctx->parse_buflen )
+	DEBUGLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	DEBUGLOG( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
 	
-	if( p_plugin_ctx->parse_buflen + block_len > sizeof(p_plugin_ctx->parse_buffer)-1 )
+	if( p_plugin_ctx->parse_buflen + block_len <= sizeof(p_plugin_ctx->parse_buffer)-1 )
+	{
+		strncpy( p_plugin_ctx->parse_buffer+p_plugin_ctx->parse_buflen , block_buf , block_len );
+		p_plugin_ctx->parse_buflen += block_len ;
+	}
+	else
 	{
 		nret = ParseCombineBuffer( p_plugin_ctx ) ;
 		if( nret < 0 )
@@ -510,15 +506,13 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		strncpy( p_plugin_ctx->parse_buffer , block_buf , block_len );
 		p_plugin_ctx->parse_buflen = block_len ;
 	}
-	else
-	{
-		strncpy( p_plugin_ctx->parse_buffer+p_plugin_ctx->parse_buflen , block_buf , block_len );
-		p_plugin_ctx->parse_buflen += block_len ;
-	}
 	
-	p_newline = memchr( p_plugin_ctx->parse_buffer , '\n' , p_plugin_ctx->parse_buflen ) ;
-	if( p_newline )
+	while(1)
 	{
+		p_newline = memchr( p_plugin_ctx->parse_buffer , '\n' , p_plugin_ctx->parse_buflen ) ;
+		if( p_newline == NULL )
+			break;
+		
 		line_len = p_newline - p_plugin_ctx->parse_buffer ;
 		remain_len = p_plugin_ctx->parse_buflen  - line_len - 1 ;
 		(*p_newline) = '\0' ;
@@ -541,7 +535,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		p_plugin_ctx->parse_buflen = remain_len ;
 	}
 	
-	DEBUGHEXLOG( p_plugin_ctx->parse_buffer , p_plugin_ctx->parse_buflen , "after combine , [%d]bytes" , p_plugin_ctx->parse_buflen )
+	DEBUGLOG( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	
 	return 0;
 }
@@ -555,7 +549,6 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	
 	if( p_plugin_ctx->uncompress_algorithm == NULL )
 	{
-		DEBUGHEXLOG( block_buf , block_len , NULL )
 		nret = CombineToParseBuffer( p_plugin_ctx , block_buf , block_len ) ;
 		if( nret < 0 )
 		{
@@ -586,7 +579,6 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 				DEBUGLOG( "UncompressInputPluginData ok" )
 			}
 			
-			DEBUGHEXLOG( block_out_buf , block_out_len , NULL )
 			nret = CombineToParseBuffer( p_plugin_ctx , block_out_buf , block_out_len ) ;
 			if( nret < 0 )
 			{

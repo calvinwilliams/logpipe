@@ -1,0 +1,56 @@
+收集命令
+echo "`date +"%Y-%m-%d %H:%M:%S"` `vmstat | tail -1 | awk '{printf "%d %d %d %d",$13,$14,$16,$15}'`"
+
+
+
+
+
+查询所有index
+curl -XGET 'http://localhost:9200/_cat/indices?v'
+
+新建index
+curl -H 'Content-Type: application/json' -XPUT 'localhost:9200/cpu_monitor' -d'
+{
+    "mappings" :
+    {
+        "cpu" :
+        {
+            "properties" :
+            {
+                "trans_date" :
+                {
+                    "type" : "date" ,
+                    "format" : "yyy-MM-dd"
+                } ,
+                "trans_time" :
+                {
+                    "type" : "date" ,
+                    "format" : "HH:mm:ss"
+                } ,
+                "usr" :
+                {
+                    "type" : "long"
+                } ,
+                "sys" :
+                {
+                    "type" : "long"
+                } ,
+                "iowait" :
+                {
+                    "type" : "long"
+                } ,
+                "idle" :
+                {
+                    "type" : "long"
+                } ,
+            }
+        }
+    }
+}
+'
+
+删除index
+curl -XDELETE 'localhost:9200/cpu_monitor'
+
+导入数据
+curl -H 'Content-Type: application/json' -XPOST 'localhost:9200/cpu_monitor/cpu' -d'{ "trans_date":"$1" "trans_time":"$2" , "usr":$3 , "sys":$4 , "iowait":$5 , "idle":$6 }'

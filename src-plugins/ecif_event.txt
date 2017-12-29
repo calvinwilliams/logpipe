@@ -1,0 +1,40 @@
+
+
+
+查询所有index
+curl -XGET 'http://localhost:9200/_cat/indices?v'
+
+新建index
+curl -H 'Content-Type: application/json' -XPUT 'localhost:9200/ecif' -d'
+{
+    "mappings" :
+    {
+        "event_log" :
+        {
+            "properties" :
+            {
+                "trans_date" : { "type" : "date" , "format" : "yyyy-MM-dd" } ,
+                "trans_time" : { "type" : "date" , "format" : "HH:mm:ss" } ,
+		"source_channel" : { "type" : "keyword" } ,
+		"source_netaddr" : { "type" : "keyword" } ,
+		"dest_netaddr" : { "type" : "keyword" } ,
+                "comm_app_code" : { "type" : "keyword" } ,
+                "comm_app_desc" : { "type" : "keyword" } ,
+		"comm_status_code" : { "type" : "short" } ,
+                "total_elapse" : { "type" : "float" } ,
+                "keepalive_elapse" : { "type" : "float" } ,
+                "comm_recv_elapse" : { "type" : "float" } ,
+                "app_elapse" : { "type" : "float" } ,
+                "comm_send_elapse" : { "type" : "float" } ,
+                "somain_elapse" : { "type" : "float" }
+            }
+        }
+    }
+}
+'
+
+删除index
+curl -XDELETE 'localhost:9200/ecif'
+
+导入数据
+curl -H 'Content-Type: application/json' -XPOST 'localhost:9200/ecif/event_log' -d'{ "trans_date":"$1","trans_time":"$2" , "source_channel":"$11","source_netaddr":"$12","dest_netaddr":"$6" , "comm_app_code":"$13","comm_app_desc":"$14","comm_status_code":"$15" , "total_elapse":$18,"keepalive_elapse":$19,"comm_recv_elapse":$20,"app_elapse":$21,"comm_send_elapse":$22,"somain_elapse":$23 }'

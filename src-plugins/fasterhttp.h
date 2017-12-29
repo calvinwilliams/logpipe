@@ -18,6 +18,7 @@ extern "C" {
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #if ( defined __unix ) || ( defined __linux__ )
 #include <unistd.h>

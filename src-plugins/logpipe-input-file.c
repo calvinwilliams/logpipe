@@ -89,14 +89,14 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathnam
 	setenv( "LOGPIPE_ROTATING_OLD_FILENAME" , old_filename , 1 );
 	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
 	
-	if( p_plugin_ctx->exec_before_rotating )
+	if( p_plugin_ctx->exec_before_rotating && p_plugin_ctx->exec_before_rotating[0] )
 	{
 		system( p_plugin_ctx->exec_before_rotating );
 	}
 	
 	nret = rename( old_filename , new_filename ) ;
 	
-	if( p_plugin_ctx->exec_after_rotating )
+	if( p_plugin_ctx->exec_after_rotating && p_plugin_ctx->exec_after_rotating[0] )
 	{
 		system( p_plugin_ctx->exec_after_rotating );
 	}
@@ -452,7 +452,7 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		JSONUNESCAPE_FOLD( p , strlen(p) , p_plugin_ctx->exec_before_rotating_buffer , buffer_len , remain_len )
 		if( buffer_len == -1 )
 		{
-			ERRORLOG( "p[%s] invalid" , p );
+			ERRORLOG( "exec_before_rotating[%s] invalid" , p );
 			return -1;
 		}
 		
@@ -477,7 +477,7 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		JSONUNESCAPE_FOLD( p , strlen(p) , p_plugin_ctx->exec_after_rotating_buffer , buffer_len , remain_len )
 		if( buffer_len == -1 )
 		{
-			ERRORLOG( "p[%s] invalid" , p );
+			ERRORLOG( "exec_after_rotating[%s] invalid" , p );
 			return -1;
 		}
 		
