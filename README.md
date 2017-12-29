@@ -26,6 +26,7 @@
         - [4.2.4. logpipe-output-tcp](#424-logpipe-output-tcp)
         - [4.2.5. logpipe-input-exec](#425-logpipe-input-exec)
         - [4.2.6. logpipe-output-hdfs](#426-logpipe-output-hdfs)
+        - [4.2.7. logpipe-output-ek](#427-logpipe-output-ek)
 - [5. 插件开发](#5-插件开发)
     - [5.1. 输入插件](#51-输入插件)
     - [5.2. 输出插件](#52-输出插件)
@@ -446,6 +447,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 ### 4.2.1. logpipe-input-file
 
+基于inotify异步实时监控日志目录中新建文件或追加写文件事件，读取增量日志。
+
 配置项
 
 * `path` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
@@ -477,6 +480,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 ### 4.2.2. logpipe-output-file
 
+输出日志到目标目录，合并相同文件名。
+
 配置项
 
 * `path` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
@@ -497,6 +502,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 ### 4.2.3. logpipe-input-tcp
 
+创建TCP服务侦听，接受通讯连接，接收通讯数据。
+
 配置项
 
 * `ip` : 服务端侦听IP；必选
@@ -510,6 +517,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 ### 4.2.4. logpipe-output-tcp
 
+连接TCP服务端，发送通讯数据。
+
 配置项
 
 * `ip` : 连接服务端IP；必选
@@ -522,6 +531,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 ```
 
 ### 4.2.5. logpipe-input-exec
+
+执行长生命周期命令，捕获标准输出。
 
 配置项
 
@@ -537,6 +548,8 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 ### 4.2.6. logpipe-output-hdfs
 
+存储日志到HDFS。启动时在配置父目录中创建"YYYYMMDD_hhmmss"子目录，存储日志，合并相同文件名；日期切换时在配置父目录中创建"YYYYMMDD"子目录，存储日志。
+
 配置项
 
 * `name_node` : HDFS名字节点名或主机名；必选
@@ -549,6 +562,36 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 ```
 { "plugin":"so/logpipe-output-hdfs.so" , "name_node":"192.168.6.21" , "port":9000 , "user":"hdfs" , "path":"/log" }
+```
+
+### 4.2.7. logpipe-output-ek
+
+按行格式化列，存储到ElasticSearch。
+
+配置项
+
+* `uncompress_algorithm` : 导出数据前解压，目前算法只有"deflate"；可选
+* `translate_charset` : 导出数据前替换源字符集合，参考tr命令；可选
+* `separator_charset` : 导出数据前替换目标字符集合，参考tr命令，同时也作为分词分割字符集合；可选
+* `output_template` : 导出数据格式模板；必选
+* `grep` : 导出数据前过滤子串；可选
+* `fields_strictly` : 如果格式模板中某替换列在源数据中找不到，则忽略该条数据；可选
+* `ip` : ElasticSearch的IP；必选
+* `port` : ElasticSearch的IP；必选
+* `index` : ElasticSearch的index；必选
+* `type` : ElasticSearch的typ；必选
+
+示例
+
+```
+"inputs" : 
+[
+	{ "plugin":"so/logpipe-input-exec.so" , "cmd":"while [ 1 ] ; do echo `date +'%Y-%m-%d %H:%M:%S'` `vmstat 1 2 | tail -1 | awk '{printf \"%d %d %d %d\",$13,$14,$16,$15}'` `free | head -2 | tail -1 | awk '{printf \"%d %d %d\",$3,$6,$4 }'` `iostat -d 1 2 | grep -w sda | tail -1 | awk '{printf \"%f %f %f %f\",$4,$5,$6,$7}'` `sar -n DEV 1 2 | grep -w ens33 | head -2 | tail -1 | awk '{printf \"%f %f %f %f\",$3,$4,$5,$6}'`; sleep 1 ; done" , "output_filename":"system_monitor" }
+] ,
+"outputs" : 
+[
+	{ "plugin":"so/logpipe-output-ek.so" , "output_template":"{ \"trans_date\":\"$1\",\"trans_time\":\"$2\" , \"cpu_usr\":$3,\"cpu_sys\":$4,\"cpu_iowait\":$5,\"cpu_idle\":$6 , \"mem_used\":$7,\"mem_buffer_and_cache\":$8,\"mem_free\":$9 , \"disk_r_s\":$10,\"disk_w_s\":$11,\"disk_rKB_s\":$12,\"disk_wKB_s\":$13 , \"net_rPCK_s\":$14,\"net_wPCK_s\":$15,\"net_rKB_s\":$16,\"net_wKB_s\":$17 }" , "ip":"192.168.6.21" , "port":9200 , "index":"system_monitor" , "type":"data" }
+]
 ```
 
 # 5. 插件开发
