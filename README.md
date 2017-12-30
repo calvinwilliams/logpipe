@@ -578,7 +578,7 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 * `separator_charset` : 导出数据前替换目标字符集合，参考tr命令，同时也作为分词分割字符集合；可选
 * `output_template` : 导出数据格式模板；必选
 * `grep` : 导出数据前过滤子串；可选
-* `fields_strictly` : 如果格式模板中某替换列在源数据中找不到，则忽略该条数据；可选
+* `fields_strictly` : 如果"true"或"yes"，则格式模板中某替换列在源数据中找不到，即替换列"$列号"要小于等于实际分解列数量，否则忽略该条数据；可选
 * `ip` : ElasticSearch的IP；必选
 * `port` : ElasticSearch的IP；必选
 * `index` : ElasticSearch的index；必选
