@@ -26,7 +26,8 @@ struct TraceFile
 struct InputPluginContext
 {
 	char			*path ;
-	char			*file ;
+	char			*files ;
+	char			*exclude_files ;
 	char			exec_before_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_before_rotating ;
 	int			rotate_size ;
@@ -290,11 +291,20 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		return 0;
 	}
 	
-	if( p_plugin_ctx->file && p_plugin_ctx->file[0] )
+	if( p_plugin_ctx->files && p_plugin_ctx->files[0] )
 	{
-		if( IsMatchString( p_plugin_ctx->file , filename , '*' , '?' ) )
+		if( IsMatchString( p_plugin_ctx->files , filename , '*' , '?' ) != 0 )
 		{
-			DEBUGLOG( "filename[%s] not match" , filename )
+			DEBUGLOG( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files )
+			return 0;
+		}
+	}
+	
+	if( p_plugin_ctx->exclude_files && p_plugin_ctx->exclude_files[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->exclude_files , filename , '*' , '?' ) == 0 )
+		{
+			DEBUGLOG( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files )
 			return 0;
 		}
 	}
@@ -439,8 +449,11 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		return -1;
 	}
 	
-	p_plugin_ctx->file = QueryPluginConfigItem( p_plugin_config_items , "file" ) ;
-	INFOLOG( "file[%s]" , p_plugin_ctx->file )
+	p_plugin_ctx->files = QueryPluginConfigItem( p_plugin_config_items , "files" ) ;
+	INFOLOG( "files[%s]" , p_plugin_ctx->files )
+	
+	p_plugin_ctx->exclude_files = QueryPluginConfigItem( p_plugin_config_items , "exclude_files" ) ;
+	INFOLOG( "exclude_files[%s]" , p_plugin_ctx->exclude_files )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "exec_before_rotating" ) ;
 	if( p )
