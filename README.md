@@ -7,8 +7,9 @@
     - [2.1. 源码编译安装](#21-源码编译安装)
         - [2.1.1. 编译安装logpipe](#211-编译安装logpipe)
         - [2.1.2. 编译安装自带logpipe插件](#212-编译安装自带logpipe插件)
-        - [2.1.3. 编译安装选带logpipe插件](#213-编译安装选带logpipe插件)
+        - [2.1.3. 编译安装自带选安装logpipe插件](#213-编译安装自带选安装logpipe插件)
             - [2.1.3.1. logpipe-output-hdfs](#2131-logpipe-output-hdfs)
+            - [2.1.3.2. logpipe-output-ek](#2132-logpipe-output-ek)
         - [2.1.4. 确认安装](#214-确认安装)
 - [3. 使用](#3-使用)
     - [3.1. 案例A](#31-案例a)
@@ -169,7 +170,7 @@ rm -f /home/calvin/so/logpipe-output-tcp.so
 cp -rf logpipe-output-tcp.so /home/calvin/so/
 ```
 
-### 2.1.3. 编译安装选带logpipe插件
+### 2.1.3. 编译安装自带选安装logpipe插件
 
 #### 2.1.3.1. logpipe-output-hdfs
 
@@ -204,6 +205,16 @@ $ make -f makefile.Linux logpipe-output-hdfs.so
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -I. -I/home/calvin/include -std=gnu99 -I/home/calvin/include/logpipe  -I/home/hdfs/expack/hadoop/include -c logpipe-output-hdfs.c
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o logpipe-output-hdfs.so logpipe-output-hdfs.o -shared -L. -L/home/calvin/so -L/home/calvin/lib -llogpipe_api -rdynamic  -L/home/hdfs/expack/hadoop/lib/native -lhdfs -L/home/calvin/expack/jdk1.8.0_152/jre/lib/amd64/server -ljvm
 $ cp logpipe-output-hdfs.so ~/so/
+```
+
+#### 2.1.3.2. logpipe-output-ek
+
+```
+$ make logpipe-output-ek.so && cp logpipe-output-ek.so ~/so/
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -std=gnu99 -I. -I/home/dep_lhh/include -std=gnu99 -I/home/dep_lhh/include/logpipe  -c logpipe-output-ek.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -std=gnu99 -I. -I/home/dep_lhh/include -std=gnu99 -I/home/dep_lhh/include/logpipe  -c fasterhttp.c
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -std=gnu99 -o logpipe-output-ek.so logpipe-output-ek.o fasterhttp.o -shared -L. -L/home/dep_lhh/so -L/home/dep_lhh/lib -llogpipe_api -rdynamic 
+$ cp logpipe-output-ek.so ~/so/
 ```
 
 ### 2.1.4. 确认安装

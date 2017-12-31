@@ -1,8 +1,8 @@
 查询所有index
-curl -XGET 'http://localhost:9200/_cat/indices?v'
+curl -XGET 'http://158.1.0.53:9200/_cat/indices?v'
 
 新建index
-curl -H 'Content-Type: application/json' -XPUT 'localhost:9200/system_monitor' -d'
+curl -H 'Content-Type: application/json' -XPUT '158.1.0.53:9200/ecif_system' -d'
 {
     "mappings" :
     {
@@ -35,5 +35,5 @@ curl -H 'Content-Type: application/json' -XPUT 'localhost:9200/system_monitor' -
 '
 
 删除index
-curl -XDELETE 'localhost:9200/system_monitor'
+curl -XDELETE '158.1.0.53:9200/ecif_system'
 
