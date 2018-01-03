@@ -25,11 +25,13 @@ struct OutputPluginContext
 	char				*uncompress_algorithm ;
 	char				*translate_charset ;
 	char				*separator_charset ;
+	char				*grep ;
+	char				*fields_strictly ;
+	char				*iconv_from ;
+	char				*iconv_to ;
 	char				output_template_buffer[ FORMAT_BUFFER_SIZE + 1 ] ;
 	char				*output_template ;
 	int				output_template_len ;
-	char				*grep ;
-	char				*fields_strictly ;
 	char				*ip ;
 	int				port ;
 	char				*index ;
@@ -47,7 +49,11 @@ struct OutputPluginContext
 	int				parse_buflen ;
 	char				format_buffer[ FORMAT_BUFFER_SIZE + 1 ] ;
 	int				format_buflen ;
+	char				format_buffer_iconv[ FORMAT_BUFFER_SIZE + 1 ] ;
+	int				format_buflen_iconv ;
+	char				*p_format_buffer ;
 	
+	int				sock ;
 	struct sockaddr_in		addr ;
 } ;
 
@@ -81,6 +87,40 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	}
 	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
 	
+	p_plugin_ctx->translate_charset = QueryPluginConfigItem( p_plugin_config_items , "translate_charset" ) ;
+	INFOLOG( "translate_charset[%s]" , p_plugin_ctx->translate_charset )
+	
+	p_plugin_ctx->separator_charset = QueryPluginConfigItem( p_plugin_config_items , "separator_charset" ) ;
+	INFOLOG( "separator_charset[%s]" , p_plugin_ctx->separator_charset )
+	if( p_plugin_ctx->separator_charset == NULL )
+		p_plugin_ctx->separator_charset = " " ;
+	
+	p_plugin_ctx->grep = QueryPluginConfigItem( p_plugin_config_items , "grep" ) ;
+	INFOLOG( "grep[%s]" , p_plugin_ctx->grep )
+	
+	p_plugin_ctx->fields_strictly = QueryPluginConfigItem( p_plugin_config_items , "fields_strictly" ) ;
+	if( p_plugin_ctx->fields_strictly && ( STRICMP( p_plugin_ctx->fields_strictly , == , "false" ) || STRICMP( p_plugin_ctx->fields_strictly , == , "no" ) ) )
+		p_plugin_ctx->fields_strictly = NULL ;
+	INFOLOG( "fields_strictly[%s]" , p_plugin_ctx->fields_strictly )
+	
+	p_plugin_ctx->iconv_from = QueryPluginConfigItem( p_plugin_config_items , "iconv_from" ) ;
+	INFOLOG( "iconv_from[%s]" , p_plugin_ctx->iconv_from )
+	
+	p_plugin_ctx->iconv_to = QueryPluginConfigItem( p_plugin_config_items , "iconv_to" ) ;
+	INFOLOG( "iconv_to[%s]" , p_plugin_ctx->iconv_to )
+	
+	if( p_plugin_ctx->iconv_from && p_plugin_ctx->iconv_to == NULL )
+	{
+		ERRORLOG( "expect config for 'iconv_to'" );
+		return -1;
+	}
+	
+	if( p_plugin_ctx->iconv_from == NULL && p_plugin_ctx->iconv_to )
+	{
+		ERRORLOG( "expect config for 'iconv_from'" );
+		return -1;
+	}
+	
 	p = QueryPluginConfigItem( p_plugin_config_items , "output_template" ) ;
 	if( p == NULL || p[0] == '\0' )
 	{
@@ -111,22 +151,6 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		p_plugin_ctx->output_template_len = buffer_len ;
 	}
 	INFOLOG( "output_template[%s]" , p_plugin_ctx->output_template )
-	
-	p_plugin_ctx->grep = QueryPluginConfigItem( p_plugin_config_items , "grep" ) ;
-	INFOLOG( "grep[%s]" , p_plugin_ctx->grep )
-	
-	p_plugin_ctx->fields_strictly = QueryPluginConfigItem( p_plugin_config_items , "fields_strictly" ) ;
-	if( p_plugin_ctx->fields_strictly && ( STRICMP( p_plugin_ctx->fields_strictly , == , "false" ) || STRICMP( p_plugin_ctx->fields_strictly , == , "no" ) ) )
-		p_plugin_ctx->fields_strictly = NULL ;
-	INFOLOG( "fields_strictly[%s]" , p_plugin_ctx->fields_strictly )
-	
-	p_plugin_ctx->translate_charset = QueryPluginConfigItem( p_plugin_config_items , "translate_charset" ) ;
-	INFOLOG( "translate_charset[%s]" , p_plugin_ctx->translate_charset )
-	
-	p_plugin_ctx->separator_charset = QueryPluginConfigItem( p_plugin_config_items , "separator_charset" ) ;
-	INFOLOG( "separator_charset[%s]" , p_plugin_ctx->separator_charset )
-	if( p_plugin_ctx->separator_charset == NULL )
-		p_plugin_ctx->separator_charset = " " ;
 	
 	p_plugin_ctx->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
 	INFOLOG( "ip[%s]" , p_plugin_ctx->ip )
@@ -172,6 +196,46 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	return 0;
 }
 
+static int ConnectElasticSearchServer( struct OutputPluginContext *p_plugin_ctx )
+{
+	int		nret = 0 ;
+	
+	/* 创建套接字 */
+	p_plugin_ctx->sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+	if( p_plugin_ctx->sock == -1 )
+	{
+		ERRORLOG( "socket failed , errno[%d]" , errno );
+		return -1;
+	}
+	
+	/* 设置套接字选项 */
+	{
+		int	onoff = 1 ;
+		setsockopt( p_plugin_ctx->sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+	}
+	
+	{
+		int	onoff = 1 ;
+		setsockopt( p_plugin_ctx->sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+	}
+	
+	/* 连接到服务端侦听端口 */
+	nret = connect( p_plugin_ctx->sock , (struct sockaddr *) & (p_plugin_ctx->addr) , sizeof(struct sockaddr) ) ;
+	if( nret == -1 )
+	{
+		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->sock , errno )
+		close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
+		sleep(1);
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->sock )
+	}
+	
+	return 0;
+}
+	
 funcInitOutputPluginContext InitOutputPluginContext ;
 int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
@@ -181,6 +245,8 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	int				field_index ;
 	char				*p = NULL ;
 	char				*p2 = NULL ;
+	
+	int				nret = 0 ;
 	
 	/* 初始化插件环境内部数据 */
 	max_field_index = 0 ;
@@ -219,6 +285,8 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		return -1;
 	}
 	
+	p_plugin_ctx->sock = -1 ;
+	
 	memset( & (p_plugin_ctx->addr) , 0x00 , sizeof(struct sockaddr_in) );
 	p_plugin_ctx->addr.sin_family = AF_INET ;
 	if( p_plugin_ctx->ip[0] == '\0' )
@@ -227,12 +295,44 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		p_plugin_ctx->addr.sin_addr.s_addr = inet_addr(p_plugin_ctx->ip) ;
 	p_plugin_ctx->addr.sin_port = htons( (unsigned short)(p_plugin_ctx->port) );
 	
+	while(1)
+	{
+		nret = ConnectElasticSearchServer( p_plugin_ctx ) ;
+		if( nret < 0 )
+			return nret;
+		else if( nret == 0 )
+			break;
+	}
+	
+	/* 设置输入描述字 */
+	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->sock );
+	
 	return 0;
 }
 
 funcOnOutputPluginEvent OnOutputPluginEvent;
 int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	int				nret = 0 ;
+	
+	DEBUGLOG( "close sock" )
+	close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
+	sleep(1);
+	
+	while(1)
+	{
+		nret = ConnectElasticSearchServer( p_plugin_ctx ) ;
+		if( nret < 0 )
+			return nret;
+		else if( nret == 0 )
+			break;
+	}
+	
+	/* 设置输入描述字 */
+	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->sock );
+	
 	return 0;
 }
 
@@ -249,63 +349,32 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 
 static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 {
-	int			sock ;
 	struct HttpBuffer	*http_req = NULL ;
 	struct HttpBuffer	*http_rsp = NULL ;
 	int			status_code ;
 	
 	int			nret = 0 ;
 	
-	/* 创建套接字 */
-	sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
-	if( sock == -1 )
-	{
-		ERRORLOG( "socket failed , errno[%d]" , errno );
-		return 1;
-	}
-	
-	/* 设置套接字选项 */
-	{
-		int	onoff = 1 ;
-		setsockopt( sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
-	}
-	
-	{
-		int	onoff = 1 ;
-		setsockopt( sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
-	}
-	
-	/* 连接到服务端侦听端口 */
-	nret = connect( sock , (struct sockaddr *) & (p_plugin_ctx->addr) , sizeof(struct sockaddr) ) ;
-	if( nret == -1 )
-	{
-		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_ctx->ip , p_plugin_ctx->port , sock , errno )
-		close( sock );
-		return 1;
-	}
-	else
-	{
-		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , sock )
-	}
+_GOTO_RESEND :
 	
 	/* 重置HTTP环境 */
 	ResetHttpEnv( p_plugin_ctx->http_env );
 	
 	/* 组织HTTP请求 */
-	DEBUGLOG( "StrcpyfHttpBuffer http body [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
+	DEBUGLOG( "StrcpyfHttpBuffer http body [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->p_format_buffer )
 	http_req = GetHttpRequestBuffer( p_plugin_ctx->http_env ) ;
 	nret = StrcpyfHttpBuffer( http_req , "POST /%s/%s HTTP/1.0" HTTP_RETURN_NEWLINE
 						"Content-Type: application/json" HTTP_RETURN_NEWLINE
+						"Connection: Keep-alive" HTTP_RETURN_NEWLINE
 						"Content-length: %d" HTTP_RETURN_NEWLINE
 						HTTP_RETURN_NEWLINE
 						"%.*s"
 						, p_plugin_ctx->index , p_plugin_ctx->type
 						, p_plugin_ctx->format_buflen
-						, p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer ) ;
+						, p_plugin_ctx->format_buflen , p_plugin_ctx->p_format_buffer ) ;
 	if( nret )
 	{
 		ERRORLOG( "StrcpyfHttpBuffer failed[%d]" , nret )
-		close( sock );
 		return 1;
 	}
 	else
@@ -313,25 +382,31 @@ static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 		INFOLOG( "StrcpyfHttpBuffer ok" )
 	}
 	
+	DEBUGLOG( "RequestHttp ..." )
+	DEBUGLOG( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
 	/* 发送HTTP请求 */
-	nret = RequestHttp( sock , NULL , p_plugin_ctx->http_env ) ;
+	nret = RequestHttp( p_plugin_ctx->sock , NULL , p_plugin_ctx->http_env ) ;
 	http_rsp = GetHttpResponseBuffer( p_plugin_ctx->http_env ) ;
 	if( nret )
 	{
-		ERRORLOG( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
 		ERRORLOG( "RequestHttp failed[%d]" , nret )
 		ERRORLOG( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
-		close( sock );
-		return 1;
+		close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
+		while(1)
+		{
+			nret = ConnectElasticSearchServer( p_plugin_ctx ) ;
+			if( nret < 0 )
+				return nret;
+			else if( nret == 0 )
+				break;
+		}
+		goto _GOTO_RESEND;
 	}
 	else
 	{
-		INFOLOG( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
 		INFOLOG( "RequestHttp ok" )
 		INFOLOG( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
 	}
-	
-	close( sock );
 	
 	/* 检查HTTP响应头 */
 	status_code = GetHttpStatusCode( p_plugin_ctx->http_env ) ;
@@ -398,6 +473,29 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 		DEBUGLOG( "       format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
 		
 		p = p_endptr ;
+	}
+	
+	if( p_plugin_ctx->iconv_from && p_plugin_ctx->iconv_to )
+	{
+		memset( p_plugin_ctx->format_buffer_iconv , 0x00 , sizeof(p_plugin_ctx->format_buffer_iconv) );
+		p_plugin_ctx->format_buflen_iconv = sizeof(p_plugin_ctx->format_buffer_iconv) - 1 ;
+		p = ConvertContentEncodingEx( p_plugin_ctx->iconv_from , p_plugin_ctx->iconv_to , p_plugin_ctx->format_buffer , & (p_plugin_ctx->format_buflen) , p_plugin_ctx->format_buffer_iconv , & (p_plugin_ctx->format_buflen_iconv) ) ;
+		if( p == NULL )
+		{
+			ERRORLOG( "convert content encoding failed" )
+			return 1;
+		}
+		else
+		{
+			DEBUGLOG( "convert content encoding ok" )
+		}
+		
+		p_plugin_ctx->p_format_buffer = p_plugin_ctx->format_buffer_iconv ;
+		p_plugin_ctx->format_buflen = p_plugin_ctx->format_buflen_iconv ;
+	}
+	else
+	{
+		p_plugin_ctx->p_format_buffer = p_plugin_ctx->format_buffer ;
 	}
 	
 	nret = PostToEk( p_plugin_ctx ) ;
