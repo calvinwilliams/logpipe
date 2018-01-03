@@ -53,6 +53,7 @@ struct OutputPluginContext
 	int				format_buflen_iconv ;
 	char				*p_format_buffer ;
 	
+	int				sock ;
 	struct sockaddr_in		addr ;
 } ;
 
@@ -195,6 +196,46 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	return 0;
 }
 
+static int ConnectElasticSearchServer( struct OutputPluginContext *p_plugin_ctx )
+{
+	int		nret = 0 ;
+	
+	/* 创建套接字 */
+	p_plugin_ctx->sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+	if( p_plugin_ctx->sock == -1 )
+	{
+		ERRORLOG( "socket failed , errno[%d]" , errno );
+		return -1;
+	}
+	
+	/* 设置套接字选项 */
+	{
+		int	onoff = 1 ;
+		setsockopt( p_plugin_ctx->sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+	}
+	
+	{
+		int	onoff = 1 ;
+		setsockopt( p_plugin_ctx->sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+	}
+	
+	/* 连接到服务端侦听端口 */
+	nret = connect( p_plugin_ctx->sock , (struct sockaddr *) & (p_plugin_ctx->addr) , sizeof(struct sockaddr) ) ;
+	if( nret == -1 )
+	{
+		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->sock , errno )
+		close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
+		sleep(1);
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->sock )
+	}
+	
+	return 0;
+}
+	
 funcInitOutputPluginContext InitOutputPluginContext ;
 int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
@@ -204,6 +245,8 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	int				field_index ;
 	char				*p = NULL ;
 	char				*p2 = NULL ;
+	
+	int				nret = 0 ;
 	
 	/* 初始化插件环境内部数据 */
 	max_field_index = 0 ;
@@ -242,6 +285,8 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		return -1;
 	}
 	
+	p_plugin_ctx->sock = -1 ;
+	
 	memset( & (p_plugin_ctx->addr) , 0x00 , sizeof(struct sockaddr_in) );
 	p_plugin_ctx->addr.sin_family = AF_INET ;
 	if( p_plugin_ctx->ip[0] == '\0' )
@@ -250,12 +295,44 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		p_plugin_ctx->addr.sin_addr.s_addr = inet_addr(p_plugin_ctx->ip) ;
 	p_plugin_ctx->addr.sin_port = htons( (unsigned short)(p_plugin_ctx->port) );
 	
+	while(1)
+	{
+		nret = ConnectElasticSearchServer( p_plugin_ctx ) ;
+		if( nret < 0 )
+			return nret;
+		else if( nret == 0 )
+			break;
+	}
+	
+	/* 设置输入描述字 */
+	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->sock );
+	
 	return 0;
 }
 
 funcOnOutputPluginEvent OnOutputPluginEvent;
 int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	int				nret = 0 ;
+	
+	DEBUGLOG( "close sock" )
+	close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
+	sleep(1);
+	
+	while(1)
+	{
+		nret = ConnectElasticSearchServer( p_plugin_ctx ) ;
+		if( nret < 0 )
+			return nret;
+		else if( nret == 0 )
+			break;
+	}
+	
+	/* 设置输入描述字 */
+	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->sock );
+	
 	return 0;
 }
 
@@ -272,44 +349,13 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 
 static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 {
-	int			sock ;
 	struct HttpBuffer	*http_req = NULL ;
 	struct HttpBuffer	*http_rsp = NULL ;
 	int			status_code ;
 	
 	int			nret = 0 ;
 	
-	/* 创建套接字 */
-	sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
-	if( sock == -1 )
-	{
-		ERRORLOG( "socket failed , errno[%d]" , errno );
-		return 1;
-	}
-	
-	/* 设置套接字选项 */
-	{
-		int	onoff = 1 ;
-		setsockopt( sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
-	}
-	
-	{
-		int	onoff = 1 ;
-		setsockopt( sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
-	}
-	
-	/* 连接到服务端侦听端口 */
-	nret = connect( sock , (struct sockaddr *) & (p_plugin_ctx->addr) , sizeof(struct sockaddr) ) ;
-	if( nret == -1 )
-	{
-		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_ctx->ip , p_plugin_ctx->port , sock , errno )
-		close( sock );
-		return 1;
-	}
-	else
-	{
-		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , sock )
-	}
+_GOTO_RESEND :
 	
 	/* 重置HTTP环境 */
 	ResetHttpEnv( p_plugin_ctx->http_env );
@@ -319,6 +365,7 @@ static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 	http_req = GetHttpRequestBuffer( p_plugin_ctx->http_env ) ;
 	nret = StrcpyfHttpBuffer( http_req , "POST /%s/%s HTTP/1.0" HTTP_RETURN_NEWLINE
 						"Content-Type: application/json" HTTP_RETURN_NEWLINE
+						"Connection: Keep-alive" HTTP_RETURN_NEWLINE
 						"Content-length: %d" HTTP_RETURN_NEWLINE
 						HTTP_RETURN_NEWLINE
 						"%.*s"
@@ -328,7 +375,6 @@ static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 	if( nret )
 	{
 		ERRORLOG( "StrcpyfHttpBuffer failed[%d]" , nret )
-		close( sock );
 		return 1;
 	}
 	else
@@ -339,22 +385,28 @@ static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 	DEBUGLOG( "RequestHttp ..." )
 	DEBUGLOG( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
 	/* 发送HTTP请求 */
-	nret = RequestHttp( sock , NULL , p_plugin_ctx->http_env ) ;
+	nret = RequestHttp( p_plugin_ctx->sock , NULL , p_plugin_ctx->http_env ) ;
 	http_rsp = GetHttpResponseBuffer( p_plugin_ctx->http_env ) ;
 	if( nret )
 	{
 		ERRORLOG( "RequestHttp failed[%d]" , nret )
 		ERRORLOG( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
-		close( sock );
-		return 1;
+		close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
+		while(1)
+		{
+			nret = ConnectElasticSearchServer( p_plugin_ctx ) ;
+			if( nret < 0 )
+				return nret;
+			else if( nret == 0 )
+				break;
+		}
+		goto _GOTO_RESEND;
 	}
 	else
 	{
 		INFOLOG( "RequestHttp ok" )
 		INFOLOG( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
 	}
-	
-	close( sock );
 	
 	/* 检查HTTP响应头 */
 	status_code = GetHttpStatusCode( p_plugin_ctx->http_env ) ;

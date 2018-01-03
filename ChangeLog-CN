@@ -1,5 +1,6 @@
 0.14.2		2018-01-03	calvin
 		* 插件logpipe-output-ek新增配置参数iconv_from和iconv_to用于转换编码
+		* 插件logpipe-output-ek连接ElasticSearch改为长连接模式，以提高性能
 
 0.14.1		2017-12-30	calvin
 		* 插件logpipe-input-file配置参数file改成file
