@@ -13,7 +13,7 @@ curl -H 'Content-Type: application/json' -XPUT '158.1.0.53:9200/ecif_platform' -
         {
             "properties" :
             {
-                "trans_date" : { "type" : "date" , "format" : "yyyy-MM-dd" } ,
+                "trans_date" : { "type" : "date" , "format" : "YYYY-MM-dd" } ,
                 "trans_time" : { "type" : "date" , "format" : "HH:mm:ss" } ,
 		"source_channel" : { "type" : "keyword" } ,
 		"source_netaddr" : { "type" : "keyword" } ,
@@ -35,6 +35,20 @@ curl -H 'Content-Type: application/json' -XPUT '158.1.0.53:9200/ecif_platform' -
 
 删除index
 curl -XDELETE '158.1.0.53:9200/ecif_platform'
+
+
+手工插入记录
+curl -H "Content-Type: application/json" -XPOST '158.1.0.53:9200/ecif_platform/data' -d'{ "trans_date":"2018-01-03","trans_time":"15:00:00" , "comm_app_desc":"wonita" }'
+
+手工插入记录
+telnet 158.1.0.53 9200
+POST /ecif_platform/data HTTP/1.1
+Content-Type: application/json
+Content-length: 78
+
+{"trans_date":"2018-01-03","trans_time":"15:00:00" , "comm_app_desc":"wonita"}
+
+
 
 
 

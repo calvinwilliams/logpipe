@@ -340,3 +340,82 @@ int ExpandStringBuffer( char *base , int buf_size )
 	return 0;
 }
 
+#define MAXLEN_XMLCONTENT	100*1024
+
+char *ConvertContentEncodingEx( char *encFrom , char *encTo , char *inptr , int *inptrlen , char *outptr , int *outptrlen )
+{               
+        iconv_t         ic ;
+        
+        size_t          inlen_bak = 0 ;
+        int             ori_outptrlen = 0 ;
+                
+        static char     outbuf[ MAXLEN_XMLCONTENT + 1 ];
+        size_t          outbuflen ;
+
+        char            *pin = NULL ;
+        size_t          inlen ;
+        char            *pout = NULL ;
+        size_t          *poutlen = NULL ;
+
+        int             nret ;
+
+        ic = iconv_open( encTo , encFrom ) ;
+        if( ic == (iconv_t)-1 )
+        {
+                 return NULL;
+        }
+        nret = iconv( ic , NULL , NULL , NULL , NULL ) ;
+
+        pin = inptr ;
+        if( inptrlen )
+        {
+                inlen = (*inptrlen) ;
+        }
+        else 
+        {
+                inlen = strlen((char*)inptr) ;
+        }
+        inlen_bak = inlen ;
+        if( outptr )
+        {
+                memset( outptr , 0x00 , (*outptrlen) );
+                if( inptr == NULL )
+                        return outptr; 
+
+                pout = outptr ;
+                poutlen = (size_t*)outptrlen ;
+
+                ori_outptrlen = (*outptrlen) ;
+        }
+        else
+        {
+                memset( outbuf , 0x00 , sizeof(outbuf) );
+                outbuflen = MAXLEN_XMLCONTENT ;
+                if( inptr == NULL )
+                        return outbuf;
+                
+                pout = outbuf ;
+                poutlen = & outbuflen ;
+        }
+
+        nret = iconv( ic , (char **) & pin , & inlen , (char **) & pout , poutlen );
+        iconv_close( ic );
+        if( nret == -1 || inlen > 0 )
+                return NULL;
+
+        if( outptr )
+        {
+                (*outptrlen) = ori_outptrlen - (*poutlen) ;
+                return pout - (*outptrlen) ;
+        }
+        else
+        {
+                return outbuf;
+        }
+}
+
+char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr )
+{
+        return ConvertContentEncodingEx( encFrom , encTo , inptr , NULL , NULL , NULL );
+}
+

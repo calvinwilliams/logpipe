@@ -1,3 +1,6 @@
+0.14.2		2018-01-03	calvin
+		* 插件logpipe-output-ek新增配置参数iconv_from和iconv_to用于转换编码
+
 0.14.1		2017-12-30	calvin
 		* 插件logpipe-input-file配置参数file改成file
 		* 插件logpipe-input-file新增配置参数exclude_files用于过滤文件名

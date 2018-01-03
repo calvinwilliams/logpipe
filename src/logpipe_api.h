@@ -40,6 +40,8 @@ extern "C" {
 char *strndup(const char *s, size_t n);
 int asprintf(char **strp, const char *fmt, ...);
 
+#include "iconv.h"
+
 #include "rbtree_tpl.h"
 
 #include "LOGC.h"
@@ -47,6 +49,8 @@ int asprintf(char **strp, const char *fmt, ...);
 
 ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t readn(int fd, void *vptr, size_t n);
+char *ConvertContentEncodingEx( char *encFrom , char *encTo , char *inptr , int *inptrlen , char *outptr , int *outptrlen );
+char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr );
 
 #define LOGPIPE_BLOCK_BUFSIZE			102400
 #define LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE	102357
