@@ -537,6 +537,9 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 * `ip` : 连接服务端IP；必选
 * `port` : 连接服务端PORT；必选
+* `ip2~8` : 其它服务端IP；可选，当存在多个服务端时，按轮询算法负载均衡输出
+* `port2~8` : 其它服务端PORT；可选
+* `disable_timeout` : 当某一个服务端不可连接时，暂禁时间（单位：秒）；可选，缺省60秒
 
 示例
 
@@ -587,9 +590,11 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 * `uncompress_algorithm` : 导出数据前解压，目前算法只有"deflate"；可选
 * `translate_charset` : 导出数据前替换源字符集合，参考tr命令；可选
 * `separator_charset` : 导出数据前替换目标字符集合，参考tr命令，同时也作为分词分割字符集合；可选
-* `output_template` : 导出数据格式模板；必选
 * `grep` : 导出数据前过滤子串；可选
 * `fields_strictly` : 如果"true"或"yes"，则格式模板中某替换列在源数据中找不到，即替换列"$列号"要小于等于实际分解列数量，否则忽略该条数据；可选
+* `iconv_from` : 编码转换来源编码；可选
+* `iconv_to` : 编码转换目标编码；可选
+* `output_template` : 导出数据格式模板；必选
 * `ip` : ElasticSearch的IP；必选
 * `port` : ElasticSearch的IP；必选
 * `index` : ElasticSearch的index；必选
