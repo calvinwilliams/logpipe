@@ -6,19 +6,30 @@
 
 char	*__LOGPIPE_OUTPUT_TCP_VERSION = "0.1.0" ;
 
-struct OutputPluginContext
+struct ForwardSession
 {
 	char			*ip ;
 	int			port ;
-	
-	struct sockaddr_in   	forward_addr ;
-	int			forward_sock ;
+	struct sockaddr_in   	addr ;
+	int			sock ;
+} ;
+
+#define IP_PORT_MAXCNT		8
+
+struct OutputPluginContext
+{
+	struct ForwardSession	forward_session_array[IP_PORT_MAXCNT] ;
+	int			forward_session_count ;
+	struct ForwardSession	*p_forward_session ;
+	int			forward_session_index ;
 } ;
 
 funcLoadOutputPluginConfig LoadOutputPluginConfig ;
 int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
 {
 	struct OutputPluginContext	*p_plugin_ctx = NULL ;
+	int				i ;
+	struct ForwardSession		*p_forward_session = NULL ;
 	char				*p = NULL ;
 	
 	/* 申请内存以存放插件上下文 */
@@ -31,25 +42,38 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
 	
 	/* 解析插件配置 */
-	p_plugin_ctx->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
-	INFOLOG( "ip[%s]" , p_plugin_ctx->ip )
-	if( p_plugin_ctx->ip == NULL || p_plugin_ctx->ip[0] == '\0' )
+	for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < IP_PORT_MAXCNT ; i++ , p_forward_session++ )
+	{
+		if( i == 0 )
+			p_forward_session->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
+		else
+			p_forward_session->ip = QueryPluginConfigItem( p_plugin_config_items , "ip%d" , i ) ;
+		INFOLOG( "ip%d[%s]" , p_forward_session->ip )
+		if( p_forward_session->ip == NULL || p_forward_session->ip[0] == '\0' )
+			break;
+		
+		if( i == 0 )
+			p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
+		else
+			p = QueryPluginConfigItem( p_plugin_config_items , "port%d" , i ) ;
+		if( p == NULL || p[0] == '\0' )
+		{
+			ERRORLOG( "expect config for 'port'" );
+			return -1;
+		}
+		p_forward_session->port = atoi(p) ;
+		INFOLOG( "port%d[%d]" , p_forward_session->port )
+		if( p_forward_session->port <= 0 )
+		{
+			ERRORLOG( "port[%s] invalid" , p );
+			return -1;
+		}
+		
+		p_plugin_ctx->forward_session_count++;
+	}
+	if( p_plugin_ctx->forward_session_count == 0 )
 	{
 		ERRORLOG( "expect config for 'ip'" );
-		return -1;
-	}
-	
-	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
-	if( p == NULL || p[0] == '\0' )
-	{
-		ERRORLOG( "expect config for 'port'" );
-		return -1;
-	}
-	p_plugin_ctx->port = atoi(p) ;
-	INFOLOG( "port[%d]" , p_plugin_ctx->port )
-	if( p_plugin_ctx->port <= 0 )
-	{
-		ERRORLOG( "port[%s] invalid" , p );
 		return -1;
 	}
 	
@@ -59,43 +83,68 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	return 0;
 }
 
-static int ConnectForwardSocket( struct OutputPluginContext *p_plugin_ctx )
+static int CheckAndConnectForwardSocket( struct OutputPluginContext *p_plugin_ctx , int forward_session_index )
 {
-	int		nret = 0 ;
+	struct ForwardSession	*p_forward_session = NULL ;
 	
-	/* 创建套接字 */
-	p_plugin_ctx->forward_sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
-	if( p_plugin_ctx->forward_sock == -1 )
-	{
-		ERRORLOG( "socket failed , errno[%d]" , errno );
-		return 1;
-	}
+	int			nret = 0 ;
 	
-	/* 设置套接字选项 */
+	while(1)
 	{
-		int	onoff = 1 ;
-		setsockopt( p_plugin_ctx->forward_sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+		if( forward_session_index >= 0 )
+		{
+			p_forward_session = p_plugin_ctx->forward_session_array + forward_session_index ;
+		}
+		else
+		{
+			p_plugin_ctx->forward_session_index++;
+			if( p_plugin_ctx->forward_session_index >= IP_PORT_MAXCNT )
+				p_plugin_ctx->forward_session_index = 0 ;
+			p_plugin_ctx->p_forward_session = p_forward_session = p_plugin_ctx->forward_session_array + p_plugin_ctx->forward_session_index ;
+		}
+		
+		if( p_forward_session->sock >= 0 )
+			return 0;
+		
+		/* 创建套接字 */
+		p_forward_session->sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+		if( p_forward_session->sock == -1 )
+		{
+			ERRORLOG( "socket failed , errno[%d]" , errno );
+			return -1;
+		}
+		
+		/* 设置套接字选项 */
+		{
+			int	onoff = 1 ;
+			setsockopt( p_forward_session->sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+		}
+		
+		{
+			int	onoff = 1 ;
+			setsockopt( p_forward_session->sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+		}
+		
+		/* 连接到服务端侦听端口 */
+		nret = connect( p_forward_session->sock , (struct sockaddr *) & (p_forward_session->addr) , sizeof(struct sockaddr) ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_forward_session->ip , p_forward_session->port , p_forward_session->sock , errno );
+			close( p_forward_session->sock ); p_forward_session->sock = -1 ;
+			sleep(1);
+			if( forward_session_index < 0 )
+			{
+				p_plugin_ctx->forward_session_index++;
+				if( p_plugin_ctx->forward_session_index >= IP_PORT_MAXCNT )
+					p_plugin_ctx->forward_session_index = 0 ;
+			}
+		}
+		else
+		{
+			INFOLOG( "connect[%s:%d][%d] ok" , p_forward_session->ip , p_forward_session->port , p_forward_session->sock );
+			return 0;
+		}
 	}
-	
-	{
-		int	onoff = 1 ;
-		setsockopt( p_plugin_ctx->forward_sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
-	}
-	
-	/* 连接到服务端侦听端口 */
-	nret = connect( p_plugin_ctx->forward_sock , (struct sockaddr *) & (p_plugin_ctx->forward_addr) , sizeof(struct sockaddr) ) ;
-	if( nret == -1 )
-	{
-		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->forward_sock , errno );
-		close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
-		return 1;
-	}
-	else
-	{
-		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->forward_sock );
-	}
-	
-	return 0;
 }
 
 funcInitOutputPluginContext InitOutputPluginContext ;
@@ -103,25 +152,33 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
+	int				i ;
+	struct ForwardSession		*p_forward_session = NULL ;
+	
 	int				nret = 0 ;
 	
 	/* 初始化插件环境内部数据 */
-	memset( & (p_plugin_ctx->forward_addr) , 0x00 , sizeof(struct sockaddr_in) );
-	p_plugin_ctx->forward_addr.sin_family = AF_INET ;
-	if( p_plugin_ctx->ip[0] == '\0' )
-		p_plugin_ctx->forward_addr.sin_addr.s_addr = INADDR_ANY ;
-	else
-		p_plugin_ctx->forward_addr.sin_addr.s_addr = inet_addr(p_plugin_ctx->ip) ;
-	p_plugin_ctx->forward_addr.sin_port = htons( (unsigned short)(p_plugin_ctx->port) );
+	for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < p_plugin_ctx->forward_session_count ; i++ , p_forward_session++ )
+	{
+		memset( & (p_forward_session->addr) , 0x00 , sizeof(struct sockaddr_in) );
+		p_forward_session->addr.sin_family = AF_INET ;
+		if( p_forward_session->ip[0] == '\0' )
+			p_forward_session->addr.sin_addr.s_addr = INADDR_ANY ;
+		else
+			p_forward_session->addr.sin_addr.s_addr = inet_addr(p_forward_session->ip) ;
+		p_forward_session->addr.sin_port = htons( (unsigned short)(p_forward_session->port) );
+		
+		/* 连接服务端 */
+		p_forward_session->sock = -1 ;
+		nret = CheckAndConnectForwardSocket( p_plugin_ctx , i ) ;
+		if( nret )
+			return -1;
+		
+		/* 设置输入描述字 */
+		AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock , p_forward_session );
+	}
 	
-	/* 连接服务端 */
-	p_plugin_ctx->forward_sock = -1 ;
-	nret = ConnectForwardSocket( p_plugin_ctx ) ;
-	if( nret )
-		return -1;
-	
-	/* 设置输入描述字 */
-	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->forward_sock );
+	p_plugin_ctx->forward_session_index = 0 ;
 	
 	return 0;
 }
@@ -131,24 +188,30 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
+	int				i ;
+	struct ForwardSession		*p_forward_session = NULL ;
+	
 	int				nret = 0 ;
 	
-	/* 关闭连接 */
-	DeleteOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->forward_sock );
-	ERRORLOG( "remote socket closed , close forward sock[%d]" , p_plugin_ctx->forward_sock )
-	close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
-	
-	/* 连接服务端 */
-	while( p_plugin_ctx->forward_sock == -1 )
+	for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < p_plugin_ctx->forward_session_count ; i++ , p_forward_session++ )
 	{
-		sleep(2);
-		nret = ConnectForwardSocket( p_plugin_ctx ) ;
-		if( nret < 0 )
-			return nret;
+		if( p_forward_session == p_context )
+		{
+			/* 关闭连接 */
+			DeleteOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
+			ERRORLOG( "remote socket closed , close forward sock[%d]" , p_forward_session->sock )
+			close( p_forward_session->sock ); p_forward_session->sock = -1 ;
+			
+			/* 连接服务端 */
+			sleep(1);
+			nret = CheckAndConnectForwardSocket( p_plugin_ctx , p_forward_session - p_plugin_ctx->forward_session_array ) ;
+			if( nret < 0 )
+				return nret;
+			
+			/* 设置输入描述字 */
+			AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock , p_forward_session );
+		}
 	}
-	
-	/* 设置输入描述字 */
-	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_plugin_ctx->forward_sock );
 	
 	return 0;
 }
@@ -166,13 +229,9 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 _GOTO_RETRY_SEND :
 	
-	while( p_plugin_ctx->forward_sock == -1 )
-	{
-		sleep(2);
-		nret = ConnectForwardSocket( p_plugin_ctx ) ;
-		if( nret < 0 )
-			return nret;
-	}
+	nret = CheckAndConnectForwardSocket( p_plugin_ctx , -1 ) ;
+	if( nret < 0 )
+		return nret;
 	
 	memset( comm_buf , 0x00 , sizeof(comm_buf) );
 	comm_buf[0] = LOGPIPE_COMM_HEAD_MAGIC ;
@@ -189,11 +248,11 @@ _GOTO_RETRY_SEND :
 	strncpy( comm_buf+1+sizeof(uint16_t) , filename , filename_len );
 	
 	/* 发送通讯头和文件名 */
-	len = writen( p_plugin_ctx->forward_sock , comm_buf , 1+sizeof(uint16_t)+filename_len ) ;
+	len = writen( p_plugin_ctx->p_forward_session->sock , comm_buf , 1+sizeof(uint16_t)+filename_len ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "send comm magic and filename failed , errno[%d]" , errno )
-		close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
+		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		goto _GOTO_RETRY_SEND;
 	}
 	else
@@ -209,14 +268,17 @@ funcWriteOutputPlugin WriteOutputPlugin ;
 int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
 	uint32_t			block_len_htonl ;
+	
 	int				len ;
 	
 	block_len_htonl = htonl(block_len) ;
-	len = writen( p_plugin_ctx->forward_sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
+	len = writen( p_plugin_ctx->p_forward_session->sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
+		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		return 1;
 	}
 	else
@@ -225,10 +287,11 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
 	}
 	
-	len = writen( p_plugin_ctx->forward_sock , block_buf , block_len ) ;
+	len = writen( p_plugin_ctx->p_forward_session->sock , block_buf , block_len ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "send block data to socket failed , errno[%d]" , errno )
+		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		return 1;
 	}
 	else
@@ -244,14 +307,17 @@ funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
 int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
 	uint32_t			block_len_htonl ;
+	
 	int				len ;
 	
 	block_len_htonl = htonl(0) ;
-	len = writen( p_plugin_ctx->forward_sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
+	len = writen( p_plugin_ctx->p_forward_session->sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
+		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		return 1;
 	}
 	else
@@ -268,10 +334,10 @@ int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
-	if( p_plugin_ctx->forward_sock >= 0 )
+	if( p_plugin_ctx->p_forward_session->sock >= 0 )
 	{
-		INFOLOG( "close forward sock[%d]" , p_plugin_ctx->forward_sock )
-		close( p_plugin_ctx->forward_sock ); p_plugin_ctx->forward_sock = -1 ;
+		INFOLOG( "close forward sock[%d]" , p_plugin_ctx->p_forward_session->sock )
+		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 	}
 	
 	return 0;

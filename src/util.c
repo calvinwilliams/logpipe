@@ -154,13 +154,21 @@ int AddPluginConfigItem( struct LogpipePluginConfigItem *config , char *key , in
 }
 
 /* ²éÑ¯²å¼þÅäÖÃÏî */
-char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key )
+char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key_format , ... )
 {
+	va_list		valist ;
+	char		key[ 256 + 1 ] ;
+	
+	va_start( valist , key_format );
+	memset( key , 0x00 , sizeof(key) );
+	vsnprintf( key , sizeof(key)-1 , key_format , valist );
+	va_end( valist );
+	
 	struct LogpipePluginConfigItem	*item = NULL ;
 	
 	list_for_each_entry( item , & (config->this_node) , struct LogpipePluginConfigItem , this_node )
 	{
-		if( STRCMP( key , == , item->key ) )
+		if( STRCMP( item->key , == , key ) )
 			return item->value;
 	}
 	

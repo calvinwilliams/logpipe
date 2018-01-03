@@ -61,7 +61,7 @@ struct LogpipeInputPlugin ;
 struct LogpipeOutputPlugin ;
 
 /* 插件配置函数 */
-char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key );
+char *QueryPluginConfigItem( struct LogpipePluginConfigItem *config , char *key_format , ... );
 
 /* 输入插件回调函数原型 */
 typedef int funcLoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context );
@@ -83,7 +83,7 @@ typedef int funcUnloadOutputPluginConfig( struct LogpipeEnv *p_env , struct Logp
 
 /* 设置描述字到事件总线 */
 void AddInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , int fd );
-void AddOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , int fd );
+void AddOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , int fd , void *ptr );
 void DeleteInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , int fd );
 void DeleteOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , int fd );
 

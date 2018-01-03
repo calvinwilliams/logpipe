@@ -161,13 +161,12 @@ int worker( struct LogpipeEnv *p_env )
 					
 					DEBUGLOG( "p_event->data.ptr[%p] p_logpipe_output_plugin" , p_event->data.ptr )
 					
-					p_logpipe_output_plugin = (struct LogpipeOutputPlugin *)(p_event->data.ptr) ;
 					strcpy( so_filename , p_logpipe_output_plugin->so_filename );
 					
 					/* ¿É¶ÁÊÂ¼þ */
 					if( p_event->events & EPOLLIN )
 					{
-						nret = p_logpipe_output_plugin->pfuncOnOutputPluginEvent( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
+						nret = p_logpipe_output_plugin->pfuncOnOutputPluginEvent( p_env , p_logpipe_output_plugin , p_event->data.ptr ) ;
 						if( nret < 0 )
 						{
 							FATALLOG( "[%s]->pfuncOnOutputPluginEvent failed[%d]" , so_filename , nret )
