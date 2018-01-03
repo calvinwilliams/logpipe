@@ -218,7 +218,7 @@ ssize_t writen(int fd, const void *vptr, size_t n)
     return n;
 }
 
-/* 从描述字从读取定长字节块 */
+/* 从描述字读取定长字节块 */
 ssize_t readn(int fd, void *vptr, size_t n)
 {
     size_t nleft;
@@ -348,13 +348,13 @@ int ExpandStringBuffer( char *base , int buf_size )
 	return 0;
 }
 
+/* 字符编码转换 */
 #define MAXLEN_XMLCONTENT	100*1024
 
 char *ConvertContentEncodingEx( char *encFrom , char *encTo , char *inptr , int *inptrlen , char *outptr , int *outptrlen )
 {               
         iconv_t         ic ;
         
-        size_t          inlen_bak = 0 ;
         int             ori_outptrlen = 0 ;
                 
         static char     outbuf[ MAXLEN_XMLCONTENT + 1 ];
@@ -383,7 +383,6 @@ char *ConvertContentEncodingEx( char *encFrom , char *encTo , char *inptr , int 
         {
                 inlen = strlen((char*)inptr) ;
         }
-        inlen_bak = inlen ;
         if( outptr )
         {
                 memset( outptr , 0x00 , (*outptrlen) );

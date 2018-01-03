@@ -12,9 +12,12 @@ struct ForwardSession
 	int			port ;
 	struct sockaddr_in   	addr ;
 	int			sock ;
+	time_t			enable_timestamp ;
 } ;
 
 #define IP_PORT_MAXCNT		8
+
+#define DISABLE_TIMEOUT		60
 
 struct OutputPluginContext
 {
@@ -22,6 +25,7 @@ struct OutputPluginContext
 	int			forward_session_count ;
 	struct ForwardSession	*p_forward_session ;
 	int			forward_session_index ;
+	int			disable_timeout ;
 } ;
 
 funcLoadOutputPluginConfig LoadOutputPluginConfig ;
@@ -45,24 +49,36 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < IP_PORT_MAXCNT ; i++ , p_forward_session++ )
 	{
 		if( i == 0 )
+		{
 			p_forward_session->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
+			INFOLOG( "ip[%s]" , p_forward_session->ip )
+		}
 		else
-			p_forward_session->ip = QueryPluginConfigItem( p_plugin_config_items , "ip%d" , i ) ;
-		INFOLOG( "ip%d[%s]" , p_forward_session->ip )
+		{
+			p_forward_session->ip = QueryPluginConfigItem( p_plugin_config_items , "ip%d" , i+1 ) ;
+			INFOLOG( "ip%d[%s]" , i+1 , p_forward_session->ip )
+		}
 		if( p_forward_session->ip == NULL || p_forward_session->ip[0] == '\0' )
 			break;
 		
 		if( i == 0 )
 			p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
 		else
-			p = QueryPluginConfigItem( p_plugin_config_items , "port%d" , i ) ;
+			p = QueryPluginConfigItem( p_plugin_config_items , "port%d" , i+1 ) ;
 		if( p == NULL || p[0] == '\0' )
 		{
 			ERRORLOG( "expect config for 'port'" );
 			return -1;
 		}
 		p_forward_session->port = atoi(p) ;
-		INFOLOG( "port%d[%d]" , p_forward_session->port )
+		if( i == 0 )
+		{
+			INFOLOG( "port[%d]" , p_forward_session->port )
+		}
+		else
+		{
+			INFOLOG( "port%d[%d]" , i+1 , p_forward_session->port )
+		}
 		if( p_forward_session->port <= 0 )
 		{
 			ERRORLOG( "port[%s] invalid" , p );
@@ -77,73 +93,101 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		return -1;
 	}
 	
+	p = QueryPluginConfigItem( p_plugin_config_items , "disable_timeout" ) ;
+	if( p )
+	{
+		p_plugin_ctx->disable_timeout = atoi(p) ;
+	}
+	else
+	{
+		p_plugin_ctx->disable_timeout = DISABLE_TIMEOUT ;
+	}
+	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
 	
 	return 0;
 }
 
-static int CheckAndConnectForwardSocket( struct OutputPluginContext *p_plugin_ctx , int forward_session_index )
+static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , int forward_session_index )
 {
 	struct ForwardSession	*p_forward_session = NULL ;
 	
+	int			i ;
+	
 	int			nret = 0 ;
+	
+	DEBUGLOG( "forward_session_index[%d]" , forward_session_index )
 	
 	while(1)
 	{
-		if( forward_session_index >= 0 )
+		for( i = 0 ; i < p_plugin_ctx->forward_session_count ; i++ )
 		{
-			p_forward_session = p_plugin_ctx->forward_session_array + forward_session_index ;
-		}
-		else
-		{
-			p_plugin_ctx->forward_session_index++;
-			if( p_plugin_ctx->forward_session_index >= IP_PORT_MAXCNT )
-				p_plugin_ctx->forward_session_index = 0 ;
-			p_plugin_ctx->p_forward_session = p_forward_session = p_plugin_ctx->forward_session_array + p_plugin_ctx->forward_session_index ;
-		}
-		
-		if( p_forward_session->sock >= 0 )
-			return 0;
-		
-		/* 创建套接字 */
-		p_forward_session->sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
-		if( p_forward_session->sock == -1 )
-		{
-			ERRORLOG( "socket failed , errno[%d]" , errno );
-			return -1;
-		}
-		
-		/* 设置套接字选项 */
-		{
-			int	onoff = 1 ;
-			setsockopt( p_forward_session->sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
-		}
-		
-		{
-			int	onoff = 1 ;
-			setsockopt( p_forward_session->sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
-		}
-		
-		/* 连接到服务端侦听端口 */
-		nret = connect( p_forward_session->sock , (struct sockaddr *) & (p_forward_session->addr) , sizeof(struct sockaddr) ) ;
-		if( nret == -1 )
-		{
-			ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_forward_session->ip , p_forward_session->port , p_forward_session->sock , errno );
-			close( p_forward_session->sock ); p_forward_session->sock = -1 ;
-			sleep(1);
-			if( forward_session_index < 0 )
+			if( forward_session_index >= 0 )
+			{
+				p_forward_session = p_plugin_ctx->forward_session_array + forward_session_index ;
+			}
+			else
 			{
 				p_plugin_ctx->forward_session_index++;
-				if( p_plugin_ctx->forward_session_index >= IP_PORT_MAXCNT )
+				if( p_plugin_ctx->forward_session_index >= p_plugin_ctx->forward_session_count )
 					p_plugin_ctx->forward_session_index = 0 ;
+				DEBUGLOG( "p_plugin_ctx->forward_session_index[%d]" , p_plugin_ctx->forward_session_index )
+				p_plugin_ctx->p_forward_session = p_forward_session = p_plugin_ctx->forward_session_array + p_plugin_ctx->forward_session_index ;
+			}
+			
+			if( forward_session_index < 0 )
+			{
+				if( p_forward_session->enable_timestamp > 0 )
+				{
+					if( time(NULL) < p_forward_session->enable_timestamp )
+						continue;
+					else
+						p_forward_session->enable_timestamp = 0 ;
+				}
+				
+				if( p_forward_session->sock >= 0 )
+					return 0;
+			}
+			
+			/* 创建套接字 */
+			p_forward_session->sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
+			if( p_forward_session->sock == -1 )
+			{
+				ERRORLOG( "socket failed , errno[%d]" , errno );
+				return -1;
+			}
+			
+			/* 设置套接字选项 */
+			{
+				int	onoff = 1 ;
+				setsockopt( p_forward_session->sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
+			}
+			
+			{
+				int	onoff = 1 ;
+				setsockopt( p_forward_session->sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
+			}
+			
+			/* 连接到服务端侦听端口 */
+			nret = connect( p_forward_session->sock , (struct sockaddr *) & (p_forward_session->addr) , sizeof(struct sockaddr) ) ;
+			if( nret == -1 )
+			{
+				ERRORLOG( "connect[%s:%d] failed , errno[%d]" , p_forward_session->ip , p_forward_session->port , errno );
+				close( p_forward_session->sock ); p_forward_session->sock = -1 ;
+				if( forward_session_index < 0 )
+					p_forward_session->enable_timestamp = time(NULL) + p_plugin_ctx->disable_timeout ;
+			}
+			else
+			{
+				INFOLOG( "connect[%s:%d] ok , sock[%d]" , p_forward_session->ip , p_forward_session->port , p_forward_session->sock );
+				/* 设置输入描述字 */
+				AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
+				return 0;
 			}
 		}
-		else
-		{
-			INFOLOG( "connect[%s:%d][%d] ok" , p_forward_session->ip , p_forward_session->port , p_forward_session->sock );
-			return 0;
-		}
+		
+		sleep(1);
 	}
 }
 
@@ -170,15 +214,12 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		
 		/* 连接服务端 */
 		p_forward_session->sock = -1 ;
-		nret = CheckAndConnectForwardSocket( p_plugin_ctx , i ) ;
+		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , i ) ;
 		if( nret )
 			return -1;
-		
-		/* 设置输入描述字 */
-		AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock , p_forward_session );
 	}
 	
-	p_plugin_ctx->forward_session_index = 0 ;
+	p_plugin_ctx->forward_session_index = -1 ;
 	
 	return 0;
 }
@@ -190,26 +231,48 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	
 	int				i ;
 	struct ForwardSession		*p_forward_session = NULL ;
+	fd_set				read_fds , except_fds ;
+	int				max_fd ;
+	struct timeval			timeout ;
 	
 	int				nret = 0 ;
 	
+	DEBUGLOG( "OnOutputPluginEvent" )
+	
+	FD_ZERO( & read_fds );
+	FD_ZERO( & except_fds );
+	max_fd = -1 ;
 	for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < p_plugin_ctx->forward_session_count ; i++ , p_forward_session++ )
 	{
-		if( p_forward_session == p_context )
+		if( p_forward_session->sock < 0 )
+			continue;
+		
+		FD_SET( p_forward_session->sock , & read_fds );
+		FD_SET( p_forward_session->sock , & except_fds );
+		if( p_forward_session->sock > max_fd )
+			max_fd = p_forward_session->sock ;
+		DEBUGLOG( "add fd[%d] to select fds" , p_forward_session->sock )
+	}
+	
+	timeout.tv_sec = 0 ;
+	timeout.tv_usec = 0 ;
+	nret = select( max_fd+1 , & read_fds , NULL , & except_fds , & timeout ) ;
+	if( nret > 0 )
+	{
+		for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < p_plugin_ctx->forward_session_count ; i++ , p_forward_session++ )
 		{
-			/* 关闭连接 */
-			DeleteOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
-			ERRORLOG( "remote socket closed , close forward sock[%d]" , p_forward_session->sock )
-			close( p_forward_session->sock ); p_forward_session->sock = -1 ;
+			if( p_forward_session->sock < 0 )
+				continue;
 			
-			/* 连接服务端 */
-			sleep(1);
-			nret = CheckAndConnectForwardSocket( p_plugin_ctx , p_forward_session - p_plugin_ctx->forward_session_array ) ;
-			if( nret < 0 )
-				return nret;
-			
-			/* 设置输入描述字 */
-			AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock , p_forward_session );
+			if( FD_ISSET( p_forward_session->sock , & read_fds ) || FD_ISSET( p_forward_session->sock , & except_fds ) )
+			{
+				DEBUGLOG( "select fd[%d] hited" , p_forward_session->sock )
+				
+				/* 关闭连接 */
+				DeleteOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
+				ERRORLOG( "remote socket closed , close forward sock[%d]" , p_forward_session->sock )
+				close( p_forward_session->sock ); p_forward_session->sock = -1 ;
+			}
 		}
 	}
 	
@@ -229,7 +292,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 _GOTO_RETRY_SEND :
 	
-	nret = CheckAndConnectForwardSocket( p_plugin_ctx , -1 ) ;
+	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 	if( nret < 0 )
 		return nret;
 	

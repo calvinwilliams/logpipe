@@ -1,3 +1,6 @@
+0.15.0		2018-01-03	calvin
+		* 插件logpipe-output-tcp支持轮询算法的负载均衡输出
+
 0.14.2		2018-01-03	calvin
 		* 插件logpipe-output-ek新增配置参数iconv_from和iconv_to用于转换编码
 		* 插件logpipe-output-ek连接ElasticSearch改为长连接模式，以提高性能

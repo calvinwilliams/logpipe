@@ -136,7 +136,7 @@ void AddInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *
 	return;
 }
 
-void AddOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , int fd , void *ptr )
+void AddOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , int fd )
 {
 	struct epoll_event	event ;
 	
@@ -147,7 +147,7 @@ void AddOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 	/* 加入订阅可读事件到epoll */
 	memset( & event , 0x00 , sizeof(struct epoll_event) );
 	event.events = EPOLLIN | EPOLLERR ;
-	event.data.ptr = ptr ;
+	event.data.ptr = p_logpipe_output_plugin ;
 	nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_logpipe_output_plugin->fd , & event ) ;
 	if( nret == -1 )
 	{
