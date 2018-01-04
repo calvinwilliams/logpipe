@@ -277,6 +277,7 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		return -1;
 	}
 	memset( p_plugin_ctx->field_separator_array , 0x00 , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size );
+	INFOLOG( "field_separator_array_size[%d]" , p_plugin_ctx->field_separator_array_size )
 	
 	p_plugin_ctx->http_env = CreateHttpEnv() ;
 	if( p_plugin_ctx->http_env == NULL )
@@ -364,12 +365,13 @@ _GOTO_RESEND :
 	DEBUGLOG( "StrcpyfHttpBuffer http body [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->p_format_buffer )
 	http_req = GetHttpRequestBuffer( p_plugin_ctx->http_env ) ;
 	nret = StrcpyfHttpBuffer( http_req , "POST /%s/%s HTTP/1.0" HTTP_RETURN_NEWLINE
-						"Content-Type: application/json" HTTP_RETURN_NEWLINE
+						"Content-Type: application/json%s%s" HTTP_RETURN_NEWLINE
 						"Connection: Keep-alive" HTTP_RETURN_NEWLINE
 						"Content-length: %d" HTTP_RETURN_NEWLINE
 						HTTP_RETURN_NEWLINE
 						"%.*s"
 						, p_plugin_ctx->index , p_plugin_ctx->type
+						, p_plugin_ctx->iconv_to?"; charset=":"" , p_plugin_ctx->iconv_to?p_plugin_ctx->iconv_to:""
 						, p_plugin_ctx->format_buflen
 						, p_plugin_ctx->format_buflen , p_plugin_ctx->p_format_buffer ) ;
 	if( nret )
@@ -382,8 +384,8 @@ _GOTO_RESEND :
 		INFOLOG( "StrcpyfHttpBuffer ok" )
 	}
 	
-	DEBUGLOG( "RequestHttp ..." )
-	DEBUGLOG( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
+	INFOLOG( "RequestHttp ..." )
+	INFOLOG( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
 	/* ·¢ËÍHTTPÇëÇó */
 	nret = RequestHttp( p_plugin_ctx->sock , NULL , p_plugin_ctx->http_env ) ;
 	http_rsp = GetHttpResponseBuffer( p_plugin_ctx->http_env ) ;

@@ -13,6 +13,8 @@ curl -H 'Content-Type: application/json' -XPUT '158.1.0.53:9200/ecif_platform' -
         {
             "properties" :
             {
+		"system_id" : { "type" : "keyword" } ,
+		"system_desc" : { "type" : "keyword" } ,
                 "trans_date" : { "type" : "date" , "format" : "YYYY-MM-dd" } ,
                 "trans_time" : { "type" : "date" , "format" : "HH:mm:ss" } ,
 		"source_channel" : { "type" : "keyword" } ,

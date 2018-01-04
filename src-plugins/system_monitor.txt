@@ -2,7 +2,7 @@
 curl -XGET 'http://158.1.0.53:9200/_cat/indices?v'
 
 ÐÂ½¨index
-curl -H 'Content-Type: application/json' -XPUT '158.1.0.53:9200/ecif_system' -d'
+curl -H 'Content-Type: application/json' -XPUT '158.1.0.53:9200/system_monitor' -d'
 {
     "mappings" :
     {
@@ -10,7 +10,7 @@ curl -H 'Content-Type: application/json' -XPUT '158.1.0.53:9200/ecif_system' -d'
         {
             "properties" :
             {
-		"system_id" : { "type" : "keyword" } ,
+		"ip" : { "type" : "keyword" } ,
                 "trans_date" : { "type" : "date" , "format" : "yyy-MM-dd" } ,
                 "trans_time" : { "type" : "date" , "format" : "HH:mm:ss" } ,
                 "cpu_usr" : { "type" : "long" } ,
@@ -35,5 +35,5 @@ curl -H 'Content-Type: application/json' -XPUT '158.1.0.53:9200/ecif_system' -d'
 '
 
 É¾³ýindex
-curl -XDELETE '158.1.0.53:9200/ecif_system'
+curl -XDELETE '158.1.0.53:9200/system_monitor'
 
