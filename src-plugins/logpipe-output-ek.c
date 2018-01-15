@@ -17,8 +17,10 @@ struct FieldSeparatorInfo
 } ;
 
 /* 插件环境结构 */
-#define PARSE_BUFFER_SIZE		4*1024*1024
-#define FORMAT_BUFFER_SIZE		4*1024*1024
+#define PARSE_BUFFER_SIZE		100*1024
+#define FORMAT_BUFFER_SIZE		100*1024
+#define POST_BUFFER_SIZE_DEFAULT	4*1024*1024
+#define POST_BUFFER_SIZE_INCREASE	4*1024*1024
 
 struct OutputPluginContext
 {
@@ -36,6 +38,10 @@ struct OutputPluginContext
 	int				port ;
 	char				*index ;
 	char				*type ;
+	char				*bulk ;
+	char				*bulk_uri ;
+	char				*bulk_head ;
+	int				bulk_head_len ;
 	
 	struct HttpEnv			*http_env ;
 	
@@ -52,6 +58,9 @@ struct OutputPluginContext
 	char				format_buffer_iconv[ FORMAT_BUFFER_SIZE + 1 ] ;
 	int				format_buflen_iconv ;
 	char				*p_format_buffer ;
+	char				*post_buffer ;
+	int				post_bufsize ;
+	int				post_buflen ;
 	
 	int				sock ;
 	struct sockaddr_in		addr ;
@@ -189,6 +198,22 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		ERRORLOG( "expect config for 'type'" );
 		return -1;
 	}
+	
+	p_plugin_ctx->bulk = QueryPluginConfigItem( p_plugin_config_items , "bulk" ) ;
+	if( p_plugin_ctx->bulk && ( STRICMP( p_plugin_ctx->bulk , == , "false" ) || STRICMP( p_plugin_ctx->bulk , == , "no" ) ) )
+		p_plugin_ctx->bulk = NULL ;
+	INFOLOG( "bulk[%s]" , p_plugin_ctx->bulk )
+	if( p_plugin_ctx->bulk == NULL )
+	{
+		p_plugin_ctx->bulk_uri = "" ;
+		p_plugin_ctx->bulk_head = "" ;
+	}
+	else
+	{
+		p_plugin_ctx->bulk_uri = "/_bulk" ;
+		p_plugin_ctx->bulk_head = "{ \"index\":{} }\r\n" ;
+	}
+	p_plugin_ctx->bulk_head_len = strlen(p_plugin_ctx->bulk_head) ;
 	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
@@ -362,18 +387,18 @@ _GOTO_RESEND :
 	ResetHttpEnv( p_plugin_ctx->http_env );
 	
 	/* 组织HTTP请求 */
-	DEBUGLOG( "StrcpyfHttpBuffer http body [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->p_format_buffer )
+	DEBUGLOG( "StrcpyfHttpBuffer http body [%d][%.*s]" , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer )
 	http_req = GetHttpRequestBuffer( p_plugin_ctx->http_env ) ;
-	nret = StrcpyfHttpBuffer( http_req , "POST /%s/%s HTTP/1.0" HTTP_RETURN_NEWLINE
+	nret = StrcpyfHttpBuffer( http_req , "POST /%s/%s%s HTTP/1.0" HTTP_RETURN_NEWLINE
 						"Content-Type: application/json%s%s" HTTP_RETURN_NEWLINE
 						"Connection: Keep-alive" HTTP_RETURN_NEWLINE
 						"Content-length: %d" HTTP_RETURN_NEWLINE
 						HTTP_RETURN_NEWLINE
 						"%.*s"
-						, p_plugin_ctx->index , p_plugin_ctx->type
+						, p_plugin_ctx->index , p_plugin_ctx->type , p_plugin_ctx->bulk_uri
 						, p_plugin_ctx->iconv_to?"; charset=":"" , p_plugin_ctx->iconv_to?p_plugin_ctx->iconv_to:""
-						, p_plugin_ctx->format_buflen
-						, p_plugin_ctx->format_buflen , p_plugin_ctx->p_format_buffer ) ;
+						, p_plugin_ctx->post_buflen
+						, p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer ) ;
 	if( nret )
 	{
 		ERRORLOG( "StrcpyfHttpBuffer failed[%d]" , nret )
@@ -412,14 +437,16 @@ _GOTO_RESEND :
 	
 	/* 检查HTTP响应头 */
 	status_code = GetHttpStatusCode( p_plugin_ctx->http_env ) ;
-	if( status_code != HTTP_OK )
+	if( status_code/100 != HTTP_OK/100 )
 	{
 		ERRORLOG( "status code[%d]" , status_code )
 	}
 	else
 	{
-		DEBUGLOG( "status code[%d]" , status_code )
+		INFOLOG( "status code[%d]" , status_code )
 	}
+	
+	p_plugin_ctx->post_buflen = 0 ;
 	
 	return 0;
 }
@@ -431,8 +458,6 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	int				field_index ;
 	struct FieldSeparatorInfo	*p_field_separator = NULL ;
 	int				d_len ;
-	
-	int				nret = 0 ;
 	
 	strcpy( p_plugin_ctx->format_buffer , p_plugin_ctx->output_template );
 	p_plugin_ctx->format_buflen = p_plugin_ctx->output_template_len ;
@@ -489,7 +514,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 		}
 		else
 		{
-			DEBUGLOG( "convert content encoding ok" )
+			INFOLOG( "convert content encoding ok" )
 		}
 		
 		p_plugin_ctx->p_format_buffer = p_plugin_ctx->format_buffer_iconv ;
@@ -500,16 +525,41 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 		p_plugin_ctx->p_format_buffer = p_plugin_ctx->format_buffer ;
 	}
 	
-	nret = PostToEk( p_plugin_ctx ) ;
-	if( nret )
+	if( p_plugin_ctx->post_buffer == NULL || p_plugin_ctx->post_buflen + p_plugin_ctx->bulk_head_len+p_plugin_ctx->format_buflen > p_plugin_ctx->post_bufsize-1 )
 	{
-		ERRORLOG( "PostToEk failed[%d]" , nret );
-		return nret;
+		char	*tmp = NULL ;
+		int	new_post_bufsize ;
+		
+		if( p_plugin_ctx->post_bufsize == 0 )
+		{
+			new_post_bufsize = POST_BUFFER_SIZE_DEFAULT ;
+		}
+		else
+		{
+			new_post_bufsize = p_plugin_ctx->post_buflen + p_plugin_ctx->bulk_head_len+p_plugin_ctx->format_buflen + 1 ;
+		}
+		tmp = (char*)realloc( p_plugin_ctx->post_buffer , new_post_bufsize ) ;
+		if( tmp == NULL )
+		{
+			FATALLOG( "realloc failed , errno[%d]" , errno )
+			return -1;
+		}
+		else
+		{
+			DEBUGLOG( "realloc post buffer [%d]bytes to [%d]bytes" , p_plugin_ctx->post_bufsize , new_post_bufsize )
+		}
+		memset( tmp+p_plugin_ctx->post_buflen , 0x00 , new_post_bufsize-1-p_plugin_ctx->post_buflen );
+		p_plugin_ctx->post_buffer = tmp ;
+		p_plugin_ctx->post_bufsize = new_post_bufsize ;
 	}
-	else
+	
+	if( p_plugin_ctx->bulk )
 	{
-		DEBUGLOG( "PostToEk ok" );
+		memcpy( p_plugin_ctx->post_buffer+p_plugin_ctx->post_buflen , p_plugin_ctx->bulk_head , p_plugin_ctx->bulk_head_len ); p_plugin_ctx->post_buflen += p_plugin_ctx->bulk_head_len ;
 	}
+	
+	memcpy( p_plugin_ctx->post_buffer+p_plugin_ctx->post_buflen , p_plugin_ctx->p_format_buffer , p_plugin_ctx->format_buflen ); p_plugin_ctx->post_buflen += p_plugin_ctx->format_buflen ;
+	DEBUGLOG( "post_buffer[%.*s]" , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer )
 	
 	return 0;
 }
@@ -652,11 +702,22 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		}
 		else
 		{
-			DEBUGLOG( "ParseCombineBuffer ok" )
+			INFOLOG( "ParseCombineBuffer ok" )
 		}
 		
 		memmove( p_plugin_ctx->parse_buffer , p_newline+1 , remain_len );
 		p_plugin_ctx->parse_buflen = remain_len ;
+	}
+	
+	nret = PostToEk( p_plugin_ctx ) ;
+	if( nret )
+	{
+		ERRORLOG( "PostToEk failed[%d]" , nret );
+		return nret;
+	}
+	else
+	{
+		INFOLOG( "PostToEk ok" );
 	}
 	
 	INFOLOG( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )

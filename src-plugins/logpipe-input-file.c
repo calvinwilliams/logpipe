@@ -34,6 +34,7 @@ struct InputPluginContext
 	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_after_rotating ;
 	char			*compress_algorithm ;
+	int			max_append_count ;
 	int			start_once_for_full_dose ;
 	
 	int			inotify_fd ;
@@ -42,6 +43,8 @@ struct InputPluginContext
 	
 	char			*inotify_read_buffer ;
 	int			inotify_read_bufsize ;
+	
+	int			append_count ;
 	
 	struct TraceFile	*p_trace_file ;
 	int			fd ;
@@ -512,6 +515,13 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 	}
 	INFOLOG( "compress_algorithm[%s]" , p_plugin_ctx->compress_algorithm )
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "max_append_count" ) ;
+	if( p )
+		p_plugin_ctx->max_append_count = atoi(p) ;
+	else
+		p_plugin_ctx->max_append_count = 0 ;
+	INFOLOG( "max_append_count[%d]" , p_plugin_ctx->max_append_count )
 	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
