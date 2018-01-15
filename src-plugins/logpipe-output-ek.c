@@ -459,6 +459,8 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	struct FieldSeparatorInfo	*p_field_separator = NULL ;
 	int				d_len ;
 	
+	int				nret = 0 ;
+	
 	strcpy( p_plugin_ctx->format_buffer , p_plugin_ctx->output_template );
 	p_plugin_ctx->format_buflen = p_plugin_ctx->output_template_len ;
 	INFOLOG( "before format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
@@ -560,6 +562,20 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	
 	memcpy( p_plugin_ctx->post_buffer+p_plugin_ctx->post_buflen , p_plugin_ctx->p_format_buffer , p_plugin_ctx->format_buflen ); p_plugin_ctx->post_buflen += p_plugin_ctx->format_buflen ;
 	DEBUGLOG( "post_buffer[%.*s]" , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer )
+	
+	if( p_plugin_ctx->bulk == NULL )
+	{
+		nret = PostToEk( p_plugin_ctx ) ;
+		if( nret )
+		{
+			ERRORLOG( "PostToEk failed[%d]" , nret );
+			return nret;
+		}
+		else
+		{
+			INFOLOG( "PostToEk ok" );
+		}
+	}
 	
 	return 0;
 }
@@ -709,15 +725,18 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		p_plugin_ctx->parse_buflen = remain_len ;
 	}
 	
-	nret = PostToEk( p_plugin_ctx ) ;
-	if( nret )
+	if( p_plugin_ctx->bulk )
 	{
-		ERRORLOG( "PostToEk failed[%d]" , nret );
-		return nret;
-	}
-	else
-	{
-		INFOLOG( "PostToEk ok" );
+		nret = PostToEk( p_plugin_ctx ) ;
+		if( nret )
+		{
+			ERRORLOG( "PostToEk failed[%d]" , nret );
+			return nret;
+		}
+		else
+		{
+			INFOLOG( "PostToEk ok" );
+		}
 	}
 	
 	INFOLOG( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )

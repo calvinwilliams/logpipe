@@ -1,1 +1,2 @@
 fs.inotify.max_user_watches=99999999
+fs.inotify.max_queued_events=99999999

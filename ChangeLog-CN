@@ -1,3 +1,7 @@
+0.16.0		2018-01-15	calvin
+		* 优化了插件logpipe-output-ek性能，性能提高了一倍
+		* 插件logpipe-input-file新增配置参数max_append_count，均匀处理所有文件增长事件
+
 0.15.0		2018-01-03	calvin
 		* 插件logpipe-output-tcp支持轮询算法的负载均衡输出
 

@@ -162,6 +162,7 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	{
 		INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
 		RotatingFile( p_plugin_ctx , p_trace_file->pathname , p_trace_file->filename , p_trace_file->filename_len );
+		p_plugin_ctx->append_count = -1 ;
 		
 		memset( & file_stat , 0x00 , sizeof(struct stat) );
 		nret = fstat( fd , & file_stat ) ;
@@ -209,7 +210,12 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 				return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 			}
 			
-			goto _GOTO_WRITEALLOUTPUTPLUGINS;
+			if( p_plugin_ctx->append_count >= 0 )
+			{
+				p_plugin_ctx->append_count++;
+				if( p_plugin_ctx->append_count <= p_plugin_ctx->max_append_count )
+					goto _GOTO_WRITEALLOUTPUTPLUGINS;
+			}
 		}
 	}
 	
@@ -386,9 +392,14 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	
 	if( check_flag_offset_flag )
+	{
+		p_plugin_ctx->append_count = -1 ;
 		return CheckFileOffset( p_env , p_logpipe_input_plugin, p_plugin_ctx , p_trace_file , remove_watcher_flag );
+	}
 	else
+	{
 		return 0;
+	}
 }
 
 static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx )
@@ -685,6 +696,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			{
 				if( ( p_inotify_event->mask & IN_MODIFY ) || ( p_inotify_event->mask & IN_CLOSE_WRITE ) )
 				{
+					p_plugin_ctx->append_count = 0 ;
 					nret = CheckFileOffset( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file , (p_inotify_event->mask&IN_CLOSE_WRITE) ) ;
 					if( nret )
 					{
