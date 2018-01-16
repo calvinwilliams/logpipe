@@ -163,6 +163,7 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
 		RotatingFile( p_plugin_ctx , p_trace_file->pathname , p_trace_file->filename , p_trace_file->filename_len );
 		p_plugin_ctx->append_count = -1 ;
+		remove_watcher_flag = 1 ;
 		
 		memset( & file_stat , 0x00 , sizeof(struct stat) );
 		nret = fstat( fd , & file_stat ) ;
@@ -215,6 +216,10 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 				p_plugin_ctx->append_count++;
 				if( p_plugin_ctx->append_count <= p_plugin_ctx->max_append_count )
 					goto _GOTO_WRITEALLOUTPUTPLUGINS;
+			}
+			else if( p_plugin_ctx->append_count == -1 )
+			{
+				goto _GOTO_WRITEALLOUTPUTPLUGINS;
 			}
 		}
 	}

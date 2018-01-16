@@ -1,3 +1,6 @@
+0.16.1		2018-01-16	calvin
+		* 修正了插件logpipe-input-file的转档时重复读取问题
+
 0.16.0		2018-01-15	calvin
 		* 优化了插件logpipe-output-ek性能，性能提高了一倍
 		* 插件logpipe-input-file新增配置参数max_append_count，均匀处理所有文件增长事件

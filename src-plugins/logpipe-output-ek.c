@@ -3,7 +3,7 @@
 #include "fasterhttp.h"
 
 /* command for compile && install
-make logpipe-output-ek.so && cp logpipe-output-ek.so ~/so/
+make logpipe-output-ek.so && cp -f logpipe-output-ek.so ~/so/
 */
 
 char	*__LOGPIPE_OUTPUT_EK_VERSION = "0.1.0" ;
