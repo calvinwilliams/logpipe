@@ -471,6 +471,7 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 * `exec_before_rotating` : 触发文件大小转档前要执行的命令（如转档前向Nginx发送USR1信号触发重新打开日志文件），命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
 * `exec_after_rotating` : 触发文件大小转档后要执行的命令（如转档后压缩保存日志文件节省存储空间），命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
 * `compress_algorithm` : 采集数据后压缩，目前算法只有"deflate"；可选
+* `max_append_count` : 最大跟随次数，默认为0不跟随；可选
 
 配置项`exec_before_rotating`和`exec_after_rotating`的内置环境变量
 
