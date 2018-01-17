@@ -24,6 +24,7 @@ LIB		=	\
 			logpipe-input-tcp.so \
 			logpipe-output-tcp.so \
 			logpipe-input-exec.so \
+			logpipe-output-ek.so \
 
 LIBINST		=	$(_LIBINST)
 
@@ -41,7 +42,6 @@ LFLAGS		=	$(_LFLAGS) \
 ###### 额外宏定义区
 CLEAN_ADDITION	=	logpipe-output-hdfs.so \
 			fasterhttp.o \
-			logpipe-output-ek.so \
 
 ###### 加载mktpl模板库
 #@ make_all
