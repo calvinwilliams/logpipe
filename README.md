@@ -493,6 +493,12 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 { "plugin":"so/logpipe-input-file.so" , "path":"/home/calvin/log" , "exec_before_rotating":"echo \"BEFORE ROTATING ${LOGPIPE_ROTATING_OLD_FILENAME}\">>/tmp/logpipe_case2_collector.log" , "rotate_size":10 , "exec_after_rotating":"echo \"AFTER ROTATING ${LOGPIPE_ROTATING_NEW_FILENAME}\">>/tmp/logpipe_case2_collector.log" , "compress_algorithm":"deflate" }
 ```
 
+注意：日志函数库或类库写日志一般有两种方式：每次写完都关闭、打开后不停写，后者如Nginx，大小转档必须在`exec_after_rotating`设置命令发送信号给应用进程迫使它新建日志文件
+
+```
+{ "plugin":"so/logpipe-input-file.so" , "path":"/home/calvin/log" , "rotate_size":10000000 , "exec_after_rotating":"ps -f -u $USER | grep -w nginx | awk '{print $2}' | xargs kill -USR1" }
+```
+
 ### 4.2.2. logpipe-output-file
 
 输出日志到目标目录，合并相同文件名。
