@@ -15,12 +15,14 @@ ps -ef | grep "logpipe -f" | awk '{if($3==1)print $2}' | xargs kill
 char	__LOGPIPE_VERSION_0_16_1[] = "0.16.1" ;
 char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_16_1 ;
 
+/* 显示版本号 */
 static void version()
 {
 	printf( "logpipe v%s build %s %s\n" , __LOGPIPE_VERSION , __DATE__ , __TIME__ );
 	return;
 }
 
+/* 显示命令行语法 */
 static void usage()
 {
 	printf( "USAGE : logpipe -v\n" );
@@ -30,6 +32,7 @@ static void usage()
 
 #define START_ONCE_FOR_ENV		"--start-once-for-env"
 
+/* 解析命令行参数 */
 static int ParseCommandParameters( struct LogpipeEnv *p_env , int argc , char *argv[] )
 {
 	int		c ;
@@ -79,12 +82,14 @@ static int ParseCommandParameters( struct LogpipeEnv *p_env , int argc , char *a
 	return 0;
 }
 
+/* 入口函数 */
 int main( int argc , char *argv[] )
 {
 	struct LogpipeEnv	*p_env = NULL ;
 	
 	int			nret = 0 ;
 	
+	/* 设置标准输出无缓冲 */
 	setbuf( stdout , NULL );
 	
 	if( argc == 1 )
@@ -93,9 +98,11 @@ int main( int argc , char *argv[] )
 		exit(0);
 	}
 	
+	/* 所有日志输出先输出到屏幕上 */
 	SetLogFile( "#" );
 	SetLogLevel( LOGLEVEL_DEBUG );
 	
+	/* 分配内存给环境结构 */
 	p_env = (struct LogpipeEnv *)malloc( sizeof(struct LogpipeEnv) ) ;
 	if( p_env == NULL )
 	{
@@ -104,15 +111,18 @@ int main( int argc , char *argv[] )
 	}
 	memset( p_env , 0x00 , sizeof(struct LogpipeEnv) );
 	
+	/* 初始化环境结构 */
 	INIT_LIST_HEAD( & (p_env->start_once_for_plugin_config_items.this_node) );
 	p_env->epoll_fd = -1 ;
 	INIT_LIST_HEAD( & (p_env->logpipe_input_plugins_list.this_node) );
 	INIT_LIST_HEAD( & (p_env->logpipe_output_plugins_list.this_node) );
 	
+	/* 解析命令行参数 */
 	nret = ParseCommandParameters( p_env , argc , argv ) ;
 	if( nret )
 		return -nret;
 	
+	/* 装载配置文件 */
 	nret = LoadConfig( p_env ) ;
 	if( nret )
 		return -nret;
@@ -128,6 +138,7 @@ int main( int argc , char *argv[] )
 		return 1;
 	}
 	
+	/* 进入父进程代码 */
 	if( p_env->no_daemon )
 	{
 		umask( 0 ) ;
@@ -136,11 +147,14 @@ int main( int argc , char *argv[] )
 	}
 	else
 	{
+		/* 以守护进程方式 */
 		nret = BindDaemonServer( & _monitor , (void*)p_env , 1 ) ;
 	}
 	
+	/* 卸载配置 */
 	UnloadConfig( p_env );
 	
+	/* 释放环境结构 */
 	free( p_env );
 	
 	return -nret;

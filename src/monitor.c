@@ -8,8 +8,10 @@
 
 #include "logpipe_in.h"
 
+/* QUIT信号标志 */
 static sig_atomic_t		g_QUIT_flag = 0 ;
 
+/* 信号处理回调函数 */
 static void sig_set_flag( int sig_no )
 {
 	/* 接收到不同信号设置不同的全局标志，延后到主流程中处理 */
@@ -21,6 +23,7 @@ static void sig_set_flag( int sig_no )
 	return;
 }
 
+/* 设置只供给一次的配置参数，通过环境变量传递 */
 static void SetStartOnceEnv( struct LogpipePluginConfigItem *start_once )
 {
 	struct LogpipePluginConfigItem	*item = NULL ;
@@ -33,6 +36,7 @@ static void SetStartOnceEnv( struct LogpipePluginConfigItem *start_once )
 	return;
 }
 
+/* 清除只供给一次的配置参数 */
 static void UnsetStartOnceEnv( struct LogpipePluginConfigItem *start_once )
 {
 	struct LogpipePluginConfigItem	*item = NULL ;
@@ -45,6 +49,7 @@ static void UnsetStartOnceEnv( struct LogpipePluginConfigItem *start_once )
 	return;
 }
 
+/* 父进程主函数 */
 int monitor( struct LogpipeEnv *p_env )
 {
 	struct sigaction	act ;
@@ -69,10 +74,12 @@ int monitor( struct LogpipeEnv *p_env )
 	act.sa_flags = SA_RESTART ;
 	signal( SIGCLD , SIG_DFL );
 	
+	/* 设置只供给一次的配置参数 */
 	SetStartOnceEnv( & (p_env->start_once_for_plugin_config_items) );
 	
 	while( g_QUIT_flag == 0 )
 	{
+		/* 创建父子进程命令管道 */
 		nret = pipe( p_env->quit_pipe ) ;
 		if( nret == -1 )
 		{
@@ -97,6 +104,7 @@ int monitor( struct LogpipeEnv *p_env )
 		{
 			close( p_env->quit_pipe[0] );
 			INFOLOG( "parent : [%ld] fork [%ld]" , getpid() , pid )
+			/* 清除只供给一次的配置参数 */
 			UnsetStartOnceEnv( & (p_env->start_once_for_plugin_config_items) );
 		}
 		
@@ -155,6 +163,7 @@ _GOTO_WAITPID :
 	return 0;
 }
 
+/* 父进程入口函数 */
 int _monitor( void *pv )
 {
 	struct LogpipeEnv	*p_env = (struct LogpipeEnv *)pv ;
@@ -163,6 +172,7 @@ int _monitor( void *pv )
 	
 	int			nret = 0 ;
 	
+	/* 设置父进程日志文件名 */
 	time( & tt );
 	memset( & stime , 0x00 , sizeof(struct tm) );
 	localtime_r( & tt , & stime );

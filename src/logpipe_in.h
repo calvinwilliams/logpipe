@@ -27,33 +27,34 @@ struct LogpipePluginConfigItem
 	struct list_head	this_node ;
 } ;
 
-/* 通用插件环境结构 */
+/* 插件类型 */
 #define LOGPIPE_PLUGIN_TYPE_INPUT	'I'
 #define LOGPIPE_PLUGIN_TYPE_OUTPUT	'O'
 
+/* 插件环境结构，用于先查询插件类型时使用 */
 struct LogpipePlugin
 {
-	unsigned char			type ;
+	unsigned char			type ; /* 插件类型 */
 } ;
 
 /* 输入插件环境结构 */
 struct LogpipeInputPlugin
 {
-	unsigned char			type ;
+	unsigned char			type ; /* 插件类型 */
 	
-	struct LogpipePluginConfigItem	plugin_config_items ;
+	struct LogpipePluginConfigItem	plugin_config_items ; /* 自定义配置参数 */
 	
-	char				so_filename[ PATH_MAX + 1 ] ;
-	char				so_path_filename[ PATH_MAX + 1 ] ;
-	void				*so_handler ;
-	funcLoadInputPluginConfig	*pfuncLoadInputPluginConfig ;
-	funcInitInputPluginContext	*pfuncInitInputPluginContext ;
-	funcOnInputPluginEvent		*pfuncOnInputPluginEvent ;
-	funcReadInputPlugin		*pfuncReadInputPlugin ;
-	funcCleanInputPluginContext	*pfuncCleanInputPluginContext ;
-	funcUnloadInputPluginConfig	*pfuncUnloadInputPluginConfig ;
+	char				so_filename[ PATH_MAX + 1 ] ; /* 插件文件名 */
+	char				so_path_filename[ PATH_MAX + 1 ] ; /* 插件路径文件名 */
+	void				*so_handler ; /* 插件打开句柄 */
+	funcLoadInputPluginConfig	*pfuncLoadInputPluginConfig ; /* 解析配置文件时装载插件 */
+	funcInitInputPluginContext	*pfuncInitInputPluginContext ; /* 工作主循环前初始化插件 */
+	funcOnInputPluginEvent		*pfuncOnInputPluginEvent ; /* 发生输入事件时的调用 */
+	funcReadInputPlugin		*pfuncReadInputPlugin ; /* 读取一个数据块 */
+	funcCleanInputPluginContext	*pfuncCleanInputPluginContext ; /* 工作主循环后清理插件 */
+	funcUnloadInputPluginConfig	*pfuncUnloadInputPluginConfig ; /* 退出前卸载插件 */
 	int				fd ;
-	void				*context ;
+	void				*context ; /* 插件实例上下文 */
 	
 	struct list_head		this_node ;
 } ;
@@ -61,23 +62,23 @@ struct LogpipeInputPlugin
 /* 输出插件环境结构 */
 struct LogpipeOutputPlugin
 {
-	unsigned char			type ;
+	unsigned char			type ; /* 插件类型 */
 	
-	struct LogpipePluginConfigItem	plugin_config_items ;
+	struct LogpipePluginConfigItem	plugin_config_items ; /* 自定义配置参数 */
 	
-	char				so_filename[ PATH_MAX + 1 ] ;
-	char				so_path_filename[ PATH_MAX + 1 ] ;
-	void				*so_handler ;
-	funcLoadOutputPluginConfig	*pfuncLoadOutputPluginConfig ;
-	funcInitOutputPluginContext	*pfuncInitOutputPluginContext ;
-	funcOnOutputPluginEvent		*pfuncOnOutputPluginEvent ;
-	funcBeforeWriteOutputPlugin	*pfuncBeforeWriteOutputPlugin ;
-	funcWriteOutputPlugin		*pfuncWriteOutputPlugin ;
-	funcAfterWriteOutputPlugin	*pfuncAfterWriteOutputPlugin ;
-	funcCleanOutputPluginContext	*pfuncCleanOutputPluginContext ;
-	funcUnloadOutputPluginConfig	*pfuncUnloadOutputPluginConfig ;
+	char				so_filename[ PATH_MAX + 1 ] ; /* 插件文件名 */
+	char				so_path_filename[ PATH_MAX + 1 ] ; /* 插件路径文件名 */
+	void				*so_handler ; /* 插件打开句柄 */
+	funcLoadOutputPluginConfig	*pfuncLoadOutputPluginConfig ; /* 解析配置文件时装载插件 */
+	funcInitOutputPluginContext	*pfuncInitOutputPluginContext ; /* 工作主循环前初始化插件 */
+	funcOnOutputPluginEvent		*pfuncOnOutputPluginEvent ; /* 输出句柄发生事件时调用 */
+	funcBeforeWriteOutputPlugin	*pfuncBeforeWriteOutputPlugin ; /* 在写出一个数据块前 */
+	funcWriteOutputPlugin		*pfuncWriteOutputPlugin ; /* 写出一个数据块 */
+	funcAfterWriteOutputPlugin	*pfuncAfterWriteOutputPlugin ; /* 在写出一个数据块后 */
+	funcCleanOutputPluginContext	*pfuncCleanOutputPluginContext ; /* 工作主循环后清理插件 */
+	funcUnloadOutputPluginConfig	*pfuncUnloadOutputPluginConfig ; /* 退出前卸载插件 */
 	int				fd ;
-	void				*context ;
+	void				*context ; /* 插件实例上下文 */
 	
 	struct list_head		this_node ;
 } ;
@@ -85,20 +86,20 @@ struct LogpipeOutputPlugin
 /* 环境结构 */
 struct LogpipeEnv
 {
-	char				config_path_filename[ PATH_MAX + 1 ] ;
-	int				no_daemon ;
+	char				config_path_filename[ PATH_MAX + 1 ] ; /* 配置文件名 */
+	int				no_daemon ; /* 是否转化为守护进程运行 */
 	
-	char				log_file[ PATH_MAX + 1 ] ;
-	int				log_level ;
-	struct LogpipePluginConfigItem	start_once_for_plugin_config_items ;
+	char				log_file[ PATH_MAX + 1 ] ; /* logpipe日志文件名 */
+	int				log_level ; /* logpipe日志等级 */
+	struct LogpipePluginConfigItem	start_once_for_plugin_config_items ; /* 启动时只起作用一次的配置，如启动时发送所有存量日志 */
 	
-	int				epoll_fd ;
+	int				epoll_fd ; /* epoll事件总线 */
 	
-	struct LogpipeInputPlugin	logpipe_input_plugins_list ;
-	struct LogpipeOutputPlugin	logpipe_output_plugins_list ;
-	struct LogpipeInputPlugin	*p_block_input_plugin ;
+	struct LogpipeInputPlugin	logpipe_input_plugins_list ; /* 输入插件链表 */
+	struct LogpipeOutputPlugin	logpipe_output_plugins_list ; /* 输出插件链表 */
+	struct LogpipeInputPlugin	*p_block_input_plugin ; /* 禁用epoll事件总线而改用某一输入插件的堵塞模式，指向该输入插件链表节点 */
 	
-	int				quit_pipe[2] ;
+	int				quit_pipe[2] ; /* 父子进程命令管道 */
 } ;
 
 /* 公共函数 */

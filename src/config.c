@@ -15,6 +15,7 @@
 #define LOGPIPE_CONFIG_OUTPUTS		"/outputs"
 #define LOGPIPE_CONFIG_OUTPUTS_		"/outputs/"
 
+/* 日志等级 字符串 转成 整型宏 */
 static int ConvLogLevelStr( char *log_level_str , int log_level_str_len )
 {
 	if( log_level_str_len == 5 && STRNCMP( log_level_str , == , "DEBUG" , log_level_str_len ) )
@@ -31,6 +32,7 @@ static int ConvLogLevelStr( char *log_level_str , int log_level_str_len )
 		return -1;
 }
 
+/* 装载插入插件 */
 static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
 {
 	char		*p = NULL ;
@@ -106,6 +108,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 	return 0;
 }
 
+/* 装载插出插件 */
 static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin )
 {
 	char		*p = NULL ;
@@ -195,6 +198,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	return 0;
 }
 
+/* 解析配置文件的JSON节点回调函数 */
 int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size , char *node , int node_len , char *content , int content_len , void *p )
 {
 	struct LogpipeEnv			*p_env = (struct LogpipeEnv *)p ;
@@ -281,6 +285,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 	return 0;
 }
 
+/* 解析配置文件，构建插件链表 */
 int LoadConfig( struct LogpipeEnv *p_env )
 {
 	char				*file_content = NULL ;
@@ -348,6 +353,7 @@ int LoadConfig( struct LogpipeEnv *p_env )
 	return 0;
 }
 
+/* 释放插件链表，卸载配置 */
 void UnloadConfig( struct LogpipeEnv *p_env )
 {
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
@@ -367,11 +373,13 @@ void UnloadConfig( struct LogpipeEnv *p_env )
 		UnloadOutputPluginSession( p_env , p_logpipe_output_plugin );
 	}
 	
+	/* 释放执行单次配置 */
 	RemoveAllPluginConfigItems( & (p_env->start_once_for_plugin_config_items) );
 	
 	return;
 }
 
+/* 卸载输入插件实例 */
 void UnloadInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
 {
 	RemoveAllPluginConfigItems( & (p_logpipe_input_plugin->plugin_config_items) );
@@ -390,6 +398,7 @@ void UnloadInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlu
 	return;
 }
 
+/* 卸载输出插件实例 */
 void UnloadOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin )
 {
 	RemoveAllPluginConfigItems( & (p_logpipe_output_plugin->plugin_config_items) );

@@ -8,8 +8,10 @@
 
 #include "logpipe_in.h"
 
+/* 每轮最大可接收epoll事件数量 */
 #define MAX_EPOLL_EVENTS	10000
 
+/* 子进程主函数 */
 int worker( struct LogpipeEnv *p_env )
 {
 	time_t			tt ;
@@ -26,8 +28,10 @@ int worker( struct LogpipeEnv *p_env )
 	
 	int			nret = 0 ;
 	
+	/* 清除TERM信号回调函数设置 */
 	signal( SIGTERM , SIG_DFL );
 	
+	/* 设置子进程日志文件名 */
 	time( & tt );
 	memset( & stime , 0x00 , sizeof(struct tm) );
 	localtime_r( & tt , & stime );
@@ -107,8 +111,10 @@ int worker( struct LogpipeEnv *p_env )
 			INFOLOG( "epoll_wait[%d] return[%d]events" , p_env->epoll_fd , epoll_nfds );
 		}
 		
+		/* 循环处理所有epoll事件 */
 		for( i = 0 , p_event = events ; i < epoll_nfds ; i++ , p_event++ )
 		{
+			/* 如果是父子进程命令管道 */
 			if( p_event->data.ptr == p_env->quit_pipe )
 			{
 				DEBUGLOG( "p_event->data.ptr[%p] quit_pipe" , p_event->data.ptr )
@@ -119,6 +125,7 @@ int worker( struct LogpipeEnv *p_env )
 				struct LogpipePlugin	*p_logpipe_plugin = NULL ;
 				
 				p_logpipe_plugin = (struct LogpipePlugin *)(p_event->data.ptr) ;
+				/* 如果是输入插件 */
 				if( p_logpipe_plugin->type == LOGPIPE_PLUGIN_TYPE_INPUT )
 				{
 					struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
@@ -132,6 +139,7 @@ int worker( struct LogpipeEnv *p_env )
 					/* 可读事件 */
 					if( p_event->events & EPOLLIN )
 					{
+						/* 调用输入插件事件回调函数 */
 						nret = p_logpipe_input_plugin->pfuncOnInputPluginEvent( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
 						if( nret < 0 )
 						{
@@ -154,6 +162,7 @@ int worker( struct LogpipeEnv *p_env )
 						return -1;
 					}
 				}
+				/* 如果是输出插件 */
 				else if( p_logpipe_plugin->type == LOGPIPE_PLUGIN_TYPE_OUTPUT )
 				{
 					struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
@@ -167,6 +176,7 @@ int worker( struct LogpipeEnv *p_env )
 					/* 可读事件 */
 					if( p_event->events & EPOLLIN )
 					{
+						/* 调用输出插件事件回调函数 */
 						nret = p_logpipe_output_plugin->pfuncOnOutputPluginEvent( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
 						if( nret < 0 )
 						{
