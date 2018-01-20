@@ -8,6 +8,7 @@
 
 #include "logpipe_in.h"
 
+/* 初始化环境 */
 int InitEnvironment( struct LogpipeEnv *p_env )
 {
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
@@ -53,6 +54,7 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 	return 0;
 }
 
+/* 销毁环境 */
 void CleanEnvironment( struct LogpipeEnv *p_env )
 {
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
@@ -111,6 +113,7 @@ void CleanEnvironment( struct LogpipeEnv *p_env )
 	return;
 }
 
+/* 注册输入插件epoll事件 */
 void AddInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , int fd )
 {
 	struct epoll_event	event ;
@@ -136,6 +139,7 @@ void AddInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *
 	return;
 }
 
+/* 注册输出插件epoll事件 */
 void AddOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , int fd )
 {
 	struct epoll_event	event ;
@@ -161,18 +165,21 @@ void AddOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 	return;
 }
 
+/* 删除输入插件epoll事件 */
 void DeleteInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , int fd )
 {
 	epoll_ctl( p_env->epoll_fd , EPOLL_CTL_DEL , fd , NULL );
 	return;
 }
 
+/* 删除输出插件epoll事件 */
 void DeleteOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , int fd )
 {
 	epoll_ctl( p_env->epoll_fd , EPOLL_CTL_DEL , fd , NULL );
 	return;
 }
 
+/* 新增输入插件子会话 */
 struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , char *so_filename
 						, funcOnInputPluginEvent *pfuncOnInputPluginEvent
 						, funcReadInputPlugin *pfuncReadInputPlugin
@@ -229,6 +236,7 @@ struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , cha
 	return p_logpipe_input_plugin;
 }
 
+/* 删除输入插件子会话 */
 void RemoveInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin )
 {
 	int		nret = 0 ;

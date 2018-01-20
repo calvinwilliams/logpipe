@@ -127,6 +127,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		OnInputPluginEvent( p_env , p_logpipe_input_plugin , p_context );
 	}
 	
+	/* 激活一轮从输入插件读，写到所有输出插件流程处理 */
 	WriteAllOutputPlugins( p_env , p_logpipe_input_plugin , strlen(p_plugin_ctx->output_filename) , p_plugin_ctx->output_filename );
 	
 	return 0;
@@ -139,6 +140,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	
 	int				nret = 0 ;
 	
+	/* 如果未启用压缩 */
 	if( p_plugin_ctx->compress_algorithm == NULL )
 	{
 		int			len ;
@@ -174,6 +176,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		
 		(*p_block_len) = len ;
 	}
+	/* 如果启用了压缩 */
 	else
 	{
 		char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;

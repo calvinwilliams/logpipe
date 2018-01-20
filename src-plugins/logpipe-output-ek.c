@@ -8,12 +8,12 @@ make logpipe-output-ek.so && cp -f logpipe-output-ek.so ~/so/
 
 char	*__LOGPIPE_OUTPUT_EK_VERSION = "0.1.0" ;
 
-/* 字段分隔信息结构 */
+/* 分列信息结构 */
 struct FieldSeparatorInfo
 {
-	char			*begin ;
-	char			*end ;
-	int			len ;
+	char			*begin ; /* 开始偏移量 */
+	char			*end ; /* 结束偏移量 */
+	int			len ; /* 列长度 */
 } ;
 
 /* 插件环境结构 */
@@ -46,19 +46,19 @@ struct OutputPluginContext
 	struct HttpEnv			*http_env ;
 	
 	int				field_separator_array_size ;
-	struct FieldSeparatorInfo	*field_separator_array ;
+	struct FieldSeparatorInfo	*field_separator_array ; /* 分列信息结构 结构数组 */
 	
 	char				*filename ;
 	int				filename_len ;
 	
-	char				parse_buffer[ PARSE_BUFFER_SIZE + 1 ] ;
+	char				parse_buffer[ PARSE_BUFFER_SIZE + 1 ] ; /* 解析缓冲区 */
 	int				parse_buflen ;
-	char				format_buffer[ FORMAT_BUFFER_SIZE + 1 ] ;
+	char				format_buffer[ FORMAT_BUFFER_SIZE + 1 ] ; /* 模板实例化缓冲区 */
 	int				format_buflen ;
 	char				format_buffer_iconv[ FORMAT_BUFFER_SIZE + 1 ] ;
 	int				format_buflen_iconv ;
 	char				*p_format_buffer ;
-	char				*post_buffer ;
+	char				*post_buffer ; /* HTTP提交缓冲区 */
 	int				post_bufsize ;
 	int				post_buflen ;
 	
@@ -373,6 +373,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	return 0;
 }
 
+/* 发送HTTP请求到ES */
 static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 {
 	struct HttpBuffer	*http_req = NULL ;
@@ -451,6 +452,7 @@ _GOTO_RESEND :
 	return 0;
 }
 
+/* 输出模板实例化处理 */
 static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 {
 	char				*p = NULL ;
@@ -461,10 +463,12 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	
 	int				nret = 0 ;
 	
+	/* 把模板配置复制到模板实例化缓冲区 */
 	strcpy( p_plugin_ctx->format_buffer , p_plugin_ctx->output_template );
 	p_plugin_ctx->format_buflen = p_plugin_ctx->output_template_len ;
 	INFOLOG( "before format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
 	
+	/* 模板实例化 */
 	p = p_plugin_ctx->format_buffer ;
 	while(1)
 	{
@@ -504,6 +508,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 		p = p_endptr ;
 	}
 	
+	/* 如果需要字符编码转换 */
 	if( p_plugin_ctx->iconv_from && p_plugin_ctx->iconv_to )
 	{
 		memset( p_plugin_ctx->format_buffer_iconv , 0x00 , sizeof(p_plugin_ctx->format_buffer_iconv) );
@@ -527,6 +532,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 		p_plugin_ctx->p_format_buffer = p_plugin_ctx->format_buffer ;
 	}
 	
+	/* 从模板实例化缓冲区复制合并到HTTP提交缓冲区 */
 	if( p_plugin_ctx->post_buffer == NULL || p_plugin_ctx->post_buflen + p_plugin_ctx->bulk_head_len+p_plugin_ctx->format_buflen > p_plugin_ctx->post_bufsize-1 )
 	{
 		char	*tmp = NULL ;
@@ -563,6 +569,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	memcpy( p_plugin_ctx->post_buffer+p_plugin_ctx->post_buflen , p_plugin_ctx->p_format_buffer , p_plugin_ctx->format_buflen ); p_plugin_ctx->post_buflen += p_plugin_ctx->format_buflen ;
 	DEBUGLOG( "post_buffer[%.*s]" , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer )
 	
+	/* 如果单条提交（非批量），发送HTTP请求到ES */
 	if( p_plugin_ctx->bulk == NULL )
 	{
 		nret = PostToEk( p_plugin_ctx ) ;
@@ -580,6 +587,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	return 0;
 }
 
+/* 分列解析缓冲区 */
 static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 {
 	char				*p = NULL ;
@@ -590,6 +598,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 	
 	INFOLOG( "parse [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	
+	/* 丢弃不符合过滤条件的行 */
 	if( p_plugin_ctx->grep )
 	{
 		if( strstr( p_plugin_ctx->parse_buffer , p_plugin_ctx->grep ) == NULL )
@@ -599,6 +608,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 		}
 	}
 	
+	/* 替换字符，参照linux命令tr，如tr '[]' ' ' */
 	if( p_plugin_ctx->translate_charset && p_plugin_ctx->translate_charset[0] )
 	{
 		for( p = p_plugin_ctx->parse_buffer ; (*p) ; p++ )
@@ -612,6 +622,8 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 		memset( p_plugin_ctx->field_separator_array , 0x00 , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size );
 	}
 	
+	/* 当前有效行分列，分列信息写入分列信息结构数组 */
+	/* 第0列为 文件名 */
 	field_index = 0 ;
 	p_field_separator = p_plugin_ctx->field_separator_array ;
 	p_field_separator->begin = p_plugin_ctx->filename ;
@@ -640,12 +652,14 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 		p = p_field_separator->end + 1 ;
 	}
 	
+	/* 如果启用了列数严谨开关，列数不符合要求，丢弃本行处理 */
 	if( p_plugin_ctx->fields_strictly )
 	{
 		if( p_plugin_ctx->field_separator_array[p_plugin_ctx->field_separator_array_size-1].end == NULL )
 			return 0;
 	}
 	
+	/* 输出模板实例化处理 */
 	nret = FormatOutputTemplate( p_plugin_ctx ) ;
 	if( nret )
 	{
@@ -660,6 +674,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 	return 0;
 }
 
+/* 数据块合并到解析缓冲区 */
 static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint32_t block_len )
 {
 	char		*p_newline = NULL ;
@@ -671,6 +686,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	INFOLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	INFOLOG( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
 	
+	/* 如果遗留数据+当前数据块放的下解析缓冲区 */
 	if( p_plugin_ctx->parse_buflen + block_len <= sizeof(p_plugin_ctx->parse_buffer)-1 )
 	{
 		strncpy( p_plugin_ctx->parse_buffer+p_plugin_ctx->parse_buflen , block_buf , block_len );
@@ -678,6 +694,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	}
 	else
 	{
+		/* 先强制把遗留数据都处理掉 */
 		nret = ParseCombineBuffer( p_plugin_ctx ) ;
 		if( nret < 0 )
 		{
@@ -697,6 +714,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		p_plugin_ctx->parse_buflen = block_len ;
 	}
 	
+	/* 把解析缓冲区中有效行都处理掉 */
 	while(1)
 	{
 		p_newline = memchr( p_plugin_ctx->parse_buffer , '\n' , p_plugin_ctx->parse_buflen ) ;
@@ -725,6 +743,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		p_plugin_ctx->parse_buflen = remain_len ;
 	}
 	
+	/* 如果启用批量HTTP提交 */
 	if( p_plugin_ctx->bulk )
 	{
 		nret = PostToEk( p_plugin_ctx ) ;
@@ -751,8 +770,10 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	
 	int				nret = 0 ;
 	
+	/* 如果未启用解压 */
 	if( p_plugin_ctx->uncompress_algorithm == NULL )
 	{
+		/* 数据块合并到解析缓冲区 */
 		nret = CombineToParseBuffer( p_plugin_ctx , block_buf , block_len ) ;
 		if( nret < 0 )
 		{
@@ -764,6 +785,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			INFOLOG( "CombineToParseBuffer ok" )
 		}
 	}
+	/* 如果启用了解压 */
 	else
 	{
 		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
@@ -783,6 +805,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 				DEBUGLOG( "UncompressInputPluginData ok" )
 			}
 			
+			/* 数据块合并到解析缓冲区 */
 			nret = CombineToParseBuffer( p_plugin_ctx , block_out_buf , block_out_len ) ;
 			if( nret < 0 )
 			{

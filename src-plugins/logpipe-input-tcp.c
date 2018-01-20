@@ -20,6 +20,7 @@ struct InputPluginContext
 	int			listen_sock ;
 } ;
 
+/* 子会话结构 */
 struct InputPluginContext_AcceptedSession
 {
 	struct sockaddr_in	accepted_addr ;
@@ -171,6 +172,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	
 	DEBUGLOG( "[%d]accept[%d] ok" , p_plugin_ctx->listen_sock , p_accepted_session_ctx->accepted_sock )
 	
+	/* 添加子会话 */
 	p_accepted_session = AddInputPluginSession( p_env , "accepted_session"
 					, & OnInputPluginEvent_accepted_session
 					, & ReadInputPlugin_accepted_session
@@ -226,12 +228,13 @@ int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct Logpi
 	
 	int						nret = 0 ;
 	
+	/* 接收 魔法值+文件名长度 */
 	memset( comm_buf , 0x00 , sizeof(comm_buf) );
 	len = readn( p_accepted_session_context->accepted_sock , comm_buf , 1+sizeof(uint16_t) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "recv comm magic and filename len failed , errno[%d]" , errno );
-		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
+		RemoveInputPluginSession( p_env , p_logpipe_input_plugin ); /* 删除子会话 */
 		return 1;
 	}
 	else if( len == 0 )
@@ -263,6 +266,7 @@ int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct Logpi
 		return 1;
 	}
 	
+	/* 接收 文件名 */
 	len = readn( p_accepted_session_context->accepted_sock , comm_buf+1+sizeof(uint16_t) , filename_len ) ;
 	if( len == -1 )
 	{
@@ -282,7 +286,7 @@ int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct Logpi
 		DEBUGHEXLOG( comm_buf+1+sizeof(uint16_t) , len , NULL )
 	}
 	
-	/* 导出所有输出端 */
+	/* 激活一轮从输入插件读，写到所有输出插件流程处理 */
 	nret = WriteAllOutputPlugins( p_env , p_logpipe_input_plugin , filename_len , comm_buf+1+sizeof(uint16_t) ) ;
 	if( nret )
 	{
@@ -300,6 +304,7 @@ int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeI
 	uint32_t					block_len_htonl ;
 	int						len ;
 	
+	/* 接收 数据块长度 */
 	len = readn( p_accepted_session_context->accepted_sock , & block_len_htonl , sizeof(uint32_t) ) ;
 	if( len == -1 )
 	{
@@ -329,6 +334,7 @@ int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeI
 		return 1;
 	}
 	
+	/* 接收 数据块 */
 	memset( block_buf , 0x00 , (*p_block_len)+1 );
 	len = readn( p_accepted_session_context->accepted_sock , block_buf , (*p_block_len) ) ;
 	if( len == -1 )

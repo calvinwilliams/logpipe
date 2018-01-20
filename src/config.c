@@ -37,6 +37,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 {
 	char		*p = NULL ;
 	
+	/* 查询输入插件文件名 */
 	p = QueryPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) , "plugin" ) ;
 	if( p == NULL )
 	{
@@ -54,6 +55,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		snprintf( p_logpipe_input_plugin->so_path_filename , sizeof(p_logpipe_input_plugin->so_path_filename)-1 , "%s/%s" , getenv("HOME") , p_logpipe_input_plugin->so_filename );
 	}
 	
+	/* 打开输入插件 */
 	p_logpipe_input_plugin->so_handler = dlopen( p_logpipe_input_plugin->so_path_filename , RTLD_LAZY ) ;
 	if( p_logpipe_input_plugin->so_handler == NULL )
 	{
@@ -61,6 +63,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
+	/* 查询所有回调函数指针 */
 	p_logpipe_input_plugin->pfuncLoadInputPluginConfig = (funcLoadInputPluginConfig *)dlsym( p_logpipe_input_plugin->so_handler , "LoadInputPluginConfig" ) ;
 	if( p_logpipe_input_plugin->pfuncLoadInputPluginConfig == NULL )
 	{
@@ -103,6 +106,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
+	/* 加入到输入插件链表 */
 	list_add_tail( & (p_logpipe_input_plugin->this_node) , & (p_env->logpipe_input_plugins_list.this_node) );
 	
 	return 0;
@@ -113,6 +117,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 {
 	char		*p = NULL ;
 	
+	/* 查询输出插件文件名 */
 	p = QueryPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) , "plugin" ) ;
 	if( p == NULL )
 	{
@@ -130,6 +135,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 		snprintf( p_logpipe_output_plugin->so_path_filename , sizeof(p_logpipe_output_plugin->so_path_filename)-1 , "%s/%s" , getenv("HOME") , p_logpipe_output_plugin->so_filename );
 	}
 	
+	/* 打开输出插件 */
 	p_logpipe_output_plugin->so_handler = dlopen( p_logpipe_output_plugin->so_path_filename , RTLD_LAZY ) ;
 	if( p_logpipe_output_plugin->so_handler == NULL )
 	{
@@ -137,6 +143,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 		return -1;
 	}
 	
+	/* 查询所有回调函数指针 */
 	p_logpipe_output_plugin->pfuncLoadOutputPluginConfig = (funcLoadOutputPluginConfig *)dlsym( p_logpipe_output_plugin->so_handler , "LoadOutputPluginConfig" ) ;
 	if( p_logpipe_output_plugin->pfuncLoadOutputPluginConfig == NULL )
 	{
@@ -193,6 +200,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 		return -1;
 	}
 	
+	/* 加入到输出插件链表 */
 	list_add_tail( & (p_logpipe_output_plugin->this_node) , & (p_env->logpipe_output_plugins_list.this_node) );
 	
 	return 0;
@@ -207,6 +215,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 	
 	int					nret = 0 ;
 	
+	/* 当进入配置树枝 */
 	if( (type&FASTERJSON_NODE_ENTER) && (type&FASTERJSON_NODE_BRANCH) )
 	{
 		if( jpath_len == sizeof(LOGPIPE_CONFIG_INPUTS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_INPUTS , jpath_len ) )
@@ -232,6 +241,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 			INIT_LIST_HEAD( & (p_logpipe_output_plugin->plugin_config_items.this_node) );
 		}
 	}
+	/* 当离开配置树枝 */
 	else if( (type&FASTERJSON_NODE_LEAVE) && (type&FASTERJSON_NODE_BRANCH) )
 	{
 		if( jpath_len == sizeof(LOGPIPE_CONFIG_INPUTS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_INPUTS , jpath_len ) )
@@ -247,6 +257,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 				return nret;
 		}
 	}
+	/* 当配置树叶 */
 	else if( (type&FASTERJSON_NODE_LEAF) )
 	{
 		if( jpath_len == sizeof(LOGPIPE_CONFIG_LOG_LOGFILE)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_LOG_LOGFILE , jpath_len ) )

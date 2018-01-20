@@ -103,6 +103,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 	char				path_filename[ PATH_MAX + 1 ] ;
 	
+	/* 打开文件 */
 	memset( path_filename , 0x00 , sizeof(path_filename) );
 	snprintf( path_filename , sizeof(path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , filename_len , filename );
 	p_plugin_ctx->fd = open( path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
@@ -128,6 +129,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	
 	int				nret = 0 ;
 	
+	/* 如果未启用解压 */
 	if( p_plugin_ctx->uncompress_algorithm == NULL )
 	{
 		len = writen( p_plugin_ctx->fd , block_buf , block_len ) ;
@@ -142,6 +144,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			DEBUGHEXLOG( block_buf , len , NULL )
 		}
 	}
+	/* 如果启用了解压 */
 	else
 	{
 		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
@@ -183,6 +186,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	return 0;
 }
 
+/* 文件大小转档处理 */
 static int RotatingFile( struct OutputPluginContext *p_plugin_ctx , char *pathname , char *filename , int filename_len )
 {
 	struct timeval	tv ;
@@ -232,12 +236,14 @@ int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	
 	if( p_plugin_ctx->fd >= 0 )
 	{
+		/* 如果启用文件大小转档 */
 		if( p_plugin_ctx->rotate_size > 0 )
 		{
 			memset( & file_stat , 0x00 , sizeof(struct stat) );
 			nret = fstat( p_plugin_ctx->fd , & file_stat ) ;
 			if( nret == 0 )
 			{
+				/* 如果到达文件转档大小 */
 				if( file_stat.st_size >= p_plugin_ctx->rotate_size )
 				{
 					INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
@@ -246,6 +252,7 @@ int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 			}
 		}
 		
+		/* 关闭文件 */
 		INFOLOG( "close file" )
 		close( p_plugin_ctx->fd ); p_plugin_ctx->fd = -1 ;
 	}

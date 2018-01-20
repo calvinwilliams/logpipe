@@ -36,6 +36,7 @@ extern "C" {
 #include <sys/ioctl.h>
 #include <dlfcn.h>
 #include <time.h>
+#include <sys/stat.h>
 
 char *strndup(const char *s, size_t n);
 int asprintf(char **strp, const char *fmt, ...);
@@ -91,7 +92,7 @@ void AddOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 void DeleteInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , int fd );
 void DeleteOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , int fd );
 
-/* 快速创建输入插件环境结构 */
+/* 创建输入插件子会话 */
 struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , char *so_filename
 						, funcOnInputPluginEvent *pfuncOnInputPluginEvent
 						, funcReadInputPlugin *pfuncReadInputPlugin
@@ -99,7 +100,7 @@ struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , cha
 						, int fd , void *context );
 void RemoveInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin );
 
-/* 导出所有输出端 */
+/* 激活一轮从输入插件读，写到所有输出插件流程处理 */
 int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , uint16_t filename_len , char *filename );
 
 /* 加密输入插件读取的块数据 */

@@ -9,7 +9,7 @@
 #include "logpipe_in.h"
 
 /* cmd for testing
-ps -ef | grep "logpipe -f" | awk '{if($3==1)print $2}' | xargs kill
+ps -f -u $USER | grep "logpipe -f" | awk '{if($3==1)print $2}' | xargs kill
 */
 
 char	__LOGPIPE_VERSION_0_16_1[] = "0.16.1" ;

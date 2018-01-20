@@ -8,6 +8,7 @@
 
 #include "logpipe_in.h"
 
+/* 激活一轮从输入插件读，写到所有输出插件流程处理 */
 int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , uint16_t filename_len , char *filename )
 {
 	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;

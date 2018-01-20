@@ -202,6 +202,8 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	int				nret = 0 ;
 	
 	/* 初始化插件环境内部数据 */
+	
+	/* 连接所有对端logpipe服务器 */
 	for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < p_plugin_ctx->forward_session_count ; i++ , p_forward_session++ )
 	{
 		memset( & (p_forward_session->addr) , 0x00 , sizeof(struct sockaddr_in) );
@@ -239,6 +241,7 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	
 	DEBUGLOG( "OnOutputPluginEvent" )
 	
+	/* 侦测所有对端logpipe服务器可用 */
 	FD_ZERO( & read_fds );
 	FD_ZERO( & except_fds );
 	max_fd = -1 ;
@@ -292,6 +295,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 _GOTO_RETRY_SEND :
 	
+	/* 检查连接，如果连接失效则重连 */
 	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 	if( nret < 0 )
 		return nret;
@@ -336,6 +340,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	
 	int				len ;
 	
+	/* 发送数据块到TCP */
 	block_len_htonl = htonl(block_len) ;
 	len = writen( p_plugin_ctx->p_forward_session->sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
 	if( len == -1 )
@@ -375,6 +380,7 @@ int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	
 	int				len ;
 	
+	/* 发送TCP结束分组 */
 	block_len_htonl = htonl(0) ;
 	len = writen( p_plugin_ctx->p_forward_session->sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
 	if( len == -1 )

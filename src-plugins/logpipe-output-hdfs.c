@@ -16,6 +16,12 @@ export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/amd64/server:$LD_LIBRARY_PATH
 */
 
+/* 写目录规则
+由于HDFS C API不支持追加写，只能保持文件打开句柄，数据落地目录规则为：
+* 每次新启动 创建并写入 "配置目录/YYYYMMDD_hhmmss/"
+* 午夜零时 创建并写入 "配置目录/YYYYMMDD/"
+*/
+
 char	*__LOGPIPE_OUTPUT_HDFS_VERSION = "0.1.0" ;
 
 /* 跟踪文件信息结构 */
@@ -148,6 +154,7 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 	int				nret = 0 ;
 	
+	/* 连接HDFS */
 	if( p_plugin_ctx->user && p_plugin_ctx->user[0] )
 	{
 		INFOLOG( "hdfsConnectAsUser ... name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
@@ -177,6 +184,7 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		}
 	}
 	
+	/* 创建新启动写目录 */
 	time( & tt );
 	localtime_r( & tt , & (p_plugin_ctx->stime) );
 	memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
@@ -212,6 +220,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 	int				nret = 0 ;
 	
+	/* 午夜零时，创建新一天的写目录 */
 	time( & tt );
 	localtime_r( & tt , & stime );
 	if( stime.tm_year != p_plugin_ctx->stime.tm_year || stime.tm_mon != p_plugin_ctx->stime.tm_mon || stime.tm_mday != p_plugin_ctx->stime.tm_mday )
@@ -231,8 +240,12 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		{
 			DEBUGLOG( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
 		}
+		
+		INFOLOG( "DestroyTraceFilenameTree" )
+		DestroyTraceFilenameTree( p_plugin_ctx );
 	}
 	
+	/* 查询文件跟踪结构 */
 	memset( & trace_file , 0x00 , sizeof(struct TraceFile) );
 	snprintf( trace_file.path_filename , sizeof(trace_file.path_filename)-1 , "%s/%.*s" , p_plugin_ctx->pathname , filename_len , filename );
 	p_plugin_ctx->p_trace_file = QueryTraceFilenameTreeNode( p_plugin_ctx , & trace_file ) ;
@@ -250,6 +263,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		
 		p_plugin_ctx->p_trace_file->fs = p_plugin_ctx->fs ;
 		
+		/* 打开HDFS文件 */
 		p_plugin_ctx->p_trace_file->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->path_filename , O_CREAT|O_WRONLY , 0 , 0 , 0 ) ;
 		if( p_plugin_ctx->p_trace_file->file == NULL )
 		{
@@ -262,6 +276,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 			DEBUGLOG( "hdfsOpenFile[%s] ok" , p_plugin_ctx->p_trace_file->path_filename )
 		}
 		
+		/* 挂接文件跟踪结构树 */
 		nret = LinkTraceFilenameTreeNode( p_plugin_ctx , p_plugin_ctx->p_trace_file ) ;
 		if( nret )
 		{
@@ -285,6 +300,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	
 	int				nret = 0 ;
 	
+	/* 如果未启用解压 */
 	if( p_plugin_ctx->uncompress_algorithm == NULL )
 	{
 		len = hdfsWrite( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file , block_buf , block_len ) ;
@@ -310,6 +326,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			INFOLOG( "hdfsHFlush data to hdfs ok , [%d]bytes" , block_len )
 		}
 	}
+	/* 如果启用了解压 */
 	else
 	{
 		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )

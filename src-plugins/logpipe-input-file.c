@@ -73,6 +73,7 @@ void FreeTraceFile( void *pv )
 
 DESTROY_RBTREE( DestroyTraceFileTree , struct InputPluginContext , inotify_wd_rbtree , struct TraceFile , inotify_file_wd_rbnode , FreeTraceFile )
 
+/* 日志文件大小转档 */
 static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathname , char *filename , int filename_len )
 {
 	struct timeval	tv ;
@@ -82,6 +83,7 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathnam
 	
 	int		nret = 0 ;
 	
+	/* 组装转档后文件名 */
 	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%.*s" , pathname , filename_len , filename );
 	gettimeofday( & tv , NULL );
 	memset( & tm , 0x00 , sizeof(struct tm) );
@@ -89,22 +91,27 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathnam
 	memset( new_filename , 0x00 , sizeof(new_filename) );
 	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d_%06ld" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec , tv.tv_usec );
 	
+	/* 设置环境变量 */
 	setenv( "LOGPIPE_ROTATING_PATHNAME" , pathname , 1 );
 	setenv( "LOGPIPE_ROTATING_OLD_FILENAME" , old_filename , 1 );
 	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
 	
+	/* 执行转档前命令 */
 	if( p_plugin_ctx->exec_before_rotating && p_plugin_ctx->exec_before_rotating[0] )
 	{
 		system( p_plugin_ctx->exec_before_rotating );
 	}
 	
+	/* 文件改名转档 */
 	nret = rename( old_filename , new_filename ) ;
 	
+	/* 执行转档后命令 */
 	if( p_plugin_ctx->exec_after_rotating && p_plugin_ctx->exec_after_rotating[0] )
 	{
 		system( p_plugin_ctx->exec_after_rotating );
 	}
 	
+	/* 判断改名是否成功 */
 	if( nret )
 	{
 		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
@@ -118,6 +125,7 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathnam
 	return 0;
 }
 
+/* 清除文件变化监视器 */
 static int RemoveFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , struct TraceFile *p_trace_file )
 {
 	UnlinkTraceFileWdTreeNode( p_plugin_ctx , p_trace_file );
@@ -130,6 +138,7 @@ static int RemoveFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlug
 	return 0;
 }
 
+/* 检查文件最后偏移量 */
 static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , struct TraceFile *p_trace_file , int remove_watcher_flag )
 {
 	int			fd ;
@@ -139,6 +148,7 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	
 	DEBUGLOG( "catch file[%s] append" , p_trace_file->path_filename )
 	
+	/* 打开文件 */
 	fd = open( p_trace_file->path_filename , O_RDONLY ) ;
 	if( fd == -1 )
 	{
@@ -149,6 +159,7 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 			return 0;
 	}
 	
+	/* 获得文件大小 */
 	memset( & file_stat , 0x00 , sizeof(struct stat) );
 	nret = fstat( fd , & file_stat ) ;
 	if( nret == -1 )
@@ -158,13 +169,16 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 	}
 	
+	/* 如果启用大小转档，且文件有追加内容 */
 	if( p_plugin_ctx->rotate_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_size )
 	{
+		/* 大小转档文件 */
 		INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
 		RotatingFile( p_plugin_ctx , p_trace_file->pathname , p_trace_file->filename , p_trace_file->filename_len );
 		p_plugin_ctx->append_count = -1 ;
 		remove_watcher_flag = 1 ;
 		
+		/* 再次获得文件大小 */
 		memset( & file_stat , 0x00 , sizeof(struct stat) );
 		nret = fstat( fd , & file_stat ) ;
 		if( nret == -1 )
@@ -177,16 +191,18 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	
 _GOTO_WRITEALLOUTPUTPLUGINS :
 	
+	/* 如果文件大小 小于 跟踪的文件大小 */
 	DEBUGLOG( "compare size - file_size[%d] trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )
 	if( file_stat.st_size < p_trace_file->trace_offset )
 	{
 		p_trace_file->trace_offset = file_stat.st_size ;
 	}
+	/* 如果文件大小 大于 跟踪的文件大小 */
 	else if( file_stat.st_size > p_trace_file->trace_offset )
 	{
 		lseek( fd , p_trace_file->trace_offset , SEEK_SET );
 		
-		/* 导出所有输出端 */
+		/* 激活一轮从输入插件读，写到所有输出插件流程处理 */
 		p_plugin_ctx->p_trace_file = p_trace_file ;
 		p_plugin_ctx->fd = fd ;
 		p_plugin_ctx->remain_len = file_stat.st_size - p_trace_file->trace_offset ;
@@ -202,6 +218,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 		
 		if( p_plugin_ctx->rotate_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_size )
 		{
+			/* 再次获得文件大小 */
 			memset( & file_stat , 0x00 , sizeof(struct stat) );
 			nret = fstat( fd , & file_stat ) ;
 			if( nret == -1 )
@@ -211,6 +228,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 				return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 			}
 			
+			/* 如果启用文件追读，再处理一个数据块  */
 			if( p_plugin_ctx->append_count >= 0 )
 			{
 				p_plugin_ctx->append_count++;
@@ -224,8 +242,10 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 		}
 	}
 	
+	/* 关闭文件 */
 	close( fd );
 	
+	/* 清除文件变化监视器 */
 	if( p_plugin_ctx->rotate_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_size )
 	{
 		if( remove_watcher_flag )
@@ -237,6 +257,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 	return 0;
 }
 
+/* 识别通配表达式 */
 static int IsMatchString(char *pcMatchString, char *pcObjectString, char cMatchMuchCharacters, char cMatchOneCharacters)
 {
 	int el=strlen(pcMatchString);
@@ -290,6 +311,7 @@ static int IsMatchString(char *pcMatchString, char *pcObjectString, char cMatchM
 	return 0;
 }
 
+/* 添加文件变化监视器 */
 static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , char *filename , int check_flag_offset_flag , int remove_watcher_flag )
 {
 	struct TraceFile	*p_trace_file = NULL ;
@@ -299,12 +321,14 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	int			nret = 0 ;
 	
+	/* 不处理文件名以'.'或'_'开头的文件 */
 	if( filename[0] == '.' || filename[0] == '_' )
 	{
 		DEBUGLOG( "filename[%s] ignored" , filename )
 		return 0;
 	}
 	
+	/* 不处理文件名白名单以外的文件 */
 	if( p_plugin_ctx->files && p_plugin_ctx->files[0] )
 	{
 		if( IsMatchString( p_plugin_ctx->files , filename , '*' , '?' ) != 0 )
@@ -314,6 +338,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 	}
 	
+	/* 不处理文件名黑名单以内的文件 */
 	if( p_plugin_ctx->exclude_files && p_plugin_ctx->exclude_files[0] )
 	{
 		if( IsMatchString( p_plugin_ctx->exclude_files , filename , '*' , '?' ) == 0 )
@@ -323,6 +348,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 	}
 	
+	/* 分配内存以构建文件跟踪结构 */
 	p_trace_file = (struct TraceFile *)malloc( sizeof(struct TraceFile) ) ;
 	if( p_trace_file == NULL )
 	{
@@ -331,6 +357,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	memset( p_trace_file , 0x00 , sizeof(struct TraceFile) );
 	
+	/* 填充文件跟踪结构 */
 	len = asprintf( & (p_trace_file->path_filename) , "%s/%s" , p_plugin_ctx->path , filename ) ;
 	if( len == -1 )
 	{
@@ -344,6 +371,14 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	if( nret == -1 )
 	{
 		WARNLOG( "file[%s] not found" , p_trace_file->path_filename )
+		free( p_trace_file->path_filename );
+		free( p_trace_file );
+		return 0;
+	}
+	
+	if( ! S_ISREG(file_stat.st_mode) )
+	{
+		INFOLOG( "[%s] is not a file" , p_trace_file->path_filename )
 		free( p_trace_file->path_filename );
 		free( p_trace_file );
 		return 0;
@@ -366,6 +401,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	else
 		p_trace_file->trace_offset = file_stat.st_size ;
 	
+	/* 添加文件变化监视器 */
 	p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED) ) ;
 	if( p_trace_file->inotify_file_wd == -1 )
 	{
@@ -396,6 +432,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 	}
 	
+	/* 如果要马上检查文件变化 */
 	if( check_flag_offset_flag )
 	{
 		p_plugin_ctx->append_count = -1 ;
@@ -407,6 +444,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 }
 
+/* 启动时把现存文件都设置变化监视器 */
 static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx )
 {
 	DIR			*dir = NULL ;
@@ -414,6 +452,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 	
 	int			nret = 0 ;
 	
+	/* 打开目录 */
 	dir = opendir( p_plugin_ctx->path ) ;
 	if( dir == NULL )
 	{
@@ -423,6 +462,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 	
 	while(1)
 	{
+		/* 遍历目录中的所有文件 */
 		ent = readdir( dir ) ;
 		if( ent == NULL )
 			break;
@@ -439,6 +479,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 		}
 	}
 	
+	/* 打开目录 */
 	closedir( dir );
 	
 	return 0;
@@ -616,6 +657,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	
 	int				nret = 0 ;
 	
+	/* 如果累积事件数量 大于 默认事件缓冲区大小，临时扩大事件缓冲区大小 */
 	nret = ioctl( p_plugin_ctx->inotify_fd , FIONREAD , & inotify_read_nbytes );
 	if( nret )
 	{
@@ -639,6 +681,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	}
 	memset( p_plugin_ctx->inotify_read_buffer , 0x00 , p_plugin_ctx->inotify_read_bufsize );
 	
+	/* 读文件变化事件 */
 	DEBUGLOG( "read inotify[%d] ..." , p_plugin_ctx->inotify_fd )
 	len = read( p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_read_buffer , p_plugin_ctx->inotify_read_bufsize-1 ) ;
 	if( len == -1 )
@@ -657,6 +700,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	{
 		DEBUGLOG( "inotify event wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 		
+		/* 如果发生UNMOUNT事件，logpipe退出 */
 		if( p_inotify_event->mask & IN_UNMOUNT )
 		{
 			FATALLOG( "something unmounted" )
@@ -668,6 +712,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		}
 		else if( p_inotify_event->wd == p_plugin_ctx->inotify_path_wd )
 		{
+			/* 如果发生 创建文件 或 移入文件 事件 */
 			if( ( p_inotify_event->mask & IN_CREATE ) || ( p_inotify_event->mask & IN_MOVED_TO ) )
 			{
 				nret = AddFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_inotify_event->name , (p_inotify_event->mask&IN_CREATE) , 0 ) ;
@@ -677,6 +722,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 					return -1;
 				}
 			}
+			/* 如果发生 删除监控目录 或 移动监控目录 事件 */
 			else if( ( p_inotify_event->mask & IN_DELETE_SELF ) || ( p_inotify_event->mask & IN_MOVE_SELF ) )
 			{
 				ERRORLOG( "[%s] had deleted" , p_plugin_ctx->path )
@@ -691,6 +737,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		}
 		else
 		{
+			/* 查询文件跟踪结构树 */
 			trace_file.inotify_file_wd = p_inotify_event->wd ;
 			p_trace_file = QueryTraceFileWdTreeNode( p_plugin_ctx , & trace_file ) ;
 			if( p_trace_file == NULL )
@@ -699,6 +746,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			}
 			else
 			{
+				/* 如果发生 文件变化 或 写完关闭 事件 */
 				if( ( p_inotify_event->mask & IN_MODIFY ) || ( p_inotify_event->mask & IN_CLOSE_WRITE ) )
 				{
 					p_plugin_ctx->append_count = 0 ;
@@ -709,6 +757,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 						return -1;
 					}
 				}
+				/* 如果发生 删除文件 或 移动文件 事件 */
 				else if( ( p_inotify_event->mask & IN_DELETE_SELF ) || ( p_inotify_event->mask & IN_MOVE_SELF ) )
 				{
 					nret = RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file ) ;
@@ -728,6 +777,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		p_inotify_event = (struct inotify_event *)( (char*)p_inotify_event + sizeof(struct inotify_event) + p_inotify_event->len ) ;
 	}
 	
+	/* 恢复临时调整事件缓冲区 */
 	if( p_plugin_ctx->inotify_read_bufsize != INOTIFY_READ_BUFSIZE )
 	{
 		char	*tmp = NULL ;
@@ -758,6 +808,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	if( p_plugin_ctx->remain_len == 0 )
 		return LOGPIPE_READ_END_OF_INPUT;
 	
+	/* 如果未启用压缩 */
 	if( p_plugin_ctx->compress_algorithm == NULL )
 	{
 		if( p_plugin_ctx->remain_len > block_bufsize - 1 )
@@ -784,6 +835,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		
 		(*p_block_len) = p_plugin_ctx->read_len ;
 	}
+	/* 如果启用了压缩 */
 	else
 	{
 		char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;

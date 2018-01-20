@@ -236,6 +236,8 @@ logpipe v0.9.0 build Dec 19 2017 22:44:54
 
 # 3. 使用
 
+注意：如果使用logpipe-input-file插件，建议调大系统inotify队列限制参数，添加sysctl.conf.add中内容到/etc/sysctl.conf并刷新配置`sysctl -p`（需要root权限），否则可能会丢失日志。
+
 注意：安装包中自带配置示例的log.log_level日志等级可能为DEBUG，会输出大量日志，影响性能也占用大量硬盘空间，请提升为WARN或INFO等级。
 
 ## 3.1. 案例A
