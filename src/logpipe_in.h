@@ -49,6 +49,7 @@ struct LogpipeInputPlugin
 	void				*so_handler ; /* 插件打开句柄 */
 	funcLoadInputPluginConfig	*pfuncLoadInputPluginConfig ; /* 解析配置文件时装载插件 */
 	funcInitInputPluginContext	*pfuncInitInputPluginContext ; /* 工作主循环前初始化插件 */
+	funcOnInputPluginIdle		*pfuncOnInputPluginIdle ; /* 空闲时的调用 */
 	funcOnInputPluginEvent		*pfuncOnInputPluginEvent ; /* 发生输入事件时的调用 */
 	funcReadInputPlugin		*pfuncReadInputPlugin ; /* 读取一个数据块 */
 	funcCleanInputPluginContext	*pfuncCleanInputPluginContext ; /* 工作主循环后清理插件 */
@@ -71,6 +72,7 @@ struct LogpipeOutputPlugin
 	void				*so_handler ; /* 插件打开句柄 */
 	funcLoadOutputPluginConfig	*pfuncLoadOutputPluginConfig ; /* 解析配置文件时装载插件 */
 	funcInitOutputPluginContext	*pfuncInitOutputPluginContext ; /* 工作主循环前初始化插件 */
+	funcOnOutputPluginIdle		*pfuncOnOutputPluginIdle ; /* 空闲时的调用 */
 	funcOnOutputPluginEvent		*pfuncOnOutputPluginEvent ; /* 输出句柄发生事件时调用 */
 	funcBeforeWriteOutputPlugin	*pfuncBeforeWriteOutputPlugin ; /* 在写出一个数据块前 */
 	funcWriteOutputPlugin		*pfuncWriteOutputPlugin ; /* 写出一个数据块 */
@@ -98,6 +100,7 @@ struct LogpipeEnv
 	struct LogpipeInputPlugin	logpipe_input_plugins_list ; /* 输入插件链表 */
 	struct LogpipeOutputPlugin	logpipe_output_plugins_list ; /* 输出插件链表 */
 	struct LogpipeInputPlugin	*p_block_input_plugin ; /* 禁用epoll事件总线而改用某一输入插件的堵塞模式，指向该输入插件链表节点 */
+	unsigned char			idle_processing_flag ;
 	
 	int				quit_pipe[2] ; /* 父子进程命令管道 */
 } ;
@@ -129,6 +132,9 @@ int _monitor( void *pv );
 
 /* 工作进程 */
 int worker( struct LogpipeEnv *p_env );
+
+/* 空闲事件函数 */
+int ProcessOnIdle( struct LogpipeEnv *p_env );
 
 #ifdef __cplusplus
 }

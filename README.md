@@ -685,6 +685,16 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	return 0;
 }
 
+funcOnInputPluginIdle OnInputPluginIdle ; /* 空闲时执行，可选存在函数 */
+int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
+{
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
 funcOnInputPluginEvent OnInputPluginEvent ;
 int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
@@ -798,6 +808,16 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 	/* 设置输出描述字 */
 	AddOutputPluginEvent( p_env , p_logpipe_output_plugin , . ); /* 订阅可读事件，当不可用时回调函数OnOutputPluginEvent */
+	
+	return 0;
+}
+
+funcOnOutputPluginIdle OnOutputPluginIdle; /* 空闲时执行，可选存在函数 */
+int OnOutputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+{
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	...
 	
 	return 0;
 }

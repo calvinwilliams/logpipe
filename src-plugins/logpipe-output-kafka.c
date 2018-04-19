@@ -130,6 +130,16 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	return 0;
 }
 
+funcOnOutputPluginIdle OnOutputPluginIdle;
+int OnOutputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+{
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	rd_kafka_poll( p_plugin_ctx->kafka , 0 );
+	
+	return 0;
+}
+
 funcOnOutputPluginEvent OnOutputPluginEvent;
 int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {

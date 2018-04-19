@@ -23,6 +23,7 @@ int worker( struct LogpipeEnv *p_env )
 	struct epoll_event	event ;
 	struct epoll_event	events[ MAX_EPOLL_EVENTS ] ;
 	int			epoll_nfds ;
+	int			timeout ;
 	int			i ;
 	struct epoll_event	*p_event = NULL ;
 	
@@ -93,7 +94,11 @@ int worker( struct LogpipeEnv *p_env )
 		/* 等待epoll事件，或者1秒超时 */
 		INFOLOG( "epoll_wait[%d] ..." , p_env->epoll_fd );
 		memset( events , 0x00 , sizeof(events) );
-		epoll_nfds = epoll_wait( p_env->epoll_fd , events , MAX_EPOLL_EVENTS , -1 ) ;
+		if( p_env->idle_processing_flag )
+			timeout = 1000 ;
+		else
+			timeout = -1 ;
+		epoll_nfds = epoll_wait( p_env->epoll_fd , events , MAX_EPOLL_EVENTS , timeout ) ;
 		if( epoll_nfds == -1 )
 		{
 			if( errno == EINTR )
@@ -104,6 +109,19 @@ int worker( struct LogpipeEnv *p_env )
 			{
 				ERRORLOG( "epoll_wait[%d] failed , errno[%d]" , p_env->epoll_fd , errno )
 				return -1;
+			}
+		}
+		else if( epoll_nfds == 0 )
+		{
+			nret = ProcessOnIdle( p_env ) ;
+			if( nret )
+			{
+				ERRORLOG( "ProcessOnIdle failed[%d] , errno[%d]" , nret , errno )
+				return -1;
+			}
+			else
+			{
+				DEBUGLOG( "ProcessOnIdle ok" )
 			}
 		}
 		else

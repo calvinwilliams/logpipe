@@ -20,6 +20,7 @@ c_FILE2		=	\
 			config.c \
 			env.c \
 			util.c \
+			idle.c \
 			output.c \
 			crypto.c \
 

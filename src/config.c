@@ -78,6 +78,10 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
+	p_logpipe_input_plugin->pfuncOnInputPluginIdle = (funcOnInputPluginEvent *)dlsym( p_logpipe_input_plugin->so_handler , "OnInputPluginIdle" ) ;
+	if( p_logpipe_input_plugin->pfuncOnInputPluginIdle )
+		p_env->idle_processing_flag = 1 ;
+	
 	p_logpipe_input_plugin->pfuncOnInputPluginEvent = (funcOnInputPluginEvent *)dlsym( p_logpipe_input_plugin->so_handler , "OnInputPluginEvent" ) ;
 	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
 	{
@@ -157,6 +161,10 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
+	
+	p_logpipe_output_plugin->pfuncOnOutputPluginIdle = (funcOnOutputPluginEvent *)dlsym( p_logpipe_output_plugin->so_handler , "OnOutputPluginIdle" ) ;
+	if( p_logpipe_output_plugin->pfuncOnOutputPluginIdle )
+		p_env->idle_processing_flag = 1 ;
 	
 	p_logpipe_output_plugin->pfuncOnOutputPluginEvent = (funcOnOutputPluginEvent *)dlsym( p_logpipe_output_plugin->so_handler , "OnOutputPluginEvent" ) ;
 	if( p_logpipe_output_plugin->pfuncOnOutputPluginEvent == NULL )

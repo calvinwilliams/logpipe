@@ -1,3 +1,6 @@
+0.18.0		2018-04-19	calvin
+		* 新增空闲事件函数用于无输入事件时定期调用，如logpipe-output-kafka定期检查异步响应
+
 0.17.0		2018-04-19	calvin
 		* 新增插件logpipe-output-kafka
 
