@@ -17,7 +17,7 @@ char	*__LOGPIPE_OUTPUT_KAFKA_VERSION = "0.1.0" ;
 
 struct OutputPluginContext
 {
-	char			*brokers ;
+	char			*bootstrap_servers ;
 	char			*topic ;
 	
 	rd_kafka_conf_t		*kafka_conf ;
@@ -56,11 +56,11 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
 	
-	p_plugin_ctx->brokers = QueryPluginConfigItem( p_plugin_config_items , "brokers" ) ;
-	INFOLOG( "brokers[%s]" , p_plugin_ctx->brokers )
-	if( p_plugin_ctx->brokers == NULL || p_plugin_ctx->brokers[0] == '\0' )
+	p_plugin_ctx->bootstrap_servers = QueryPluginConfigItem( p_plugin_config_items , "bootstrap_servers" ) ;
+	INFOLOG( "bootstrap_servers[%s]" , p_plugin_ctx->bootstrap_servers )
+	if( p_plugin_ctx->bootstrap_servers == NULL || p_plugin_ctx->bootstrap_servers[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'brokers'" );
+		ERRORLOG( "expect config for 'bootstrap_servers'" );
 		return -1;
 	}
 	
@@ -103,7 +103,7 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	
 	p_plugin_ctx->kafka_conf = rd_kafka_conf_new() ;
 	
-	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "bootstrap.servers" , p_plugin_ctx->brokers , errstr , sizeof(errstr) ) ;
+	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "bootstrap.servers" , p_plugin_ctx->bootstrap_servers , errstr , sizeof(errstr) ) ;
 	if( kafka_conf_res != RD_KAFKA_CONF_OK )
 	{
 		ERRORLOG( "rd_kafka_conf_set failed[%d] , errstr[%s]" , kafka_conf_res , errstr );
