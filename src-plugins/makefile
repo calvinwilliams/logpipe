@@ -15,6 +15,7 @@ c_FILE		=	\
 			logpipe-input-exec.c \
 			logpipe-output-hdfs.c \
 			logpipe-output-ek.c \
+			logpipe-output-kafka.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -40,8 +41,9 @@ LFLAGS		=	$(_LFLAGS) \
 			-rdynamic \
 
 ###### 额外宏定义区
-CLEAN_ADDITION	=	logpipe-output-hdfs.so \
-			fasterhttp.o \
+CLEAN_ADDITION	=	fasterhttp.o \
+			logpipe-output-hdfs.so \
+			logpipe-output-kafka.so \
 
 ###### 加载mktpl模板库
 #@ make_all
@@ -68,6 +70,9 @@ logpipe-output-tcp.so		:	logpipe-output-tcp.o
 logpipe-input-exec.so		:	logpipe-input-exec.o
 	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
 
+fasterhttp.o			:	fasterhttp.c
+	$(CC) $(CFLAGS) -c fasterhttp.c
+
 CFLAGS_hdfs			=	$(CFLAGS) -I/home/hdfs/expack/hadoop/include
 
 logpipe-output-hdfs.o		:	logpipe-output-hdfs.c
@@ -75,12 +80,19 @@ logpipe-output-hdfs.o		:	logpipe-output-hdfs.c
 
 LFLAGS_hdfs			=	$(LFLAGS) -L/home/hdfs/expack/hadoop/lib/native -lhdfs -L$(HOME)/expack/jdk1.8.0_152/jre/lib/amd64/server -ljvm
 
+logpipe-output-ek.so		:	logpipe-output-ek.o fasterhttp.o
+	$(CC) -o $@ logpipe-output-ek.o fasterhttp.o $(SOFLAGS) $(LFLAGS)
+
 logpipe-output-hdfs.so		:	logpipe-output-hdfs.o
 	$(CC) -o $@ logpipe-output-hdfs.o $(SOFLAGS) $(LFLAGS_hdfs)
 
-fasterhttp.o			:	fasterhttp.c
-	$(CC) $(CFLAGS) -c fasterhttp.c
+CFLAGS_kafka			=	$(CFLAGS) -I$(HOME)/include/librdkafka
 
-logpipe-output-ek.so		:	logpipe-output-ek.o fasterhttp.o
-	$(CC) -o $@ logpipe-output-ek.o fasterhttp.o $(SOFLAGS) $(LFLAGS)
+logpipe-output-kafka.o		:	logpipe-output-kafka.c
+	$(CC) $(CFLAGS_kafka) -c logpipe-output-kafka.c
+
+LFLAGS_kafka			=	$(LFLAGS) -L$(HOME)/lib -lrdkafka
+
+logpipe-output-kafka.so		:	logpipe-output-kafka.o
+	$(CC) -o $@ logpipe-output-kafka.o $(SOFLAGS) $(LFLAGS_kafka)
 

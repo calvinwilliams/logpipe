@@ -1,3 +1,6 @@
+0.17.0		2018-04-19	calvin
+		* 新增插件logpipe-output-kafka
+
 0.16.1		2018-01-16	calvin
 		* 修正了插件logpipe-input-file的转档时重复读取问题
 
