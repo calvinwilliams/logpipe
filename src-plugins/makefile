@@ -52,7 +52,7 @@ CLEAN_ADDITION	=	fasterhttp.o \
 #@ make_install_LIBINST
 #@ make_uninstall
 #@ make_uninstall_LIBINST
-include $(MKTPLDIR)/makeobj_$(MKTPLOS).inc
+include $(MKTPL2_HOME)/makeobj_$(MKTPL2_OS).inc
 
 ###### 目标文件依赖关系
 logpipe-input-file.so		:	logpipe-input-file.o

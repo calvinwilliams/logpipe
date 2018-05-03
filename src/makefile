@@ -63,7 +63,7 @@ CLEAN_ADDITION	=
 #@ make_uninstall_BININST
 #@ make_uninstall_LIBINST
 #@ make_uninstall_HDERINST
-include $(MKTPLDIR)/makeobj_$(MKTPLOS).inc
+include $(MKTPL2_HOME)/makeobj_$(MKTPL2_OS).inc
 
 ###### 目标文件依赖关系
 logpipe		:	$(c_FILE_o) liblogpipe_api.so
