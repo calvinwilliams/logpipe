@@ -27,7 +27,11 @@ struct InputPluginContext
 {
 	char			*path ;
 	char			*files ;
+	char			*files2 ;
+	char			*files3 ;
 	char			*exclude_files ;
+	char			*exclude_files2 ;
+	char			*exclude_files3 ;
 	char			exec_before_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_before_rotating ;
 	int			rotate_size ;
@@ -318,6 +322,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	struct TraceFile	*p_trace_file_not_exist = NULL ;
 	struct stat		file_stat ;
 	int			len ;
+	int			survive_flag ;
 	
 	int			nret = 0 ;
 	
@@ -329,14 +334,37 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	
 	/* 不处理文件名白名单以外的文件 */
+	survive_flag = 1 ;
+	
 	if( p_plugin_ctx->files && p_plugin_ctx->files[0] )
 	{
 		if( IsMatchString( p_plugin_ctx->files , filename , '*' , '?' ) != 0 )
 		{
 			DEBUGLOG( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files )
-			return 0;
+			survive_flag = 0 ;
 		}
 	}
+	
+	if( p_plugin_ctx->files2 && p_plugin_ctx->files2[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->files2 , filename , '*' , '?' ) != 0 )
+		{
+			DEBUGLOG( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files2 )
+			survive_flag = 0 ;
+		}
+	}
+	
+	if( p_plugin_ctx->files3 && p_plugin_ctx->files3[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->files3 , filename , '*' , '?' ) != 0 )
+		{
+			DEBUGLOG( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files3 )
+			survive_flag = 0 ;
+		}
+	}
+	
+	if( survive_flag == 0 )
+		return 0;
 	
 	/* 不处理文件名黑名单以内的文件 */
 	if( p_plugin_ctx->exclude_files && p_plugin_ctx->exclude_files[0] )
@@ -344,6 +372,24 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		if( IsMatchString( p_plugin_ctx->exclude_files , filename , '*' , '?' ) == 0 )
 		{
 			DEBUGLOG( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files )
+			return 0;
+		}
+	}
+	
+	if( p_plugin_ctx->exclude_files2 && p_plugin_ctx->exclude_files2[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->exclude_files2 , filename , '*' , '?' ) == 0 )
+		{
+			DEBUGLOG( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files2 )
+			return 0;
+		}
+	}
+	
+	if( p_plugin_ctx->exclude_files3 && p_plugin_ctx->exclude_files3[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->exclude_files3 , filename , '*' , '?' ) == 0 )
+		{
+			DEBUGLOG( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files3 )
 			return 0;
 		}
 	}
@@ -512,8 +558,20 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_plugin_ctx->files = QueryPluginConfigItem( p_plugin_config_items , "files" ) ;
 	INFOLOG( "files[%s]" , p_plugin_ctx->files )
 	
+	p_plugin_ctx->files2 = QueryPluginConfigItem( p_plugin_config_items , "files2" ) ;
+	INFOLOG( "files2[%s]" , p_plugin_ctx->files2 )
+	
+	p_plugin_ctx->files3 = QueryPluginConfigItem( p_plugin_config_items , "files3" ) ;
+	INFOLOG( "files3[%s]" , p_plugin_ctx->files3 )
+	
 	p_plugin_ctx->exclude_files = QueryPluginConfigItem( p_plugin_config_items , "exclude_files" ) ;
 	INFOLOG( "exclude_files[%s]" , p_plugin_ctx->exclude_files )
+	
+	p_plugin_ctx->exclude_files2 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files2" ) ;
+	INFOLOG( "exclude_files2[%s]" , p_plugin_ctx->exclude_files2 )
+	
+	p_plugin_ctx->exclude_files3 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files3" ) ;
+	INFOLOG( "exclude_files3[%s]" , p_plugin_ctx->exclude_files3 )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "exec_before_rotating" ) ;
 	if( p )
