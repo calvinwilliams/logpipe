@@ -298,7 +298,7 @@ int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct Logpi
 }
 
 funcReadInputPlugin ReadInputPlugin_accepted_session ;
-int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
 	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
 	uint32_t					block_len_htonl ;

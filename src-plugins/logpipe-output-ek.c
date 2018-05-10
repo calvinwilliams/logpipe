@@ -588,7 +588,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 }
 
 /* 分列解析缓冲区 */
-static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
+static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int line_len )
 {
 	char				*p = NULL ;
 	int				field_index ;
@@ -596,7 +596,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx )
 	
 	int				nret = 0 ;
 	
-	INFOLOG( "parse [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOG( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	
 	/* 丢弃不符合过滤条件的行 */
 	if( p_plugin_ctx->grep )
@@ -695,7 +695,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	else
 	{
 		/* 先强制把遗留数据都处理掉 */
-		nret = ParseCombineBuffer( p_plugin_ctx ) ;
+		nret = ParseCombineBuffer( p_plugin_ctx , p_plugin_ctx->parse_buflen ) ;
 		if( nret < 0 )
 		{
 			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
@@ -722,9 +722,9 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 			break;
 		
 		line_len = p_newline - p_plugin_ctx->parse_buffer ;
-		remain_len = p_plugin_ctx->parse_buflen  - line_len - 1 ;
+		remain_len = p_plugin_ctx->parse_buflen - line_len - 1 ;
 		(*p_newline) = '\0' ;
-		nret = ParseCombineBuffer( p_plugin_ctx ) ;
+		nret = ParseCombineBuffer( p_plugin_ctx , line_len ) ;
 		if( nret < 0 )
 		{
 			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
@@ -764,7 +764,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	

@@ -16,6 +16,7 @@ c_FILE		=	\
 			logpipe-output-hdfs.c \
 			logpipe-output-ek.c \
 			logpipe-output-kafka.c \
+			logpipe-output-ingeek.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -44,6 +45,7 @@ LFLAGS		=	$(_LFLAGS) \
 CLEAN_ADDITION	=	fasterhttp.o \
 			logpipe-output-hdfs.so \
 			logpipe-output-kafka.so \
+			logpipe-output-ingeek.so \
 
 ###### 加载mktpl模板库
 #@ make_all
@@ -95,4 +97,7 @@ LFLAGS_kafka			=	$(LFLAGS) -L$(HOME)/lib -lrdkafka
 
 logpipe-output-kafka.so		:	logpipe-output-kafka.o
 	$(CC) -o $@ logpipe-output-kafka.o $(SOFLAGS) $(LFLAGS_kafka)
+
+logpipe-output-ingeek.so	:	logpipe-output-ingeek.o
+	$(CC) -o $@ logpipe-output-ingeek.o $(SOFLAGS) $(LFLAGS)
 

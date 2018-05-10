@@ -218,7 +218,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 			return nret;
 		}
 		
-		p_trace_file->trace_offset = file_stat.st_size ;
+		/* p_trace_file->trace_offset = file_stat.st_size ; */
 		
 		if( p_plugin_ctx->rotate_size > 0 && file_stat.st_size >= p_plugin_ctx->rotate_size )
 		{
@@ -855,7 +855,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 }
 
 funcReadInputPlugin ReadInputPlugin ;
-int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	
@@ -931,6 +931,8 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	}
 	
 	p_plugin_ctx->remain_len -= p_plugin_ctx->read_len ;
+	(*p_file_offset) = p_plugin_ctx->p_trace_file->trace_offset ;
+	p_plugin_ctx->p_trace_file->trace_offset += p_plugin_ctx->read_len ;
 	
 	return 0;
 }
