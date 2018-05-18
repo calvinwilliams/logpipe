@@ -15,6 +15,7 @@ struct TraceFile
 	char			*filename ;
 	uint16_t		filename_len ;
 	off_t			trace_offset ;
+	int			trace_line ;
 	
 	int			inotify_file_wd ;
 	struct rb_node		inotify_file_wd_rbnode ;
@@ -315,6 +316,48 @@ static int IsMatchString(char *pcMatchString, char *pcObjectString, char cMatchM
 	return 0;
 }
 
+/* 统计内存块中某字节出现的次数 */
+static int stat_memchr( char *s , size_t n , char c )
+{
+	char	*p = NULL ;
+	char	*end = NULL ;
+	int	count ;
+	
+	if( s == NULL || n <= 0 )
+		return 0;
+	
+	for( p=s , end=s+n-1 , count=0 ; p <= end ; p++ )
+	{
+		if( (*p) == c )
+			count++;
+	}
+	
+	return count;
+}
+
+/* 统计文件快中某字节出现的次数 */
+static int stat_filechr( char *pathfilename , size_t n , char c )
+{
+	int		fd ;
+	char		*base = NULL ;
+	int		count ;
+	
+	fd = open( pathfilename , O_RDONLY ) ;
+	if( fd == -1 )
+		return -1;
+	
+	base = mmap( NULL , n , PROT_READ , MAP_PRIVATE , fd , 0 ) ;
+	close( fd );
+	if( base == MAP_FAILED )
+		return -3;
+	
+	count = stat_memchr( base , n , c ) ;
+	
+	munmap( base , n );
+	
+	return count;
+}
+
 /* 添加文件变化监视器 */
 static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , char *filename , int check_flag_offset_flag , int remove_watcher_flag )
 {
@@ -443,9 +486,15 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_trace_file->filename_len = len ;
 	
 	if( check_flag_offset_flag )
+	{
 		p_trace_file->trace_offset = 0 ;
+		p_trace_file->trace_line = 1 ;
+	}
 	else
+	{
 		p_trace_file->trace_offset = file_stat.st_size ;
+		p_trace_file->trace_line = 1 + stat_filechr( p_trace_file->path_filename , file_stat.st_size , '\n' ) ;
+	}
 	
 	/* 添加文件变化监视器 */
 	p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED) ) ;
@@ -459,7 +508,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	else
 	{
-		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset )
+		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%d] trace_line[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
 	}
 	
 	p_trace_file_not_exist = QueryTraceFileWdTreeNode( p_plugin_ctx , p_trace_file ) ;
@@ -855,11 +904,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 }
 
 funcReadInputPlugin ReadInputPlugin ;
-int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_file_line , uint32_t *p_block_len , char *block_buf , int block_bufsize )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	
-	int				len ;
+	int				len = 0 ;
+	int				line = 0 ;
 	
 	int				nret = 0 ;
 	
@@ -891,6 +941,8 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			DEBUGHEXLOG( block_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
+		line = stat_memchr( block_buf , len , '\n' ) ;
+		
 		(*p_block_len) = p_plugin_ctx->read_len ;
 	}
 	/* 如果启用了压缩 */
@@ -917,6 +969,8 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			DEBUGHEXLOG( block_in_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
+		line = stat_memchr( block_buf , len , '\n' ) ;
+		
 		memset( block_buf , 0x00 , block_bufsize );
 		nret = CompressInputPluginData( p_plugin_ctx->compress_algorithm , block_in_buf , p_plugin_ctx->read_len , block_buf , p_block_len ) ;
 		if( nret )
@@ -931,8 +985,11 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	}
 	
 	p_plugin_ctx->remain_len -= p_plugin_ctx->read_len ;
+	
 	(*p_file_offset) = p_plugin_ctx->p_trace_file->trace_offset ;
 	p_plugin_ctx->p_trace_file->trace_offset += p_plugin_ctx->read_len ;
+	(*p_file_line) = p_plugin_ctx->p_trace_file->trace_line ;
+	p_plugin_ctx->p_trace_file->trace_line += line ;
 	
 	return 0;
 }

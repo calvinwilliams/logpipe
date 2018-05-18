@@ -1,5 +1,9 @@
+0.20.1		2018-05-18	calvin
+		* 钩子函数原型变动funcReadInputPlugin和funcWriteOutputPlugin
+		* 插件logpipe-output-ingeek调整通讯协议
+
 0.20.0		2018-05-10	calvin
-		* 函数原型变动funcReadInputPlugin和funcWriteOutputPlugin
+		* 钩子函数原型变动funcReadInputPlugin和funcWriteOutputPlugin
 		* 输入插件logpipe-input-file内部文件偏移量递增改成小步累加
 		* 新增输出插件logpipe-output-ingeek
 
