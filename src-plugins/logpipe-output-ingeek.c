@@ -28,7 +28,9 @@ struct ForwardSession
 
 struct OutputPluginContext
 {
+	/*
 	char			*key ;
+	*/
 	char			*path ;
 	struct ForwardSession	forward_session_array[IP_PORT_MAXCNT] ;
 	int			forward_session_count ;
@@ -37,7 +39,7 @@ struct OutputPluginContext
 	int			disable_timeout ;
 	
 	char			*filename ;
-	uint32_t		file_offset ;
+	uint32_t		file_line ;
 	uint32_t		block_len ;
 	char			*block_buf ;
 	
@@ -62,6 +64,7 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
 	
+	/*
 	p_plugin_ctx->key = QueryPluginConfigItem( p_plugin_config_items , "key" ) ;
 	INFOLOG( "key[%s]" , p_plugin_ctx->key )
 	if( p_plugin_ctx->key == NULL || p_plugin_ctx->key[0] == '\0' )
@@ -69,6 +72,7 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		ERRORLOG( "expect config for 'key'" );
 		return -1;
 	}
+	*/
 	
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
 	INFOLOG( "path[%s]" , p_plugin_ctx->path )
@@ -334,18 +338,25 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 /* 分列解析缓冲区 */
-static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int line_len )
+static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int line_len , int line_add )
 {
-	char				tail_buffer[ 1024 + 1 ] ;
-	uint32_t			tail_buffer_len ;
+	char		mainfilename[ PATH_MAX + 1 ] ;
+	char		*p = NULL ;
+	char		tail_buffer[ 1024 + 1 ] ;
+	uint32_t	tail_buffer_len ;
 	
-	int				len ;
+	int		len ;
 	
 	INFOLOG( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	
 	/* 填充尾巴 */
+	memset( mainfilename , 0x00 , sizeof(mainfilename) );
+	strncpy( mainfilename , p_plugin_ctx->filename , sizeof(mainfilename)-1 );
+	p = strrchr( mainfilename , '.' ) ;
+	if( p )
+		(*p) = '\0' ;
 	memset( tail_buffer , 0x00 , sizeof(tail_buffer) );
-	tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]" , p_plugin_ctx->key , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_offset ) ;
+	tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	
 	/* 发送数据块到TCP */
 	len = writen( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->parse_buffer , line_len ) ;
@@ -383,6 +394,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	char		*p_newline = NULL ;
 	int		line_len ;
 	int		remain_len ;
+	int		line_add ;
 	
 	int		nret = 0 ;
 	
@@ -398,7 +410,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	else
 	{
 		/* 先强制把遗留数据都处理掉 */
-		nret = ParseCombineBuffer( p_plugin_ctx , p_plugin_ctx->parse_buflen ) ;
+		nret = ParseCombineBuffer( p_plugin_ctx , p_plugin_ctx->parse_buflen , 0 ) ;
 		if( nret < 0 )
 		{
 			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
@@ -418,6 +430,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	}
 	
 	/* 把解析缓冲区中有效行都处理掉 */
+	line_add = 0 ;
 	while(1)
 	{
 		p_newline = memchr( p_plugin_ctx->parse_buffer , '\n' , p_plugin_ctx->parse_buflen ) ;
@@ -427,7 +440,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		line_len = p_newline - p_plugin_ctx->parse_buffer ;
 		remain_len = p_plugin_ctx->parse_buflen - line_len - 1 ;
 		(*p_newline) = '\0' ;
-		nret = ParseCombineBuffer( p_plugin_ctx , line_len ) ;
+		nret = ParseCombineBuffer( p_plugin_ctx , line_len , line_add ) ;
 		if( nret < 0 )
 		{
 			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
@@ -444,6 +457,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		
 		memmove( p_plugin_ctx->parse_buffer , p_newline+1 , remain_len );
 		p_plugin_ctx->parse_buflen = remain_len ;
+		line_add++;
 	}
 	
 	INFOLOG( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
@@ -452,14 +466,14 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t file_line , uint32_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
 	int				nret = 0 ;
 	
 	/* 保存信息 */
-	p_plugin_ctx->file_offset = file_offset ;
+	p_plugin_ctx->file_line = file_line ;
 	p_plugin_ctx->block_len = block_len ;
 	p_plugin_ctx->block_buf = block_buf ;
 	
