@@ -27,6 +27,7 @@ LIB		=	\
 			logpipe-output-tcp.so \
 			logpipe-input-exec.so \
 			logpipe-output-ek.so \
+			logpipe-output-ingeek.so \
 
 LIBINST		=	$(_LIBINST)
 
