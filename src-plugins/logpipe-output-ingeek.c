@@ -368,8 +368,8 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	}
 	else
 	{
-		INFOLOG( "send block data to socket ok , [%d]bytes" , p_plugin_ctx->block_len )
-		DEBUGHEXLOG( p_plugin_ctx->block_buf , len , NULL )
+		INFOLOG( "send block data to socket ok , [%d]bytes" , line_len )
+		DEBUGHEXLOG( p_plugin_ctx->parse_buffer , line_len , NULL )
 	}
 	
 	len = writen( p_plugin_ctx->p_forward_session->sock , tail_buffer , tail_buffer_len ) ;
@@ -398,7 +398,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	
 	int		nret = 0 ;
 	
-	INFOLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	DEBUGLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	INFOLOG( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
 	
 	/* 如果遗留数据+当前数据块放的下解析缓冲区 */
@@ -452,7 +452,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		}
 		else
 		{
-			INFOLOG( "ParseCombineBuffer ok" )
+			DEBUGLOG( "ParseCombineBuffer ok" )
 		}
 		
 		memmove( p_plugin_ctx->parse_buffer , p_newline+1 , remain_len );
@@ -486,7 +486,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	}
 	else
 	{
-		INFOLOG( "CombineToParseBuffer ok" )
+		DEBUGLOG( "CombineToParseBuffer ok" )
 	}
 	
 	return 0;
