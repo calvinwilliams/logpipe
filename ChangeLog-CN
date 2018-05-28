@@ -1,3 +1,6 @@
+0.20.2		2018-05-28	calvin
+		* 修正了src-plugins/logpipe-output-ingeek.c和src-plugins/logpipe-output-ek.c解析缓存区与logpipe输入缓冲区大小相似造成的大量折行问题
+
 0.20.1		2018-05-18	calvin
 		* 钩子函数原型变动funcReadInputPlugin和funcWriteOutputPlugin
 		* 插件logpipe-output-ingeek调整通讯协议

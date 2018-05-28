@@ -24,7 +24,7 @@ struct ForwardSession
 
 #define DISABLE_TIMEOUT		60
 
-#define PARSE_BUFFER_SIZE	100*1024
+#define PARSE_BUFFER_SIZE	LOGPIPE_BLOCK_BUFSIZE*2
 
 struct OutputPluginContext
 {
@@ -356,7 +356,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	if( p )
 		(*p) = '\0' ;
 	memset( tail_buffer , 0x00 , sizeof(tail_buffer) );
-	tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+	tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	
 	/* 发送数据块到TCP */
 	len = writen( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->parse_buffer , line_len ) ;
@@ -398,7 +398,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	
 	int		nret = 0 ;
 	
-	DEBUGLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	INFOLOG( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
 	
 	/* 如果遗留数据+当前数据块放的下解析缓冲区 */
