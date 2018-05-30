@@ -218,10 +218,21 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		p_forward_session->sock = -1 ;
 		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , i ) ;
 		if( nret )
+		{
+			ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
 			return -1;
+		}
 	}
 	
 	p_plugin_ctx->forward_session_index = -1 ;
+	
+	/* 检查连接，如果连接失效则重连 */
+	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+	if( nret )
+	{
+		ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+		return nret;
+	}
 	
 	return 0;
 }
@@ -297,8 +308,11 @@ _GOTO_RETRY_SEND :
 	
 	/* 检查连接，如果连接失效则重连 */
 	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
-	if( nret < 0 )
+	if( nret )
+	{
+		ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
 		return nret;
+	}
 	
 	memset( comm_buf , 0x00 , sizeof(comm_buf) );
 	comm_buf[0] = LOGPIPE_COMM_HEAD_MAGIC ;

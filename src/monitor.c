@@ -98,7 +98,7 @@ int monitor( struct LogpipeEnv *p_env )
 		{
 			close( p_env->quit_pipe[1] );
 			INFOLOG( "child : [%ld] fork [%ld]" , getppid() , getpid() )
-			return -worker( p_env );
+			exit(-worker(p_env));
 		}
 		else
 		{
