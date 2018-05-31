@@ -1,3 +1,8 @@
+0.20.4		2018-05-31	calvin
+		* 增加logpipe-output-ingeek.so发送TCP性能日志
+		* 调整了部分日志等级
+		* 增大了自身日志缓冲区大小
+
 0.20.3		2018-05-30	calvin
 		* 修正了logpipe-output-ingeek.c和logpipe-output-tcp.c刚连接完未数据收发时停止logpipe，因为p_forward_session指针未赋值引发的coredump
 

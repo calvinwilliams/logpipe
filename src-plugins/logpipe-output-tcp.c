@@ -13,6 +13,14 @@ struct ForwardSession
 	struct sockaddr_in   	addr ;
 	int			sock ;
 	time_t			enable_timestamp ;
+	struct timeval		tv_begin_send_filename ;
+	struct timeval		tv_end_send_filename ;
+	struct timeval		tv_begin_send_block_len ;
+	struct timeval		tv_end_send_block_len ;
+	struct timeval		tv_begin_send_block ;
+	struct timeval		tv_end_send_block ;
+	struct timeval		tv_begin_send_eob ;
+	struct timeval		tv_end_send_eob ;
 } ;
 
 #define IP_PORT_MAXCNT		8
@@ -329,7 +337,9 @@ _GOTO_RETRY_SEND :
 	strncpy( comm_buf+1+sizeof(uint16_t) , filename , filename_len );
 	
 	/* 发送通讯头和文件名 */
+	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_begin_send_filename) , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , comm_buf , 1+sizeof(uint16_t)+filename_len ) ;
+	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_end_send_filename) , NULL );
 	if( len == -1 )
 	{
 		ERRORLOG( "send comm magic and filename failed , errno[%d]" , errno )
@@ -356,7 +366,9 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	
 	/* 发送数据块到TCP */
 	block_len_htonl = htonl(block_len) ;
+	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_begin_send_block_len) , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
+	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_end_send_block_len) , NULL );
 	if( len == -1 )
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
@@ -369,7 +381,9 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
 	}
 	
+	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_begin_send_block) , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , block_buf , block_len ) ;
+	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_end_send_block) , NULL );
 	if( len == -1 )
 	{
 		ERRORLOG( "send block data to socket failed , errno[%d]" , errno )
@@ -392,11 +406,18 @@ int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	
 	uint32_t			block_len_htonl ;
 	
+	struct timeval			tv_diff_send_filename ;
+	struct timeval			tv_diff_send_block_len ;
+	struct timeval			tv_diff_send_block ;
+	struct timeval			tv_diff_send_eob ;
+	
 	int				len ;
 	
 	/* 发送TCP结束分组 */
 	block_len_htonl = htonl(0) ;
+	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_begin_send_eob) , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , & block_len_htonl , sizeof(block_len_htonl) ) ;
+	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_end_send_eob) , NULL );
 	if( len == -1 )
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
@@ -408,6 +429,24 @@ int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		INFOLOG( "send block len to socket ok , [%d]bytes" , sizeof(block_len_htonl) )
 		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
 	}
+	
+	DiffTimeval( & (p_plugin_ctx->p_forward_session->tv_begin_send_filename) , & (p_plugin_ctx->p_forward_session->tv_end_send_filename) , & tv_diff_send_filename );
+	DiffTimeval( & (p_plugin_ctx->p_forward_session->tv_begin_send_block_len) , & (p_plugin_ctx->p_forward_session->tv_end_send_block_len) , & tv_diff_send_block_len );
+	DiffTimeval( & (p_plugin_ctx->p_forward_session->tv_begin_send_block) , & (p_plugin_ctx->p_forward_session->tv_end_send_block) , & tv_diff_send_block );
+	DiffTimeval( & (p_plugin_ctx->p_forward_session->tv_begin_send_eob) , & (p_plugin_ctx->p_forward_session->tv_end_send_eob) , & tv_diff_send_eob );
+	INFOLOG( "SEND-FILENAME[%ld.%06ld][%ld.%06ld][%ld.%06ld] SEND-BLOCK-LEN[%ld.%06ld][%ld.%06ld][%ld.%06ld] SEND-BLOCK[%ld.%06ld][%ld.%06ld][%ld.%06ld] SEND-EOB[%ld.%06ld][%ld.%06ld][%ld.%06ld]"
+		, p_plugin_ctx->p_forward_session->tv_begin_send_filename.tv_sec , p_plugin_ctx->p_forward_session->tv_begin_send_filename.tv_usec
+		, p_plugin_ctx->p_forward_session->tv_end_send_filename.tv_sec , p_plugin_ctx->p_forward_session->tv_end_send_filename.tv_usec
+		, tv_diff_send_filename.tv_sec , tv_diff_send_filename.tv_usec
+		, p_plugin_ctx->p_forward_session->tv_begin_send_block_len.tv_sec , p_plugin_ctx->p_forward_session->tv_begin_send_block_len.tv_usec
+		, p_plugin_ctx->p_forward_session->tv_end_send_block_len.tv_sec , p_plugin_ctx->p_forward_session->tv_end_send_block_len.tv_usec
+		, tv_diff_send_block_len.tv_sec , tv_diff_send_block_len.tv_usec
+		, p_plugin_ctx->p_forward_session->tv_begin_send_block.tv_sec , p_plugin_ctx->p_forward_session->tv_begin_send_block.tv_usec
+		, p_plugin_ctx->p_forward_session->tv_end_send_block.tv_sec , p_plugin_ctx->p_forward_session->tv_end_send_block.tv_usec
+		, tv_diff_send_block.tv_sec , tv_diff_send_block.tv_usec
+		, p_plugin_ctx->p_forward_session->tv_begin_send_eob.tv_sec , p_plugin_ctx->p_forward_session->tv_begin_send_eob.tv_usec
+		, p_plugin_ctx->p_forward_session->tv_end_send_eob.tv_sec , p_plugin_ctx->p_forward_session->tv_end_send_eob.tv_usec
+		, tv_diff_send_eob.tv_sec , tv_diff_send_eob.tv_usec )
 	
 	return 0;
 }

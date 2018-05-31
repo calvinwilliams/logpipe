@@ -358,6 +358,12 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	char		*p = NULL ;
 	char		tail_buffer[ 1024 + 1 ] ;
 	uint32_t	tail_buffer_len ;
+	struct timeval	tv_begin_send_log ;
+	struct timeval	tv_end_send_log ;
+	struct timeval	tv_diff_send_log ;
+	struct timeval	tv_begin_send_tail ;
+	struct timeval	tv_end_send_tail ;
+	struct timeval	tv_diff_send_tail ;
 	
 	int		len ;
 	
@@ -373,7 +379,9 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	
 	/* 发送数据块到TCP */
+	gettimeofday( & tv_begin_send_log , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->parse_buffer , line_len ) ;
+	gettimeofday( & tv_end_send_log , NULL );
 	if( len == -1 )
 	{
 		ERRORLOG( "send block data to socket failed , errno[%d]" , errno )
@@ -382,11 +390,13 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	}
 	else
 	{
-		INFOLOG( "send block data to socket ok , [%d]bytes" , line_len )
+		DEBUGLOG( "send block data to socket ok , [%d]bytes" , line_len )
 		DEBUGHEXLOG( p_plugin_ctx->parse_buffer , line_len , NULL )
 	}
 	
+	gettimeofday( & tv_begin_send_tail , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , tail_buffer , tail_buffer_len ) ;
+	gettimeofday( & tv_end_send_tail , NULL );
 	if( len == -1 )
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
@@ -395,9 +405,19 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	}
 	else
 	{
-		INFOLOG( "send block len to socket ok , [%d]bytes" , tail_buffer_len )
+		DEBUGLOG( "send block len to socket ok , [%d]bytes" , tail_buffer_len )
 		DEBUGHEXLOG( tail_buffer , tail_buffer_len , NULL )
 	}
+	
+	DiffTimeval( & tv_begin_send_log , & tv_end_send_log , & tv_diff_send_log );
+	DiffTimeval( & tv_begin_send_tail , & tv_end_send_tail , & tv_diff_send_tail );
+	INFOLOG( "SEND-LOG[%ld.%06ld][%ld.%06ld][%ld.%06ld] SEND-TAIL[%ld.%06ld][%ld.%06ld][%ld.%06ld]"
+		, tv_begin_send_log.tv_sec , tv_begin_send_log.tv_usec
+		, tv_end_send_log.tv_sec , tv_end_send_log.tv_usec
+		, tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec
+		, tv_begin_send_tail.tv_sec , tv_begin_send_tail.tv_usec
+		, tv_end_send_tail.tv_sec , tv_end_send_tail.tv_usec
+		, tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec )
 	
 	return 0;
 }

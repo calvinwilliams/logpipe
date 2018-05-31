@@ -378,6 +378,9 @@ static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
 {
 	struct HttpBuffer	*http_req = NULL ;
 	struct HttpBuffer	*http_rsp = NULL ;
+	struct timeval		tv_begin_send_http ;
+	struct timeval		tv_end_send_http ;
+	struct timeval		tv_diff_send_http ;
 	int			status_code ;
 	
 	int			nret = 0 ;
@@ -413,7 +416,9 @@ _GOTO_RESEND :
 	INFOLOG( "RequestHttp ..." )
 	INFOLOG( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
 	/* 发送HTTP请求 */
+	gettimeofday( & tv_begin_send_http , NULL );
 	nret = RequestHttp( p_plugin_ctx->sock , NULL , p_plugin_ctx->http_env ) ;
+	gettimeofday( & tv_end_send_http , NULL );
 	http_rsp = GetHttpResponseBuffer( p_plugin_ctx->http_env ) ;
 	if( nret )
 	{
@@ -435,6 +440,12 @@ _GOTO_RESEND :
 		INFOLOG( "RequestHttp ok" )
 		INFOLOG( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
 	}
+	
+	DiffTimeval( & tv_begin_send_http , & tv_end_send_http , & tv_diff_send_http );
+	INFOLOG( "SEND-HTTP[%ld.%06ld][%ld.%06ld][%ld.%06ld]"
+		, tv_begin_send_http.tv_sec , tv_begin_send_http.tv_usec
+		, tv_end_send_http.tv_sec , tv_end_send_http.tv_usec
+		, tv_diff_send_http.tv_sec , tv_diff_send_http.tv_usec )
 	
 	/* 检查HTTP响应头 */
 	status_code = GetHttpStatusCode( p_plugin_ctx->http_env ) ;
