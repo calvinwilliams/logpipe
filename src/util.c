@@ -426,3 +426,18 @@ char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr )
         return ConvertContentEncodingEx( encFrom , encTo , inptr , NULL , NULL , NULL );
 }
 
+/* 计算两个秒戳结构之间的微秒差 */
+void DiffTimeval( struct timeval *p_tv1 , struct timeval *p_tv2 , struct timeval *p_diff )
+{
+	p_diff->tv_sec = p_tv2->tv_sec - p_tv1->tv_sec ;
+	p_diff->tv_usec = p_tv2->tv_usec - p_tv1->tv_usec ;
+	
+	while( p_diff->tv_usec < 0 )
+	{
+		p_diff->tv_usec += 1000000 ;
+		p_diff->tv_sec--;
+	}
+	
+	return;
+}
+

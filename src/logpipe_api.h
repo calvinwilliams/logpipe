@@ -113,6 +113,9 @@ int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf ,
 /* 字符串展开 */        
 int ExpandStringBuffer( char *base , int buf_size );
 
+/* 时间 */
+void DiffTimeval( struct timeval *p_tv1 , struct timeval *p_tv2 , struct timeval *p_diff );
+
 #ifdef __cplusplus
 extern }
 #endif
