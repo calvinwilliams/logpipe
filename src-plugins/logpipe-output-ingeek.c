@@ -28,9 +28,7 @@ struct ForwardSession
 
 struct OutputPluginContext
 {
-	/*
 	char			*key ;
-	*/
 	char			*path ;
 	struct ForwardSession	forward_session_array[IP_PORT_MAXCNT] ;
 	int			forward_session_count ;
@@ -64,15 +62,8 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
 	
-	/*
 	p_plugin_ctx->key = QueryPluginConfigItem( p_plugin_config_items , "key" ) ;
 	INFOLOG( "key[%s]" , p_plugin_ctx->key )
-	if( p_plugin_ctx->key == NULL || p_plugin_ctx->key[0] == '\0' )
-	{
-		ERRORLOG( "expect config for 'key'" );
-		return -1;
-	}
-	*/
 	
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
 	INFOLOG( "path[%s]" , p_plugin_ctx->path )
@@ -370,13 +361,20 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	INFOLOG( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	
 	/* 填充尾巴 */
-	memset( mainfilename , 0x00 , sizeof(mainfilename) );
-	strncpy( mainfilename , p_plugin_ctx->filename , sizeof(mainfilename)-1 );
-	p = strrchr( mainfilename , '.' ) ;
-	if( p )
-		(*p) = '\0' ;
 	memset( tail_buffer , 0x00 , sizeof(tail_buffer) );
-	tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+	if( p_plugin_ctx->key )
+	{
+		tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]\n" , p_plugin_ctx->key , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+	}
+	else
+	{
+		memset( mainfilename , 0x00 , sizeof(mainfilename) );
+		strncpy( mainfilename , p_plugin_ctx->filename , sizeof(mainfilename)-1 );
+		p = strrchr( mainfilename , '.' ) ;
+		if( p )
+			(*p) = '\0' ;
+		tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+	}
 	
 	/* 发送数据块到TCP */
 	gettimeofday( & tv_begin_send_log , NULL );
