@@ -26,7 +26,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	/* 执行所有输出端写前函数 */
 	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
-		DEBUGLOG( "[%s]->pfuncBeforeWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
+		INFOLOG( "[%s]->pfuncBeforeWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
 		gettimeofday( & tv_begin , NULL );
 		nret = p_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , filename_len , filename ) ;
 		gettimeofday( & tv_end , NULL );
@@ -55,7 +55,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	while(1)
 	{
 		/* 执行输入端读函数 */
-		DEBUGLOG( "[%s]->pfuncReadInputPlugin ..." , p_logpipe_input_plugin->so_filename );
+		INFOLOG( "[%s]->pfuncReadInputPlugin ..." , p_logpipe_input_plugin->so_filename );
 		memset( block_buf , 0x00 , sizeof(block_buf) );
 		gettimeofday( & tv_begin , NULL );
 		nret = p_logpipe_input_plugin->pfuncReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & file_offset , & file_line , & block_len , block_buf , sizeof(block_buf) ) ;
@@ -89,7 +89,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		/* 执行所有输出端写函数 */
 		list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 		{
-			DEBUGLOG( "[%s]->pfuncWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
+			INFOLOG( "[%s]->pfuncWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
 			gettimeofday( & tv_begin , NULL );
 			nret = p_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , file_offset , file_line , block_len , block_buf ) ;
 			gettimeofday( & tv_end , NULL );
@@ -119,7 +119,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	/* 执行所有输出端写后函数 */
 	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
-		DEBUGLOG( "[%s]->pfuncAfterWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
+		INFOLOG( "[%s]->pfuncAfterWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
 		gettimeofday( & tv_begin , NULL );
 		nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , filename_len , filename ) ;
 		gettimeofday( & tv_end , NULL );

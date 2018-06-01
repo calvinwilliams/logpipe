@@ -1,5 +1,10 @@
 #include "logpipe_api.h"
 
+/* append following in '/etc/sysctl.conf' and exeute 'sysctl -p' as root
+fs.inotify.max_user_watches=99999999
+fs.inotify.max_queued_events=99999999
+*/
+
 /* cmd for testing
 logpipe -f logpipe_case1_collector.conf --start-once-for-env "start_once_for_full_dose 1"
 */
