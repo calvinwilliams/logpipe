@@ -434,18 +434,10 @@ int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	DiffTimeval( & (p_plugin_ctx->p_forward_session->tv_begin_send_block_len) , & (p_plugin_ctx->p_forward_session->tv_end_send_block_len) , & tv_diff_send_block_len );
 	DiffTimeval( & (p_plugin_ctx->p_forward_session->tv_begin_send_block) , & (p_plugin_ctx->p_forward_session->tv_end_send_block) , & tv_diff_send_block );
 	DiffTimeval( & (p_plugin_ctx->p_forward_session->tv_begin_send_eob) , & (p_plugin_ctx->p_forward_session->tv_end_send_eob) , & tv_diff_send_eob );
-	INFOLOG( "SEND-FILENAME[%ld.%06ld][%ld.%06ld][%ld.%06ld] SEND-BLOCK-LEN[%ld.%06ld][%ld.%06ld][%ld.%06ld] SEND-BLOCK[%ld.%06ld][%ld.%06ld][%ld.%06ld] SEND-EOB[%ld.%06ld][%ld.%06ld][%ld.%06ld]"
-		, p_plugin_ctx->p_forward_session->tv_begin_send_filename.tv_sec , p_plugin_ctx->p_forward_session->tv_begin_send_filename.tv_usec
-		, p_plugin_ctx->p_forward_session->tv_end_send_filename.tv_sec , p_plugin_ctx->p_forward_session->tv_end_send_filename.tv_usec
+	INFOLOG( "SEND-FILENAME[%ld.%06ld] SEND-BLOCK-LEN[%ld.%06ld] SEND-BLOCK[%ld.%06ld] SEND-EOB[%ld.%06ld]"
 		, tv_diff_send_filename.tv_sec , tv_diff_send_filename.tv_usec
-		, p_plugin_ctx->p_forward_session->tv_begin_send_block_len.tv_sec , p_plugin_ctx->p_forward_session->tv_begin_send_block_len.tv_usec
-		, p_plugin_ctx->p_forward_session->tv_end_send_block_len.tv_sec , p_plugin_ctx->p_forward_session->tv_end_send_block_len.tv_usec
 		, tv_diff_send_block_len.tv_sec , tv_diff_send_block_len.tv_usec
-		, p_plugin_ctx->p_forward_session->tv_begin_send_block.tv_sec , p_plugin_ctx->p_forward_session->tv_begin_send_block.tv_usec
-		, p_plugin_ctx->p_forward_session->tv_end_send_block.tv_sec , p_plugin_ctx->p_forward_session->tv_end_send_block.tv_usec
 		, tv_diff_send_block.tv_sec , tv_diff_send_block.tv_usec
-		, p_plugin_ctx->p_forward_session->tv_begin_send_eob.tv_sec , p_plugin_ctx->p_forward_session->tv_begin_send_eob.tv_usec
-		, p_plugin_ctx->p_forward_session->tv_end_send_eob.tv_sec , p_plugin_ctx->p_forward_session->tv_end_send_eob.tv_usec
 		, tv_diff_send_eob.tv_sec , tv_diff_send_eob.tv_usec )
 	
 	return 0;
