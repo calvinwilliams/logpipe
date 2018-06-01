@@ -114,7 +114,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	}
 	else
 	{
-		DEBUGLOG( "open file[%s] ok" , path_filename )
+		INFOLOG( "open file[%s] ok" , path_filename )
 	}
 	
 	return 0;

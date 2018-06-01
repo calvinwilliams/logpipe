@@ -411,13 +411,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	
 	DiffTimeval( & tv_begin_send_log , & tv_end_send_log , & tv_diff_send_log );
 	DiffTimeval( & tv_begin_send_tail , & tv_end_send_tail , & tv_diff_send_tail );
-	INFOLOG( "SEND-LOG[%ld.%06ld][%ld.%06ld][%ld.%06ld] SEND-TAIL[%ld.%06ld][%ld.%06ld][%ld.%06ld]"
-		, tv_begin_send_log.tv_sec , tv_begin_send_log.tv_usec
-		, tv_end_send_log.tv_sec , tv_end_send_log.tv_usec
-		, tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec
-		, tv_begin_send_tail.tv_sec , tv_begin_send_tail.tv_usec
-		, tv_end_send_tail.tv_sec , tv_end_send_tail.tv_usec
-		, tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec )
+	INFOLOG( "SEND-LOG[%ld.%06ld] SEND-TAIL[%ld.%06ld]" , tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec , tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec )
 	
 	return 0;
 }

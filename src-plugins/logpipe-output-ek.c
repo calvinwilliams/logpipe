@@ -442,10 +442,7 @@ _GOTO_RESEND :
 	}
 	
 	DiffTimeval( & tv_begin_send_http , & tv_end_send_http , & tv_diff_send_http );
-	INFOLOG( "SEND-HTTP[%ld.%06ld][%ld.%06ld][%ld.%06ld]"
-		, tv_begin_send_http.tv_sec , tv_begin_send_http.tv_usec
-		, tv_end_send_http.tv_sec , tv_end_send_http.tv_usec
-		, tv_diff_send_http.tv_sec , tv_diff_send_http.tv_usec )
+	INFOLOG( "SEND-HTTP[%ld.%06ld]" , tv_diff_send_http.tv_sec , tv_diff_send_http.tv_usec )
 	
 	/* ¼ì²éHTTPÏìÓ¦Í· */
 	status_code = GetHttpStatusCode( p_plugin_ctx->http_env ) ;

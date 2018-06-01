@@ -17,6 +17,9 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	uint32_t			file_line ;
 	char				block_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
 	uint32_t			block_len ;
+	struct timeval			tv_begin ;
+	struct timeval			tv_end ;
+	struct timeval			tv_diff ;
 	
 	int				nret = 0 ;
 	
@@ -24,7 +27,10 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
 		DEBUGLOG( "[%s]->pfuncBeforeWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
+		gettimeofday( & tv_begin , NULL );
 		nret = p_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , filename_len , filename ) ;
+		gettimeofday( & tv_end , NULL );
+		DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 		if( nret < 0 )
 		{
 			ERRORLOG( "[%s]->pfuncBeforeWriteOutputPlugin failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno )
@@ -42,7 +48,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		else
 		{
-			DEBUGLOG( "[%s]->pfuncBeforeWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename )
+			INFOLOG( "[%s]->pfuncBeforeWriteOutputPlugin ok , ELAPSE[%ld.%06ld]" , p_logpipe_output_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
 		}
 	}
 	
@@ -51,7 +57,10 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		/* 执行输入端读函数 */
 		DEBUGLOG( "[%s]->pfuncReadInputPlugin ..." , p_logpipe_input_plugin->so_filename );
 		memset( block_buf , 0x00 , sizeof(block_buf) );
+		gettimeofday( & tv_begin , NULL );
 		nret = p_logpipe_input_plugin->pfuncReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & file_offset , & file_line , & block_len , block_buf , sizeof(block_buf) ) ;
+		gettimeofday( & tv_end , NULL );
+		DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 		if( nret == LOGPIPE_READ_END_OF_INPUT )
 		{
 			INFOLOG( "[%s]->pfuncReadInputPlugin done" , p_logpipe_input_plugin->so_filename )
@@ -74,14 +83,17 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		else
 		{
-			DEBUGLOG( "[%s]->pfuncReadInputPlugin ok" , p_logpipe_input_plugin->so_filename )
+			INFOLOG( "[%s]->pfuncReadInputPlugin ok , ELAPSE[%ld.%06ld]" , p_logpipe_input_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
 		}
 		
 		/* 执行所有输出端写函数 */
 		list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 		{
 			DEBUGLOG( "[%s]->pfuncWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
+			gettimeofday( & tv_begin , NULL );
 			nret = p_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , file_offset , file_line , block_len , block_buf ) ;
+			gettimeofday( & tv_end , NULL );
+			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret < 0 )
 			{
 				ERRORLOG( "[%s]->pfuncWriteOutputPlugin failed[%d]" , p_logpipe_output_plugin->so_filename , nret )
@@ -99,7 +111,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 			}
 			else
 			{
-				DEBUGLOG( "[%s]->pfuncWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename )
+				INFOLOG( "[%s]->pfuncWriteOutputPlugin ok , ELAPSE[%ld.%06ld]" , p_logpipe_output_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
 			}
 		}
 	}
@@ -108,7 +120,10 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
 		DEBUGLOG( "[%s]->pfuncAfterWriteOutputPlugin ..." , p_logpipe_output_plugin->so_filename )
+		gettimeofday( & tv_begin , NULL );
 		nret = p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context , filename_len , filename ) ;
+		gettimeofday( & tv_end , NULL );
+		DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 		if( nret < 0 )
 		{
 			ERRORLOG( "[%s]->pfuncAfterWriteOutputPlugin failed[%d]" , p_logpipe_output_plugin->so_filename , nret )
@@ -120,9 +135,10 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		else
 		{
-			DEBUGLOG( "[%s]->pfuncAfterWriteOutputPlugin ok" , p_logpipe_output_plugin->so_filename )
+			INFOLOG( "[%s]->pfuncAfterWriteOutputPlugin ok , ELAPSE[%ld.%06ld]" , p_logpipe_output_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
 		}
 	}
 	
 	return 0;
 }
+
