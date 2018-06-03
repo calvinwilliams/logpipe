@@ -1,3 +1,6 @@
+0.20.5		2018-06-03	calvin
+		* 修正了logpipe-output-file.so大小转档问题
+
 0.20.4		2018-05-31	calvin
 		* 增加logpipe-output-ingeek.so发送TCP性能日志
 		* 调整了部分日志等级

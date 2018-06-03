@@ -10,6 +10,9 @@ struct OutputPluginContext
 	char		exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
 	char		*exec_after_rotating ;
 	
+	uint32_t	filename_len ;
+	char		*filename ;
+	char		path_filename[ PATH_MAX + 1 ] ;
 	int		fd ;
 } ;
 
@@ -96,26 +99,88 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	return 0;
 }
 
+/* 打开文件 */
+static int OpenFile( struct OutputPluginContext *p_plugin_ctx )
+{
+	p_plugin_ctx->fd = open( p_plugin_ctx->path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
+	if( p_plugin_ctx->fd == -1 )
+	{
+		ERRORLOG( "open file[%s] failed , errno[%d]" , p_plugin_ctx->path_filename , errno )
+		return 1;
+	}
+	else
+	{
+		INFOLOG( "open file[%s] ok" , p_plugin_ctx->path_filename )
+	}
+	
+	return 0;
+}
+
+/* 关闭文件 */
+static void CloseFile( struct OutputPluginContext *p_plugin_ctx )
+{
+	INFOLOG( "close file" )
+	close( p_plugin_ctx->fd ); p_plugin_ctx->fd = -1 ;
+	
+	return;
+}
+
+/* 文件大小转档处理 */
+static int RotatingFile( struct OutputPluginContext *p_plugin_ctx )
+{
+	struct timeval	tv ;
+	struct tm	tm ;
+	char		old_filename[ PATH_MAX + 1 ] ;
+	char		new_filename[ PATH_MAX + 1 ] ;
+	
+	int		nret = 0 ;
+	
+	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , p_plugin_ctx->filename_len , p_plugin_ctx->filename );
+	gettimeofday( & tv , NULL );
+	memset( & tm , 0x00 , sizeof(struct tm) );
+	localtime_r( & (tv.tv_sec) , & tm );
+	memset( new_filename , 0x00 , sizeof(new_filename) );
+	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d_%06ld" , p_plugin_ctx->path , p_plugin_ctx->filename_len , p_plugin_ctx->filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec , tv.tv_usec );
+	
+	setenv( "LOGPIPE_ROTATING_PATHNAME" , p_plugin_ctx->path , 1 );
+	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
+	
+	nret = rename( old_filename , new_filename ) ;
+	
+	if( p_plugin_ctx->exec_after_rotating )
+	{
+		system( p_plugin_ctx->exec_after_rotating );
+	}
+	
+	if( nret )
+	{
+		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
+		return -1;
+	}
+	else
+	{
+		INFOLOG( "rename [%s] to [%s] ok" , old_filename , new_filename )
+	}
+	
+	return 0;
+}
+
 funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
 int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
-	char				path_filename[ PATH_MAX + 1 ] ;
+	int				nret = 0 ;
 	
-	/* 打开文件 */
-	memset( path_filename , 0x00 , sizeof(path_filename) );
-	snprintf( path_filename , sizeof(path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , filename_len , filename );
-	p_plugin_ctx->fd = open( path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
-	if( p_plugin_ctx->fd == -1 )
-	{
-		ERRORLOG( "open file[%s] failed , errno[%d]" , path_filename , errno )
-		return 1;
-	}
-	else
-	{
-		INFOLOG( "open file[%s] ok" , path_filename )
-	}
+	p_plugin_ctx->filename_len = filename_len ;
+	p_plugin_ctx->filename = filename ;
+	
+	memset( p_plugin_ctx->path_filename , 0x00 , sizeof(p_plugin_ctx->path_filename) );
+	snprintf( p_plugin_ctx->path_filename , sizeof(p_plugin_ctx->path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , p_plugin_ctx->filename_len , p_plugin_ctx->filename );
+	
+	nret = OpenFile( p_plugin_ctx ) ;
+	if( nret )
+		return nret;
 	
 	return 0;
 }
@@ -183,44 +248,30 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		}
 	}
 	
-	return 0;
-}
-
-/* 文件大小转档处理 */
-static int RotatingFile( struct OutputPluginContext *p_plugin_ctx , char *pathname , char *filename , int filename_len )
-{
-	struct timeval	tv ;
-	struct tm	tm ;
-	char		old_filename[ PATH_MAX + 1 ] ;
-	char		new_filename[ PATH_MAX + 1 ] ;
-	
-	int		nret = 0 ;
-	
-	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%.*s" , pathname , filename_len , filename );
-	gettimeofday( & tv , NULL );
-	memset( & tm , 0x00 , sizeof(struct tm) );
-	localtime_r( & (tv.tv_sec) , & tm );
-	memset( new_filename , 0x00 , sizeof(new_filename) );
-	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d_%06ld" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec , tv.tv_usec );
-	
-	setenv( "LOGPIPE_ROTATING_PATHNAME" , pathname , 1 );
-	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
-	
-	nret = rename( old_filename , new_filename ) ;
-	
-	if( p_plugin_ctx->exec_after_rotating )
+	/* 如果启用文件大小转档 */
+	if( p_plugin_ctx->rotate_size > 0 )
 	{
-		system( p_plugin_ctx->exec_after_rotating );
-	}
-	
-	if( nret )
-	{
-		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
-		return -1;
-	}
-	else
-	{
-		INFOLOG( "rename [%s] to [%s] ok" , old_filename , new_filename )
+		struct stat		file_stat ;
+		
+		memset( & file_stat , 0x00 , sizeof(struct stat) );
+		nret = fstat( p_plugin_ctx->fd , & file_stat ) ;
+		if( nret == 0 )
+		{
+			/* 如果到达文件转档大小 */
+			if( file_stat.st_size >= p_plugin_ctx->rotate_size )
+			{
+				INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
+				
+				/* 关闭文件 */
+				CloseFile( p_plugin_ctx );
+				
+				/* 文件大小转档处理 */
+				RotatingFile( p_plugin_ctx );
+				
+				/* 打开文件 */
+				OpenFile( p_plugin_ctx );
+			}
+		}
 	}
 	
 	return 0;
@@ -230,31 +281,11 @@ funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
 int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	struct stat			file_stat ;
-	
-	int				nret = 0 ;
 	
 	if( p_plugin_ctx->fd >= 0 )
 	{
-		/* 如果启用文件大小转档 */
-		if( p_plugin_ctx->rotate_size > 0 )
-		{
-			memset( & file_stat , 0x00 , sizeof(struct stat) );
-			nret = fstat( p_plugin_ctx->fd , & file_stat ) ;
-			if( nret == 0 )
-			{
-				/* 如果到达文件转档大小 */
-				if( file_stat.st_size >= p_plugin_ctx->rotate_size )
-				{
-					INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
-					RotatingFile( p_plugin_ctx , p_plugin_ctx->path , filename , filename_len );
-				}
-			}
-		}
-		
 		/* 关闭文件 */
-		INFOLOG( "close file" )
-		close( p_plugin_ctx->fd ); p_plugin_ctx->fd = -1 ;
+		CloseFile( p_plugin_ctx );
 	}
 	
 	return 0;
