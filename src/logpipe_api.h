@@ -48,6 +48,18 @@ int asprintf(char **strp, const char *fmt, ...);
 #include "LOGC.h"
 #include "fasterjson.h"
 
+#ifndef MAX
+#define MAX(_a_,_b_) ( (_a_)>(_b_)?(_a_):(_b_) )
+#endif
+
+#ifndef MIN
+#define MIN(_a_,_b_) ( (_a_)<(_b_)?(_a_):(_b_) )
+#endif
+
+#ifndef SNPRINTF_OVERFLOW
+#define SNPRINTF_OVERFLOW(_ret_,_sizeof_)		( (_ret_) == -1 || (_ret_) >= (_sizeof_) )
+#endif
+
 ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t readn(int fd, void *vptr, size_t n);
 char *ConvertContentEncodingEx( char *encFrom , char *encTo , char *inptr , int *inptrlen , char *outptr , int *outptrlen );

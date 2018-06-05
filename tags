@@ -96,7 +96,7 @@ DEBUGHEXLOG	src/LOGC.h	184;"	d
 DEBUGLOG	src/LOGC.h	177;"	d
 DEBUG_COMM	src-plugins/fasterhttp.c	605;"	d	file:
 DEBUG_PARSER	src-plugins/fasterhttp.c	897;"	d	file:
-DESTROY_RBTREE	src/rbtree_tpl.h	233;"	d
+DESTROY_RBTREE	src/rbtree_tpl.h	263;"	d
 DIROBJS	makefile	/^DIROBJS		= \\$/;"	m
 DISABLE_TIMEOUT	src-plugins/logpipe-output-ingeek.c	25;"	d	file:
 DISABLE_TIMEOUT	src-plugins/logpipe-output-tcp.c	28;"	d	file:
@@ -206,7 +206,7 @@ FASTERJSON_TOKEN_TEXT	src/fasterjson.c	25;"	d	file:
 FATALHEXLOG	src/LOGC.h	180;"	d
 FATALLOG	src/LOGC.h	173;"	d
 FORMAT_BUFFER_SIZE	src-plugins/logpipe-output-ek.c	21;"	d	file:
-FREE_RBTREENODEENTRY_DIRECTLY	src/rbtree_tpl.h	231;"	d
+FREE_RBTREENODEENTRY_DIRECTLY	src/rbtree_tpl.h	261;"	d
 FSTAT	src-plugins/fasterhttp.c	3561;"	d	file:
 FSTAT	src-plugins/fasterhttp.c	3564;"	d	file:
 FatalHexLog	src/LOGC.c	/^int FatalHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )$/;"	f
@@ -220,6 +220,7 @@ ForwardSession	src-plugins/logpipe-output-ingeek.c	/^struct ForwardSession$/;"	s
 ForwardSession	src-plugins/logpipe-output-tcp.c	/^struct ForwardSession$/;"	s	file:
 FreeHttpBuffer	src-plugins/fasterhttp.c	/^void FreeHttpBuffer( struct HttpBuffer *b )$/;"	f
 FreeTraceFile	src-plugins/logpipe-input-file.c	/^void FreeTraceFile( void *pv )$/;"	f
+FreeTraceFile	src-plugins/logpipe-output-file.c	/^void FreeTraceFile( void *pv )$/;"	f
 FreeTraceFile	src-plugins/logpipe-output-hdfs.c	/^void FreeTraceFile( void *pv )$/;"	f
 GetHttpAppendBuffer	src-plugins/fasterhttp.c	/^struct HttpBuffer *GetHttpAppendBuffer( struct HttpEnv *e )$/;"	f
 GetHttpBodyLen	src-plugins/fasterhttp.c	/^int GetHttpBodyLen( struct HttpEnv *e )$/;"	f
@@ -256,7 +257,6 @@ GetParserCustomIntData	src-plugins/fasterhttp.c	/^int GetParserCustomIntData( st
 GetParserCustomPtrData	src-plugins/fasterhttp.c	/^void *GetParserCustomPtrData( struct HttpEnv *e )$/;"	f
 GetTimeval	src/util.c	/^static struct timeval *GetTimeval( struct timeval *p_tv , struct timeval *tv )$/;"	f	file:
 GetTm	src/util.c	/^static struct tm *GetTm( struct tm *p_stime , struct timeval *p_tv , struct tm *stime )$/;"	f	file:
-GetTryCheckTraceFileRecently	src-plugins/logpipe-input-file.c	/^struct TraceFile *GetTryCheckTraceFileRecently( struct InputPluginContext *p_plugin_ctx , time_t now )$/;"	f
 HDER	src/makefile	/^HDER		= \\$/;"	m
 HDERINST	src/makefile	/^HDERINST	=	$(_HDERINST)$/;"	m
 HLIST_HEAD	src/list.h	321;"	d
@@ -431,7 +431,7 @@ INFOLOG	src/LOGC.h	176;"	d
 INIT_HLIST_HEAD	src/list.h	322;"	d
 INIT_HLIST_NODE	src/list.c	/^void INIT_HLIST_NODE(struct hlist_node *h)$/;"	f
 INIT_LIST_HEAD	src/list.c	/^void INIT_LIST_HEAD(struct list_head *list)$/;"	f
-INOTIFY_READ_BUFSIZE	src-plugins/logpipe-input-file.c	33;"	d	file:
+INOTIFY_READ_BUFSIZE	src-plugins/logpipe-input-file.c	31;"	d	file:
 IP_PORT_MAXCNT	src-plugins/logpipe-output-ingeek.c	23;"	d	file:
 IP_PORT_MAXCNT	src-plugins/logpipe-output-tcp.c	26;"	d	file:
 InfoHexLog	src/LOGC.c	/^int InfoHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )$/;"	f
@@ -478,6 +478,7 @@ LIBINST	src/makefile	/^LIBINST		=	$(_LIBINST)$/;"	m
 LIKELY	src-plugins/fasterhttp.h	55;"	d
 LIKELY	src-plugins/fasterhttp.h	58;"	d
 LINK_RBTREENODE	src/rbtree_tpl.h	140;"	d
+LINK_RBTREENODE_ALLOWDUPLICATE	src/rbtree_tpl.h	170;"	d
 LINK_RBTREENODE_INT	src/rbtree_tpl.h	63;"	d
 LINK_RBTREENODE_INT_ALLOWDUPLICATE	src/rbtree_tpl.h	111;"	d
 LINK_RBTREENODE_STRING	src/rbtree_tpl.h	11;"	d
@@ -490,8 +491,8 @@ LOGLEVEL_ERROR	src/LOGC.h	84;"	d
 LOGLEVEL_FATAL	src/LOGC.h	85;"	d
 LOGLEVEL_INFO	src/LOGC.h	82;"	d
 LOGLEVEL_WARN	src/LOGC.h	83;"	d
-LOGPIPE_BLOCK_BUFSIZE	src/logpipe_api.h	56;"	d
-LOGPIPE_COMM_HEAD_MAGIC	src/logpipe_api.h	59;"	d
+LOGPIPE_BLOCK_BUFSIZE	src/logpipe_api.h	68;"	d
+LOGPIPE_COMM_HEAD_MAGIC	src/logpipe_api.h	71;"	d
 LOGPIPE_CONFIG_INPUTS	src/config.c	13;"	d	file:
 LOGPIPE_CONFIG_INPUTS_	src/config.c	14;"	d	file:
 LOGPIPE_CONFIG_LOG_LOGFILE	src/config.c	11;"	d	file:
@@ -500,10 +501,9 @@ LOGPIPE_CONFIG_OUTPUTS	src/config.c	15;"	d	file:
 LOGPIPE_CONFIG_OUTPUTS_	src/config.c	16;"	d	file:
 LOGPIPE_PLUGIN_TYPE_INPUT	src/logpipe_in.h	31;"	d
 LOGPIPE_PLUGIN_TYPE_OUTPUT	src/logpipe_in.h	32;"	d
-LOGPIPE_READ_END_OF_INPUT	src/logpipe_api.h	61;"	d
-LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE	src/logpipe_api.h	57;"	d
+LOGPIPE_READ_END_OF_INPUT	src/logpipe_api.h	73;"	d
+LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE	src/logpipe_api.h	69;"	d
 LoadConfig	src/config.c	/^int LoadConfig( struct LogpipeEnv *p_env )$/;"	f
-LoadFilesToInotifyWdTree	src-plugins/logpipe-input-file.c	/^static int LoadFilesToInotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx )$/;"	f	file:
 LoadInputPluginConfig	src-plugins/logpipe-input-exec.c	/^funcLoadInputPluginConfig LoadInputPluginConfig ;$/;"	v
 LoadInputPluginConfig	src-plugins/logpipe-input-exec.c	/^int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )$/;"	f
 LoadInputPluginConfig	src-plugins/logpipe-input-file.c	/^funcLoadInputPluginConfig LoadInputPluginConfig ;$/;"	v
@@ -530,6 +530,7 @@ LogpipeOutputPlugin	src/logpipe_in.h	/^struct LogpipeOutputPlugin$/;"	s
 LogpipePlugin	src/logpipe_in.h	/^struct LogpipePlugin$/;"	s
 LogpipePluginConfigItem	src/logpipe_in.h	/^struct LogpipePluginConfigItem$/;"	s
 MAX	src/fasterjson.c	13;"	d	file:
+MAX	src/logpipe_api.h	52;"	d
 MAXLEN_FILENAME	src/LOGC.h	42;"	d
 MAXLEN_XMLCONTENT	src/util.c	352;"	d	file:
 MAX_EPOLL_EVENTS	src/worker.c	12;"	d	file:
@@ -537,6 +538,7 @@ MEMCMP	src-plugins/fasterhttp.h	79;"	d
 MEMCMP	src/LOGC.h	51;"	d
 MEMCMP	src/fasterjson.c	9;"	d	file:
 METHOD	src-plugins/fasterhttp.c	/^	struct HttpHeader	METHOD ;$/;"	m	struct:HttpHeaders	typeref:struct:HttpHeaders::HttpHeader	file:
+MIN	src/logpipe_api.h	56;"	d
 MemcatHttpBuffer	src-plugins/fasterhttp.c	/^int MemcatHttpBuffer( struct HttpBuffer *b , char *base , int len )$/;"	f
 MemcatHttpBufferFromFile	src-plugins/fasterhttp.c	/^int MemcatHttpBufferFromFile( struct HttpBuffer *b , char *pathfilename , int *p_file_len )$/;"	f
 NEWLINE	src/LOGC.h	65;"	d
@@ -558,8 +560,6 @@ OnInputPluginEvent	src-plugins/logpipe-input-tcp.c	/^funcOnInputPluginEvent OnIn
 OnInputPluginEvent	src-plugins/logpipe-input-tcp.c	/^int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )$/;"	f
 OnInputPluginEvent_accepted_session	src-plugins/logpipe-input-tcp.c	/^funcOnInputPluginEvent OnInputPluginEvent_accepted_session ;$/;"	v
 OnInputPluginEvent_accepted_session	src-plugins/logpipe-input-tcp.c	/^int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )$/;"	f
-OnInputPluginIdle	src-plugins/logpipe-input-file.c	/^funcOnInputPluginIdle OnInputPluginIdle ;$/;"	v
-OnInputPluginIdle	src-plugins/logpipe-input-file.c	/^int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )$/;"	f
 OnOutputPluginEvent	src-plugins/logpipe-output-ek.c	/^funcOnOutputPluginEvent OnOutputPluginEvent;$/;"	v
 OnOutputPluginEvent	src-plugins/logpipe-output-ek.c	/^int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )$/;"	f
 OnOutputPluginEvent	src-plugins/logpipe-output-file.c	/^funcOnOutputPluginEvent OnOutputPluginEvent;$/;"	v
@@ -596,7 +596,7 @@ ParseHttpRequest	src-plugins/fasterhttp.c	/^int ParseHttpRequest( struct HttpEnv
 ParseHttpResponse	src-plugins/fasterhttp.c	/^int ParseHttpResponse( struct HttpEnv *e )$/;"	f
 PostToEk	src-plugins/logpipe-output-ek.c	/^static int PostToEk( struct OutputPluginContext *p_plugin_ctx )$/;"	f	file:
 ProcessOnIdle	src/idle.c	/^int ProcessOnIdle( struct LogpipeEnv *p_env )$/;"	f
-QUERY_RBTREENODE	src/rbtree_tpl.h	170;"	d
+QUERY_RBTREENODE	src/rbtree_tpl.h	200;"	d
 QUERY_RBTREENODE_INT	src/rbtree_tpl.h	90;"	d
 QUERY_RBTREENODE_STRING	src/rbtree_tpl.h	40;"	d
 QueryHttpHeader	src-plugins/fasterhttp.c	/^struct HttpHeader *QueryHttpHeader( struct HttpEnv *e , char *name )$/;"	f
@@ -613,6 +613,7 @@ READ	src/LOGC.h	60;"	d
 READ	src/LOGC.h	71;"	d
 READ_ONCE	src/list.h	28;"	d
 REASONPHRASE	src-plugins/fasterhttp.c	/^	struct HttpHeader	REASONPHRASE ;$/;"	m	struct:HttpHeaders	typeref:struct:HttpHeaders::HttpHeader	file:
+ReadFilesToinotifyWdTree	src-plugins/logpipe-input-file.c	/^static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx )$/;"	f	file:
 ReadInputPlugin	src-plugins/logpipe-input-exec.c	/^funcReadInputPlugin ReadInputPlugin ;$/;"	v
 ReadInputPlugin	src-plugins/logpipe-input-exec.c	/^int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_file_line , uint32_t *p_block_len , char *block_buf , int block_bufsize )$/;"	f
 ReadInputPlugin	src-plugins/logpipe-input-file.c	/^funcReadInputPlugin ReadInputPlugin ;$/;"	v
@@ -644,10 +645,11 @@ SNPRINTF	src-plugins/fasterhttp.h	92;"	d
 SNPRINTF	src-plugins/fasterhttp.h	95;"	d
 SNPRINTF	src/LOGC.h	58;"	d
 SNPRINTF	src/LOGC.h	69;"	d
+SNPRINTF_OVERFLOW	src/logpipe_api.h	60;"	d
 SOCKET	src-plugins/fasterhttp.h	112;"	d
 SOCKLEN_T	src-plugins/fasterhttp.h	108;"	d
 SOCKLEN_T	src-plugins/fasterhttp.h	113;"	d
-START_ONCE_FOR_ENV	src/main.c	33;"	d	file:
+START_ONCE_FOR_ENV	src/main.c	36;"	d	file:
 STAT	src-plugins/fasterhttp.c	3560;"	d	file:
 STAT	src-plugins/fasterhttp.c	3563;"	d	file:
 STATUS	src-plugins/fasterhttp.c	/^	int	STATUS ;$/;"	m	struct:HttpStatus	file:
@@ -711,9 +713,10 @@ TLS	src/LOGC.h	56;"	d
 TLS	src/LOGC.h	67;"	d
 TOKENJSON	src/fasterjson.c	32;"	d	file:
 TRAILER	src-plugins/fasterhttp.c	/^	struct HttpHeader	TRAILER ;$/;"	m	struct:HttpHeaders	typeref:struct:HttpHeaders::HttpHeader	file:
-TRAVEL_RBTREENODE	src/rbtree_tpl.h	208;"	d
+TRAVEL_RBTREENODE	src/rbtree_tpl.h	238;"	d
 TokenHttpHeaderValue	src-plugins/fasterhttp.c	/^char *TokenHttpHeaderValue( char *str , char **pp_token , int *p_token_len )$/;"	f
 TraceFile	src-plugins/logpipe-input-file.c	/^struct TraceFile$/;"	s	file:
+TraceFile	src-plugins/logpipe-output-file.c	/^struct TraceFile$/;"	s	file:
 TraceFile	src-plugins/logpipe-output-hdfs.c	/^struct TraceFile$/;"	s	file:
 TravelHttpHeaderPtr	src-plugins/fasterhttp.c	/^struct HttpHeader *TravelHttpHeaderPtr( struct HttpEnv *e , struct HttpHeader *p_header )$/;"	f
 TravelJsonBuffer	src/fasterjson.c	/^int TravelJsonBuffer( char *json_buffer , char *jpath , int jpath_size$/;"	f
@@ -721,8 +724,8 @@ TravelJsonBuffer4	src/fasterjson.c	/^int TravelJsonBuffer4( char *json_buffer , 
 TruncateHttpBodyLen	src-plugins/fasterhttp.c	/^void TruncateHttpBodyLen( struct HttpEnv *e , int new_length )$/;"	f
 UNLIKELY	src-plugins/fasterhttp.h	56;"	d
 UNLIKELY	src-plugins/fasterhttp.h	59;"	d
-UNLINK_RBTREENODE	src/rbtree_tpl.h	194;"	d
-UPDATE_RBTREENODE	src/rbtree_tpl.h	201;"	d
+UNLINK_RBTREENODE	src/rbtree_tpl.h	224;"	d
+UPDATE_RBTREENODE	src/rbtree_tpl.h	231;"	d
 URI	src-plugins/fasterhttp.c	/^	struct HttpHeader	URI ;$/;"	m	struct:HttpHeaders	typeref:struct:HttpHeaders::HttpHeader	file:
 UncompressBuffer	src-plugins/fasterhttp.c	/^static int UncompressBuffer( struct HttpEnv *e , struct HttpBuffer *b , char *p_compress_algorithm , int compress_algorithm_len , int compress_algorithm )$/;"	f	file:
 UncompressHttpBody	src-plugins/fasterhttp.c	/^static int UncompressHttpBody( struct HttpEnv *e , char *header , struct HttpBuffer *b )$/;"	f	file:
@@ -807,16 +810,16 @@ _WINDLL_FUNC	src/fasterjson.h	20;"	d
 __FASTERHTTP_VERSION_1_3_0	src-plugins/fasterhttp.c	/^int			__FASTERHTTP_VERSION_1_3_0 = 0 ;$/;"	v
 __FASTERJSON_VERSION_1_1_6	src/fasterjson.c	/^int __FASTERJSON_VERSION_1_1_6 = 0 ;$/;"	v
 __LOGPIPE_INPUT_EXEC_VERSION	src-plugins/logpipe-input-exec.c	/^char	*__LOGPIPE_INPUT_EXEC_VERSION = "0.1.0" ;$/;"	v
-__LOGPIPE_INPUT_FILE_VERSION	src-plugins/logpipe-input-file.c	/^char	*__LOGPIPE_INPUT_FILE_VERSION = "0.1.0" ;$/;"	v
+__LOGPIPE_INPUT_FILE_VERSION	src-plugins/logpipe-input-file.c	/^char	*__LOGPIPE_INPUT_FILE_VERSION = "0.2.0" ;$/;"	v
 __LOGPIPE_INPUT_TCP_VERSION	src-plugins/logpipe-input-tcp.c	/^char	*__LOGPIPE_INPUT_TCP_VERSION = "0.1.0" ;$/;"	v
 __LOGPIPE_OUTPUT_EK_VERSION	src-plugins/logpipe-output-ek.c	/^char	*__LOGPIPE_OUTPUT_EK_VERSION = "0.1.0" ;$/;"	v
-__LOGPIPE_OUTPUT_FILE_VERSION	src-plugins/logpipe-output-file.c	/^char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.1.0" ;$/;"	v
+__LOGPIPE_OUTPUT_FILE_VERSION	src-plugins/logpipe-output-file.c	/^char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.2.0" ;$/;"	v
 __LOGPIPE_OUTPUT_HDFS_VERSION	src-plugins/logpipe-output-hdfs.c	/^char	*__LOGPIPE_OUTPUT_HDFS_VERSION = "0.1.0" ;$/;"	v
 __LOGPIPE_OUTPUT_INGEEK_VERSION	src-plugins/logpipe-output-ingeek.c	/^char	*__LOGPIPE_OUTPUT_INGEEK_VERSION = "0.1.0" ;$/;"	v
 __LOGPIPE_OUTPUT_KAFKA_VERSION	src-plugins/logpipe-output-kafka.c	/^char	*__LOGPIPE_OUTPUT_KAFKA_VERSION = "0.1.0" ;$/;"	v
 __LOGPIPE_OUTPUT_TCP_VERSION	src-plugins/logpipe-output-tcp.c	/^char	*__LOGPIPE_OUTPUT_TCP_VERSION = "0.1.0" ;$/;"	v
-__LOGPIPE_VERSION	src/main.c	/^char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_20_4 ;$/;"	v
-__LOGPIPE_VERSION_0_20_4	src/main.c	/^char	__LOGPIPE_VERSION_0_20_4[] = "0.20.4" ;$/;"	v
+__LOGPIPE_VERSION	src/main.c	/^char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_20_6 ;$/;"	v
+__LOGPIPE_VERSION_0_20_6	src/main.c	/^char	__LOGPIPE_VERSION_0_20_6[] = "0.20.6" ;$/;"	v
 __fasterhttp_status_code_httpbuf	src-plugins/fasterhttp.c	/^static struct HttpBuffer	__fasterhttp_status_code_httpbuf ;$/;"	v	typeref:struct:HttpBuffer	file:
 __hlist_del	src/list.c	/^static void __hlist_del(struct hlist_node *n)$/;"	f	file:
 __list_add	src/list.c	/^static void __list_add(struct list_head *new,$/;"	f	file:
@@ -880,9 +883,9 @@ exclude_files	src-plugins/logpipe-input-file.c	/^	char			*exclude_files ;$/;"	m	
 exclude_files2	src-plugins/logpipe-input-file.c	/^	char			*exclude_files2 ;$/;"	m	struct:InputPluginContext	file:
 exclude_files3	src-plugins/logpipe-input-file.c	/^	char			*exclude_files3 ;$/;"	m	struct:InputPluginContext	file:
 exec_after_rotating	src-plugins/logpipe-input-file.c	/^	char			*exec_after_rotating ;$/;"	m	struct:InputPluginContext	file:
-exec_after_rotating	src-plugins/logpipe-output-file.c	/^	char		*exec_after_rotating ;$/;"	m	struct:OutputPluginContext	file:
+exec_after_rotating	src-plugins/logpipe-output-file.c	/^	char			*exec_after_rotating ;$/;"	m	struct:OutputPluginContext	file:
 exec_after_rotating_buffer	src-plugins/logpipe-input-file.c	/^	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;$/;"	m	struct:InputPluginContext	file:
-exec_after_rotating_buffer	src-plugins/logpipe-output-file.c	/^	char		exec_after_rotating_buffer[ PATH_MAX * 3 ] ;$/;"	m	struct:OutputPluginContext	file:
+exec_after_rotating_buffer	src-plugins/logpipe-output-file.c	/^	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;$/;"	m	struct:OutputPluginContext	file:
 exec_before_rotating	src-plugins/logpipe-input-file.c	/^	char			*exec_before_rotating ;$/;"	m	struct:InputPluginContext	file:
 exec_before_rotating_buffer	src-plugins/logpipe-input-file.c	/^	char			exec_before_rotating_buffer[ PATH_MAX * 3 ] ;$/;"	m	struct:InputPluginContext	file:
 ext_filename_base	src-plugins/fasterhttp.h	/^	char				*ext_filename_base ;$/;"	m	struct:HttpUri
@@ -890,7 +893,8 @@ ext_filename_len	src-plugins/fasterhttp.h	/^	int				ext_filename_len ;$/;"	m	str
 fatal_hex_log	src/LOGC.h	199;"	d
 fatal_log	src/LOGC.h	192;"	d
 fd	src-plugins/logpipe-input-file.c	/^	int			fd ;$/;"	m	struct:InputPluginContext	file:
-fd	src-plugins/logpipe-output-file.c	/^	int		fd ;$/;"	m	struct:OutputPluginContext	file:
+fd	src-plugins/logpipe-input-file.c	/^	int			fd ;$/;"	m	struct:TraceFile	file:
+fd	src-plugins/logpipe-output-file.c	/^	int		fd ;$/;"	m	struct:TraceFile	file:
 fd	src/logpipe_in.h	/^	int				fd ;$/;"	m	struct:LogpipeInputPlugin
 fd	src/logpipe_in.h	/^	int				fd ;$/;"	m	struct:LogpipeOutputPlugin
 field_separator_array	src-plugins/logpipe-output-ek.c	/^	struct FieldSeparatorInfo	*field_separator_array ; \/* 分列信息结构 结构数组 *\/$/;"	m	struct:OutputPluginContext	typeref:struct:OutputPluginContext::FieldSeparatorInfo	file:
@@ -898,15 +902,14 @@ field_separator_array_size	src-plugins/logpipe-output-ek.c	/^	int				field_separ
 fields_strictly	src-plugins/logpipe-output-ek.c	/^	char				*fields_strictly ;$/;"	m	struct:OutputPluginContext	file:
 file	src-plugins/logpipe-output-hdfs.c	/^	hdfsFile		file ;$/;"	m	struct:TraceFile	file:
 file_line	src-plugins/logpipe-output-ingeek.c	/^	uint32_t		file_line ;$/;"	m	struct:OutputPluginContext	file:
-filename	src-plugins/logpipe-input-file.c	/^	char			*filename ;$/;"	m	struct:TraceFile	file:
+filename	src-plugins/logpipe-input-file.c	/^	char			filename[ PATH_MAX + 1 ] ;$/;"	m	struct:TraceFile	file:
 filename	src-plugins/logpipe-output-ek.c	/^	char				*filename ;$/;"	m	struct:OutputPluginContext	file:
-filename	src-plugins/logpipe-output-file.c	/^	char		*filename ;$/;"	m	struct:OutputPluginContext	file:
+filename	src-plugins/logpipe-output-file.c	/^	char		filename[ PATH_MAX + 1 ] ;$/;"	m	struct:TraceFile	file:
 filename	src-plugins/logpipe-output-ingeek.c	/^	char			*filename ;$/;"	m	struct:OutputPluginContext	file:
 filename_base	src-plugins/fasterhttp.h	/^	char				*filename_base ;$/;"	m	struct:HttpUri
 filename_len	src-plugins/fasterhttp.h	/^	int				filename_len ;$/;"	m	struct:HttpUri
 filename_len	src-plugins/logpipe-input-file.c	/^	uint16_t		filename_len ;$/;"	m	struct:TraceFile	file:
 filename_len	src-plugins/logpipe-output-ek.c	/^	int				filename_len ;$/;"	m	struct:OutputPluginContext	file:
-filename_len	src-plugins/logpipe-output-file.c	/^	uint32_t	filename_len ;$/;"	m	struct:OutputPluginContext	file:
 filename_rbnode	src-plugins/logpipe-output-hdfs.c	/^	struct rb_node		filename_rbnode ;$/;"	m	struct:TraceFile	typeref:struct:TraceFile::rb_node	file:
 filename_rbtree	src-plugins/logpipe-output-hdfs.c	/^	struct rb_root		filename_rbtree ;$/;"	m	struct:OutputPluginContext	typeref:struct:OutputPluginContext::rb_root	file:
 files	src-plugins/logpipe-input-file.c	/^	char			*files ;$/;"	m	struct:InputPluginContext	file:
@@ -991,6 +994,7 @@ index	src-plugins/logpipe-output-ek.c	/^	char				*index ;$/;"	m	struct:OutputPlu
 info_hex_log	src/LOGC.h	202;"	d
 info_log	src/LOGC.h	195;"	d
 init_timeout	src-plugins/fasterhttp.c	/^	int			init_timeout ;$/;"	m	struct:HttpEnv	file:
+inotify_alive_timestamp_rbtree	src-plugins/logpipe-input-file.c	/^	struct rb_root		inotify_alive_timestamp_rbtree ;$/;"	m	struct:InputPluginContext	typeref:struct:InputPluginContext::rb_root	file:
 inotify_fd	src-plugins/logpipe-input-file.c	/^	int			inotify_fd ;$/;"	m	struct:InputPluginContext	file:
 inotify_file_wd	src-plugins/logpipe-input-file.c	/^	int			inotify_file_wd ;$/;"	m	struct:TraceFile	file:
 inotify_file_wd_rbnode	src-plugins/logpipe-input-file.c	/^	struct rb_node		inotify_file_wd_rbnode ;$/;"	m	struct:TraceFile	typeref:struct:TraceFile::rb_node	file:
@@ -1081,6 +1085,7 @@ p_forward_session	src-plugins/logpipe-output-ingeek.c	/^	struct ForwardSession	*
 p_forward_session	src-plugins/logpipe-output-tcp.c	/^	struct ForwardSession	*p_forward_session ;$/;"	m	struct:OutputPluginContext	typeref:struct:OutputPluginContext::ForwardSession	file:
 p_timeout	src-plugins/fasterhttp.c	/^	struct timeval		*p_timeout ;$/;"	m	struct:HttpEnv	typeref:struct:HttpEnv::timeval	file:
 p_trace_file	src-plugins/logpipe-input-file.c	/^	struct TraceFile	*p_trace_file ;$/;"	m	struct:InputPluginContext	typeref:struct:InputPluginContext::TraceFile	file:
+p_trace_file	src-plugins/logpipe-output-file.c	/^	struct TraceFile	*p_trace_file ;$/;"	m	struct:OutputPluginContext	typeref:struct:OutputPluginContext::TraceFile	file:
 p_trace_file	src-plugins/logpipe-output-hdfs.c	/^	struct TraceFile	*p_trace_file ;$/;"	m	struct:OutputPluginContext	typeref:struct:OutputPluginContext::TraceFile	file:
 param_base	src-plugins/fasterhttp.h	/^	char				*param_base ;$/;"	m	struct:HttpUri
 param_len	src-plugins/fasterhttp.h	/^	int				param_len ;$/;"	m	struct:HttpUri
@@ -1090,13 +1095,15 @@ parse_buflen	src-plugins/logpipe-output-ek.c	/^	int				parse_buflen ;$/;"	m	stru
 parse_buflen	src-plugins/logpipe-output-ingeek.c	/^	int			parse_buflen ;$/;"	m	struct:OutputPluginContext	file:
 parse_step	src-plugins/fasterhttp.c	/^	int			parse_step ;$/;"	m	struct:HttpEnv	file:
 path	src-plugins/logpipe-input-file.c	/^	char			*path ;$/;"	m	struct:InputPluginContext	file:
-path	src-plugins/logpipe-output-file.c	/^	char		*path ;$/;"	m	struct:OutputPluginContext	file:
+path	src-plugins/logpipe-output-file.c	/^	char			*path ;$/;"	m	struct:OutputPluginContext	file:
 path	src-plugins/logpipe-output-hdfs.c	/^	char			*path ;$/;"	m	struct:OutputPluginContext	file:
 path	src-plugins/logpipe-output-ingeek.c	/^	char			*path ;$/;"	m	struct:OutputPluginContext	file:
-path_filename	src-plugins/logpipe-input-file.c	/^	char			*path_filename ;$/;"	m	struct:TraceFile	file:
-path_filename	src-plugins/logpipe-output-file.c	/^	char		path_filename[ PATH_MAX + 1 ] ;$/;"	m	struct:OutputPluginContext	file:
+path_filename	src-plugins/logpipe-input-file.c	/^	char			path_filename[ PATH_MAX + 1 ] ;$/;"	m	struct:TraceFile	file:
+path_filename	src-plugins/logpipe-output-file.c	/^	char		path_filename[ PATH_MAX + 1 ] ;$/;"	m	struct:TraceFile	file:
 path_filename	src-plugins/logpipe-output-hdfs.c	/^	char			path_filename[ PATH_MAX + 1 ] ;$/;"	m	struct:TraceFile	file:
 path_filename_len	src-plugins/logpipe-input-file.c	/^	uint16_t		path_filename_len ;$/;"	m	struct:TraceFile	file:
+path_filename_rbnode	src-plugins/logpipe-output-file.c	/^	struct rb_node	path_filename_rbnode ;$/;"	m	struct:TraceFile	typeref:struct:TraceFile::rb_node	file:
+path_filename_rbtree	src-plugins/logpipe-output-file.c	/^	struct rb_root		path_filename_rbtree ;$/;"	m	struct:OutputPluginContext	typeref:struct:OutputPluginContext::rb_root	file:
 pathname	src-plugins/logpipe-input-file.c	/^	char			*pathname ;$/;"	m	struct:TraceFile	file:
 pathname	src-plugins/logpipe-output-hdfs.c	/^	char			pathname[ PATH_MAX + 1 ] ;$/;"	m	struct:OutputPluginContext	file:
 pfuncAfterWriteOutputPlugin	src/logpipe_in.h	/^	funcAfterWriteOutputPlugin	*pfuncAfterWriteOutputPlugin ; \/* 在写出一个数据块后 *\/$/;"	m	struct:LogpipeOutputPlugin
@@ -1169,7 +1176,7 @@ remain_len	src-plugins/logpipe-input-file.c	/^	int			remain_len ;$/;"	m	struct:I
 request_buffer	src-plugins/fasterhttp.c	/^	struct HttpBuffer	request_buffer ;$/;"	m	struct:HttpEnv	typeref:struct:HttpEnv::HttpBuffer	file:
 response_buffer	src-plugins/fasterhttp.c	/^	struct HttpBuffer	response_buffer ;$/;"	m	struct:HttpEnv	typeref:struct:HttpEnv::HttpBuffer	file:
 rotate_size	src-plugins/logpipe-input-file.c	/^	int			rotate_size ;$/;"	m	struct:InputPluginContext	file:
-rotate_size	src-plugins/logpipe-output-file.c	/^	int		rotate_size ;$/;"	m	struct:OutputPluginContext	file:
+rotate_size	src-plugins/logpipe-output-file.c	/^	int			rotate_size ;$/;"	m	struct:OutputPluginContext	file:
 send_proc_flag	src-plugins/fasterhttp.c	/^	int				send_proc_flag ;$/;"	m	struct:HttpEnv	file:
 separator_charset	src-plugins/logpipe-output-ek.c	/^	char				*separator_charset ;$/;"	m	struct:OutputPluginContext	file:
 set_log_file	src/LOGC.h	188;"	d
@@ -1199,9 +1206,6 @@ trace_line	src-plugins/logpipe-input-file.c	/^	int			trace_line ;$/;"	m	struct:T
 trace_offset	src-plugins/logpipe-input-file.c	/^	off_t			trace_offset ;$/;"	m	struct:TraceFile	file:
 transfer_encoding__chunked	src-plugins/fasterhttp.c	/^	char			transfer_encoding__chunked ;$/;"	m	struct:HttpHeaders	file:
 translate_charset	src-plugins/logpipe-output-ek.c	/^	char				*translate_charset ;$/;"	m	struct:OutputPluginContext	file:
-try_check_timestamp	src-plugins/logpipe-input-file.c	/^	unsigned int		try_check_timestamp ;$/;"	m	struct:TraceFile	file:
-try_check_timestamp_rbnode	src-plugins/logpipe-input-file.c	/^	struct rb_node		try_check_timestamp_rbnode ;$/;"	m	struct:TraceFile	typeref:struct:TraceFile::rb_node	file:
-try_check_timestamp_rbtree	src-plugins/logpipe-input-file.c	/^	struct rb_root		try_check_timestamp_rbtree ;$/;"	m	struct:InputPluginContext	typeref:struct:InputPluginContext::rb_root	file:
 tv_begin_send_block	src-plugins/logpipe-output-tcp.c	/^	struct timeval		tv_begin_send_block ;$/;"	m	struct:ForwardSession	typeref:struct:ForwardSession::timeval	file:
 tv_begin_send_block_len	src-plugins/logpipe-output-tcp.c	/^	struct timeval		tv_begin_send_block_len ;$/;"	m	struct:ForwardSession	typeref:struct:ForwardSession::timeval	file:
 tv_begin_send_eob	src-plugins/logpipe-output-tcp.c	/^	struct timeval		tv_begin_send_eob ;$/;"	m	struct:ForwardSession	typeref:struct:ForwardSession::timeval	file:
@@ -1215,7 +1219,7 @@ type	src/logpipe_in.h	/^	unsigned char			type ; \/* 插件类型 *\/$/;"	m	struct:Lo
 type	src/logpipe_in.h	/^	unsigned char			type ; \/* 插件类型 *\/$/;"	m	struct:LogpipeOutputPlugin
 type	src/logpipe_in.h	/^	unsigned char			type ; \/* 插件类型 *\/$/;"	m	struct:LogpipePlugin
 uncompress_algorithm	src-plugins/logpipe-output-ek.c	/^	char				*uncompress_algorithm ;$/;"	m	struct:OutputPluginContext	file:
-uncompress_algorithm	src-plugins/logpipe-output-file.c	/^	char		*uncompress_algorithm ;$/;"	m	struct:OutputPluginContext	file:
+uncompress_algorithm	src-plugins/logpipe-output-file.c	/^	char			*uncompress_algorithm ;$/;"	m	struct:OutputPluginContext	file:
 uncompress_algorithm	src-plugins/logpipe-output-hdfs.c	/^	char			*uncompress_algorithm ;$/;"	m	struct:OutputPluginContext	file:
 uncompress_algorithm	src-plugins/logpipe-output-kafka.c	/^	char			*uncompress_algorithm ;$/;"	m	struct:OutputPluginContext	file:
 usage	src/main.c	/^static void usage()$/;"	f	file:
