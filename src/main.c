@@ -12,8 +12,8 @@
 ps -f -u $USER | grep "logpipe -f" | awk '{if($3==1)print $2}' | xargs kill
 */
 
-char	__LOGPIPE_VERSION_0_20_4[] = "0.20.4" ;
-char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_20_4 ;
+char	__LOGPIPE_VERSION_0_20_6[] = "0.20.6" ;
+char	*__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_20_6 ;
 
 /* œ‘ æ∞Ê±æ∫≈ */
 static void version()
@@ -27,6 +27,9 @@ static void usage()
 {
 	printf( "USAGE : logpipe -v\n" );
 	printf( "        logpipe -f (config_file) [ --no-daemon ] [ --start-once-for-env \"(key) (value)\" ]\n" );
+	printf( "NOTICE : shell : ulimit -n 65536\n" );
+	printf( "NOTICE : add to sysctl.conf : fs.inotify.max_user_watches=99999999\n" );
+        printf( "                              fs.inotify.max_queued_events=99999999\n" );
 	return;
 }
 

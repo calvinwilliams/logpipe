@@ -1,17 +1,45 @@
 #include "logpipe_api.h"
 
-char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.1.0" ;
+char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.2.0" ;
+
+/* 跟踪文件信息结构 */
+struct TraceFile
+{
+	char		filename[ PATH_MAX + 1 ] ;
+	char		path_filename[ PATH_MAX + 1 ] ;
+	int		fd ;
+	
+	struct rb_node	path_filename_rbnode ;
+} ;
 
 struct OutputPluginContext
 {
-	char		*path ;
-	char		*uncompress_algorithm ;
-	int		rotate_size ;
-	char		exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
-	char		*exec_after_rotating ;
+	char			*path ;
+	char			*uncompress_algorithm ;
+	int			rotate_size ;
+	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
+	char			*exec_after_rotating ;
 	
-	int		fd ;
+	struct rb_root		path_filename_rbtree ;
+	struct TraceFile	*p_trace_file ;
 } ;
+
+LINK_RBTREENODE_STRING( LinkTraceFilePathFilenameTreeNode , struct OutputPluginContext , path_filename_rbtree , struct TraceFile , path_filename_rbnode , path_filename )
+QUERY_RBTREENODE_STRING( QueryTraceFilePathFilenameTreeNode , struct OutputPluginContext , path_filename_rbtree , struct TraceFile , path_filename_rbnode , path_filename )
+UNLINK_RBTREENODE( UnlinkTraceFilePathFilenameTreeNode , struct OutputPluginContext , path_filename_rbtree , struct TraceFile , path_filename_rbnode )
+
+void FreeTraceFile( void *pv )
+{
+	struct TraceFile      *p_trace_file = (struct TraceFile *) pv ;
+	
+	if( p_trace_file )
+	{
+		free( p_trace_file ); p_trace_file = NULL ;
+	}
+	
+	return;
+}
+DESTROY_RBTREE( DestroyTraceFileTree , struct OutputPluginContext , path_filename_rbtree , struct TraceFile , path_filename_rbnode , FreeTraceFile )
 
 funcLoadOutputPluginConfig LoadOutputPluginConfig ;
 int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
@@ -76,8 +104,6 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	}
 	INFOLOG( "exec_after_rotating[%s]" , p_plugin_ctx->exec_after_rotating )
 	
-	p_plugin_ctx->fd = -1 ;
-	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
 	
@@ -96,25 +122,158 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	return 0;
 }
 
-funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
-int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
+/* 打开文件 */
+static int OpenFile( struct OutputPluginContext *p_plugin_ctx )
 {
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	struct TraceFile	*p_trace_file = p_plugin_ctx->p_trace_file ;
 	
-	char				path_filename[ PATH_MAX + 1 ] ;
-	
-	/* 打开文件 */
-	memset( path_filename , 0x00 , sizeof(path_filename) );
-	snprintf( path_filename , sizeof(path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , filename_len , filename );
-	p_plugin_ctx->fd = open( path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
-	if( p_plugin_ctx->fd == -1 )
+	p_trace_file->fd = open( p_trace_file->path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
+	if( p_trace_file->fd == -1 )
 	{
-		ERRORLOG( "open file[%s] failed , errno[%d]" , path_filename , errno )
+		ERRORLOG( "open file[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		return 1;
 	}
 	else
 	{
-		INFOLOG( "open file[%s] ok" , path_filename )
+		INFOLOG( "open file[%s] ok" , p_trace_file->path_filename )
+	}
+	
+	return 0;
+}
+
+/* 关闭文件 */
+static void CloseFile( struct OutputPluginContext *p_plugin_ctx )
+{
+	struct TraceFile	*p_trace_file = p_plugin_ctx->p_trace_file ;
+	
+	if( p_trace_file->fd >= 0 )
+	{
+		INFOLOG( "close file[%s]" , p_trace_file->path_filename )
+		close( p_trace_file->fd ); p_trace_file->fd = -1 ;
+	}
+	
+	return;
+}
+
+/* 文件大小转档处理 */
+static int RotatingFile( struct OutputPluginContext *p_plugin_ctx )
+{
+	struct TraceFile	*p_trace_file = p_plugin_ctx->p_trace_file ;
+	struct timeval		tv ;
+	struct tm		tm ;
+	char			old_filename[ PATH_MAX + 1 ] ;
+	char			new_filename[ PATH_MAX + 1 ] ;
+	
+	int			nret = 0 ;
+	
+	/* 关闭文件 */
+	CloseFile( p_plugin_ctx );
+	
+	/* 改名 */
+	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%s" , p_plugin_ctx->path , p_trace_file->filename );
+	gettimeofday( & tv , NULL );
+	memset( & tm , 0x00 , sizeof(struct tm) );
+	localtime_r( & (tv.tv_sec) , & tm );
+	memset( new_filename , 0x00 , sizeof(new_filename) );
+	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%s-%04d%02d%02d_%02d%02d%02d_%06ld" , p_plugin_ctx->path , p_trace_file->filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec , tv.tv_usec );
+	
+	setenv( "LOGPIPE_ROTATING_PATHNAME" , p_plugin_ctx->path , 1 );
+	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
+	
+	nret = rename( old_filename , new_filename ) ;
+	
+	if( p_plugin_ctx->exec_after_rotating )
+	{
+		system( p_plugin_ctx->exec_after_rotating );
+	}
+	
+	if( nret )
+	{
+		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
+		return -1;
+	}
+	else
+	{
+		INFOLOG( "rename [%s] to [%s] ok" , old_filename , new_filename )
+	}
+	
+	/* 打开文件 */
+	OpenFile( p_plugin_ctx );
+	
+	return 0;
+}
+
+funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
+int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
+{
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	struct TraceFile		trace_file ;
+	struct TraceFile		*p_trace_file = NULL ;
+	int				len ;
+	
+	int				nret = 0 ;
+	
+	/* 查询文件跟踪信息缓存 */
+	memset( & trace_file , 0x00 , sizeof(struct TraceFile) );
+	snprintf( trace_file.path_filename , sizeof(trace_file.path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , filename_len , filename );
+	p_trace_file = QueryTraceFilePathFilenameTreeNode( p_plugin_ctx , & trace_file ) ;
+	if( p_trace_file )
+	{
+		/* 如果文件被删除了，清除文件跟踪结构缓存 */
+		nret = access( p_trace_file->path_filename , F_OK ) ;
+		if( nret == - 1 )
+		{
+			UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+			CloseFile( p_plugin_ctx );
+			FreeTraceFile( p_trace_file );
+			
+			p_trace_file = NULL ;
+		}
+		else
+		{
+			p_plugin_ctx->p_trace_file = p_trace_file ;
+		}
+	}
+	if( p_trace_file == NULL )
+	{
+		/* 申请内存以存放文件跟踪结构 */
+		p_trace_file = (struct TraceFile *)malloc( sizeof(struct TraceFile) ) ;
+		if( p_trace_file == NULL )
+		{
+			ERRORLOG( "malloc failed , errno[%d]" , errno )
+			return 1;
+		}
+		memset( p_trace_file , 0x00 , sizeof(struct TraceFile) );
+		p_trace_file->fd = -1 ;
+		
+		/* 填充文件跟踪结构 */
+		if( filename_len > sizeof(p_trace_file->filename)-1 )
+		{
+			ERRORLOG( "filename[%.*s] overflow" , filename_len , filename )
+			FreeTraceFile( p_trace_file );
+			return 1;
+		}
+		strncpy( p_trace_file->filename , filename , filename_len );
+		len = snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , filename_len , filename ) ;
+		if( SNPRINTF_OVERFLOW(len,sizeof(p_trace_file->path_filename) ) )
+		{
+			ERRORLOG( "filename[%.*s] overflow" , filename_len , filename )
+			FreeTraceFile( p_trace_file );
+			return 1;
+		}
+		
+		p_plugin_ctx->p_trace_file = p_trace_file ;
+		
+		/* 打开文件 */
+		nret = OpenFile( p_plugin_ctx ) ;
+		if( nret )
+		{
+			ERRORLOG( "open[%s] failed[%d]" , p_trace_file->path_filename , nret )
+			FreeTraceFile( p_trace_file );
+			return 1;
+		}
+		
+		LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 	}
 	
 	return 0;
@@ -124,6 +283,7 @@ funcWriteOutputPlugin WriteOutputPlugin ;
 int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t file_line , uint32_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
 	
 	int				len ;
 	
@@ -132,7 +292,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	/* 如果未启用解压 */
 	if( p_plugin_ctx->uncompress_algorithm == NULL )
 	{
-		len = writen( p_plugin_ctx->fd , block_buf , block_len ) ;
+		len = writen( p_trace_file->fd , block_buf , block_len ) ;
 		if( len == -1 )
 		{
 			ERRORLOG( "write block data to file failed , errno[%d]" , errno )
@@ -164,7 +324,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 				DEBUGLOG( "UncompressInputPluginData ok" )
 			}
 			
-			len = writen( p_plugin_ctx->fd , block_out_buf , block_out_len ) ;
+			len = writen( p_trace_file->fd , block_out_buf , block_out_len ) ;
 			if( len == -1 )
 			{
 				ERRORLOG( "write uncompress block data to file failed , errno[%d]" , errno )
@@ -183,44 +343,28 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		}
 	}
 	
-	return 0;
-}
-
-/* 文件大小转档处理 */
-static int RotatingFile( struct OutputPluginContext *p_plugin_ctx , char *pathname , char *filename , int filename_len )
-{
-	struct timeval	tv ;
-	struct tm	tm ;
-	char		old_filename[ PATH_MAX + 1 ] ;
-	char		new_filename[ PATH_MAX + 1 ] ;
-	
-	int		nret = 0 ;
-	
-	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%.*s" , pathname , filename_len , filename );
-	gettimeofday( & tv , NULL );
-	memset( & tm , 0x00 , sizeof(struct tm) );
-	localtime_r( & (tv.tv_sec) , & tm );
-	memset( new_filename , 0x00 , sizeof(new_filename) );
-	snprintf( new_filename , sizeof(new_filename)-1 , "%s/_%.*s-%04d%02d%02d_%02d%02d%02d_%06ld" , pathname , filename_len , filename , tm.tm_year+1900 , tm.tm_mon+1 , tm.tm_mday , tm.tm_hour , tm.tm_min , tm.tm_sec , tv.tv_usec );
-	
-	setenv( "LOGPIPE_ROTATING_PATHNAME" , pathname , 1 );
-	setenv( "LOGPIPE_ROTATING_NEW_FILENAME" , new_filename , 1 );
-	
-	nret = rename( old_filename , new_filename ) ;
-	
-	if( p_plugin_ctx->exec_after_rotating )
+	/* 如果启用文件大小转档 */
+	if( p_plugin_ctx->rotate_size > 0 )
 	{
-		system( p_plugin_ctx->exec_after_rotating );
-	}
-	
-	if( nret )
-	{
-		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
-		return -1;
-	}
-	else
-	{
-		INFOLOG( "rename [%s] to [%s] ok" , old_filename , new_filename )
+		struct stat		file_stat ;
+		
+		memset( & file_stat , 0x00 , sizeof(struct stat) );
+		nret = fstat( p_trace_file->fd , & file_stat ) ;
+		if( nret == -1 )
+		{
+			ERRORLOG( "fstat[%s] failed[%d] , errno[%d]" , p_trace_file->path_filename , nret , errno )
+		}
+		else
+		{
+			/* 如果到达文件转档大小 */
+			if( file_stat.st_size >= p_plugin_ctx->rotate_size )
+			{
+				INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
+				
+				/* 文件大小转档处理 */
+				RotatingFile( p_plugin_ctx );
+			}
+		}
 	}
 	
 	return 0;
@@ -229,40 +373,16 @@ static int RotatingFile( struct OutputPluginContext *p_plugin_ctx , char *pathna
 funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
 int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	struct stat			file_stat ;
-	
-	int				nret = 0 ;
-	
-	if( p_plugin_ctx->fd >= 0 )
-	{
-		/* 如果启用文件大小转档 */
-		if( p_plugin_ctx->rotate_size > 0 )
-		{
-			memset( & file_stat , 0x00 , sizeof(struct stat) );
-			nret = fstat( p_plugin_ctx->fd , & file_stat ) ;
-			if( nret == 0 )
-			{
-				/* 如果到达文件转档大小 */
-				if( file_stat.st_size >= p_plugin_ctx->rotate_size )
-				{
-					INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
-					RotatingFile( p_plugin_ctx , p_plugin_ctx->path , filename , filename_len );
-				}
-			}
-		}
-		
-		/* 关闭文件 */
-		INFOLOG( "close file" )
-		close( p_plugin_ctx->fd ); p_plugin_ctx->fd = -1 ;
-	}
-	
 	return 0;
 }
 
 funcCleanOutputPluginContext CleanOutputPluginContext ;
 int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
+	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
+	
+	DestroyTraceFileTree( p_plugin_ctx );
+	
 	return 0;
 }
 
