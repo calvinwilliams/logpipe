@@ -93,8 +93,6 @@ void FreeTraceFile( void *pv )
 	
 	if( p_trace_file )
 	{
-		free( p_trace_file->path_filename );
-		free( p_trace_file->filename );
 		free( p_trace_file );
 		p_trace_file = NULL ;
 	}
@@ -158,16 +156,25 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , char *pathnam
 /* 清除文件变化监视器 */
 static int RemoveFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , struct TraceFile *p_trace_file )
 {
+	int		nret = 0 ;
+	
 	UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
 	
-	INFOLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
-	inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd );
+	nret = inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd ) ;
+	if( nret == -1 )
+	{
+		ERRORLOG( "inotify_rm_watch failed[%d] , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , nret , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+	}
+	else
+	{
+		INFOLOG( "inotify_rm_watch ok , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+	}
 	
 	/* 关闭文件 */
 	INFOLOG( "close[%d] ok , path_filename[%s]" , p_trace_file->fd , p_trace_file->path_filename )
 	close( p_trace_file->fd );
 	
-	free( p_trace_file );
+	FreeTraceFile( p_trace_file );
 	
 	return 0;
 }
@@ -180,19 +187,6 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	int			nret = 0 ;
 	
 	DEBUGLOG( "catch file[%s] append" , p_trace_file->path_filename )
-	
-#if 0
-	/* 打开文件 */
-	fd = open( p_trace_file->path_filename , O_RDONLY ) ;
-	if( fd == -1 )
-	{
-		WARNLOG( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-		if( remove_watcher_flag )
-			return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
-		else
-			return 0;
-	}
-#endif
 	
 	/* 获得文件大小 */
 	memset( & file_stat , 0x00 , sizeof(struct stat) );
@@ -257,7 +251,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 				return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 			}
 			
-			/* 如果启用文件追读，再处理一个数据块  */
+			/* 如果启用文件追读，再处理一个数据块 */
 			if( p_plugin_ctx->append_count >= 0 )
 			{
 				p_plugin_ctx->append_count++;
@@ -472,14 +466,14 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	if( SNPRINTF_OVERFLOW( p_trace_file->filename_len , sizeof(p_trace_file->filename) ) )
 	{
 		ERRORLOG( "snprintf[%s] overflow" , filename )
-		free( p_trace_file );
+		FreeTraceFile( p_trace_file );
 		return -1;
 	}
 	p_trace_file->path_filename_len = snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%s" , p_plugin_ctx->path , filename ) ;
 	if( SNPRINTF_OVERFLOW( p_trace_file->filename_len , sizeof(p_trace_file->filename) ) )
 	{
 		ERRORLOG( "snprintf[%s] overflow" , filename )
-		free( p_trace_file );
+		FreeTraceFile( p_trace_file );
 		return -1;
 	}
 	
@@ -487,7 +481,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	if( p_trace_file->fd == -1 )
 	{
 		ERRORLOG( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
-		free( p_trace_file );
+		FreeTraceFile( p_trace_file );
 		return -1;
 	}
 	else
@@ -500,7 +494,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		WARNLOG( "file[%s] not found" , p_trace_file->path_filename )
 		close( p_trace_file->fd );
-		free( p_trace_file );
+		FreeTraceFile( p_trace_file );
 		return 0;
 	}
 	
@@ -508,7 +502,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		INFOLOG( "[%s] is not a file" , p_trace_file->path_filename )
 		close( p_trace_file->fd );
-		free( p_trace_file );
+		FreeTraceFile( p_trace_file );
 		return 0;
 	}
 	
@@ -529,7 +523,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		close( p_trace_file->fd );
-		free( p_trace_file );
+		FreeTraceFile( p_trace_file );
 		return -1;
 	}
 	else
@@ -547,7 +541,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 			INFOLOG( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
 			inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd );
 			close( p_trace_file->fd );
-			free( p_trace_file );
+			FreeTraceFile( p_trace_file );
 			return -1;
 		}
 		
@@ -560,7 +554,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 			UnlinkTraceFileWdTreeNode( p_plugin_ctx , p_trace_file );
 			inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd );
 			close( p_trace_file->fd );
-			free( p_trace_file );
+			FreeTraceFile( p_trace_file );
 			return -1;
 		}
 #endif

@@ -384,7 +384,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	{
 		ERRORLOG( "send block data to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-		return 1;
+		return -1;
 	}
 	else
 	{
@@ -399,7 +399,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-		return 1;
+		return -1;
 	}
 	else
 	{
