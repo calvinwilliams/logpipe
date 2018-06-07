@@ -358,7 +358,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	
 	int		len ;
 	
-	INFOLOG( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
+	DEBUGLOG( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	
 	/* 填充尾巴 */
 	memset( tail_buffer , 0x00 , sizeof(tail_buffer) );
@@ -377,33 +377,35 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	}
 	
 	/* 发送数据块到TCP */
+	INFOLOG( "send-log [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	gettimeofday( & tv_begin_send_log , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->parse_buffer , line_len ) ;
 	gettimeofday( & tv_end_send_log , NULL );
 	if( len == -1 )
 	{
-		ERRORLOG( "send block data to socket failed , errno[%d]" , errno )
+		ERRORLOG( "send log data to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		return -1;
 	}
 	else
 	{
-		DEBUGLOG( "send block data to socket ok , [%d]bytes" , line_len )
+		INFOLOG( "send log data to socket ok , [%d]bytes" , line_len )
 		DEBUGHEXLOG( p_plugin_ctx->parse_buffer , line_len , NULL )
 	}
 	
+	INFOLOG( "send-tail [%d][%.*s]" , tail_buffer_len , tail_buffer_len , tail_buffer )
 	gettimeofday( & tv_begin_send_tail , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , tail_buffer , tail_buffer_len ) ;
 	gettimeofday( & tv_end_send_tail , NULL );
 	if( len == -1 )
 	{
-		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
+		ERRORLOG( "send tail data to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		return -1;
 	}
 	else
 	{
-		DEBUGLOG( "send block len to socket ok , [%d]bytes" , tail_buffer_len )
+		INFOLOG( "send tail data to socket ok , [%d]bytes" , tail_buffer_len )
 		DEBUGHEXLOG( tail_buffer , tail_buffer_len , NULL )
 	}
 	
