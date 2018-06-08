@@ -1131,26 +1131,27 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		
 		INFOLOG( "inotify IN_DELETE_SELF or IN_MOVE_SELF event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 		
-		/* 读取文件追加内容 */
+		/* 采集完文件全部追加内容 */
 		nret = CheckFileOffset( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file , 0 , APPEND_COUNT_INFINITED ) ;
 		if( nret )
 		{
-			ERRORLOG( "CheckFileOffset failed[%d] , errno[%d]" , nret , errno )
+			ERRORLOG( "CheckFileOffset failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
 		}
 		else
 		{
-			INFOLOG( "CheckFileOffset ok" )
+			INFOLOG( "CheckFileOffset ok , path_filename[%s]" , p_trace_file->path_filename )
 		}
 		
+		/* 清除原文件 */
 		nret = RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file ) ;
 		if( nret )
 		{
-			ERRORLOG( "RemoveFileWatcher failed , errno[%d]" , errno )
+			ERRORLOG( "RemoveFileWatcher failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
 			return -1;
 		}
 		else
 		{
-			INFOLOG( "RemoveFileWatcher ok" )
+			INFOLOG( "RemoveFileWatcher ok , path_filename[%s]" , p_trace_file->path_filename )
 		}
 		
 		p = p_prev ;
