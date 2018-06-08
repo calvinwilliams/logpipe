@@ -175,7 +175,9 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	/* 添加子会话 */
 	p_accepted_session = AddInputPluginSession( p_env , "accepted_session"
 					, & OnInputPluginEvent_accepted_session
+					, NULL
 					, & ReadInputPlugin_accepted_session
+					, NULL
 					, & CleanInputPluginContext_accepted_session , & UnloadInputPluginConfig_accepted_session
 					, p_accepted_session_ctx->accepted_sock , p_accepted_session_ctx ) ;
 	if( p_accepted_session == NULL )

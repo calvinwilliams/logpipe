@@ -342,13 +342,13 @@ _GOTO_RETRY_SEND :
 	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_end_send_filename) , NULL );
 	if( len == -1 )
 	{
-		ERRORLOG( "send comm magic and filename failed , errno[%d]" , errno )
+		ERRORLOG( "send comm magic and filename[%.*s] to socket failed , errno[%d]" , filename_len , filename , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		goto _GOTO_RETRY_SEND;
 	}
 	else
 	{
-		INFOLOG( "send comm magic and filename ok , [%d]bytes" , 1+sizeof(uint16_t)+filename_len )
+		INFOLOG( "send comm magic and filename[%.*s] to socket ok , [%d]bytes" , filename_len , filename , 1+sizeof(uint16_t)+filename_len )
 		DEBUGHEXLOG( comm_buf , len , NULL )
 	}
 	

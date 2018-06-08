@@ -51,7 +51,9 @@ struct LogpipeInputPlugin
 	funcInitInputPluginContext	*pfuncInitInputPluginContext ; /* 工作主循环前初始化插件 */
 	funcOnInputPluginIdle		*pfuncOnInputPluginIdle ; /* 空闲时的调用 */
 	funcOnInputPluginEvent		*pfuncOnInputPluginEvent ; /* 发生输入事件时的调用 */
+	funcBeforeReadInputPlugin	*pfuncBeforeReadInputPlugin ; /* 读取一个数据块前 */
 	funcReadInputPlugin		*pfuncReadInputPlugin ; /* 读取一个数据块 */
+	funcAfterReadInputPlugin	*pfuncAfterReadInputPlugin ; /* 读取一个数据块后 */
 	funcCleanInputPluginContext	*pfuncCleanInputPluginContext ; /* 工作主循环后清理插件 */
 	funcUnloadInputPluginConfig	*pfuncUnloadInputPluginConfig ; /* 退出前卸载插件 */
 	int				fd ;

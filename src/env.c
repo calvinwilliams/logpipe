@@ -182,7 +182,9 @@ void DeleteOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 /* 新增输入插件子会话 */
 struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , char *so_filename
 						, funcOnInputPluginEvent *pfuncOnInputPluginEvent
+						, funcBeforeReadInputPlugin *pfuncBeforeReadInputPlugin
 						, funcReadInputPlugin *pfuncReadInputPlugin
+						, funcAfterReadInputPlugin *pfuncAfterReadInputPlugin
 						, funcCleanInputPluginContext *pfuncCleanInputPluginContext , funcUnloadInputPluginConfig *pfuncUnloadInputPluginConfig
 						, int fd , void *context )
 {
@@ -206,7 +208,9 @@ struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , cha
 	}
 	
 	p_logpipe_input_plugin->pfuncOnInputPluginEvent = pfuncOnInputPluginEvent ;
+	p_logpipe_input_plugin->pfuncBeforeReadInputPlugin = pfuncBeforeReadInputPlugin ;
 	p_logpipe_input_plugin->pfuncReadInputPlugin = pfuncReadInputPlugin ;
+	p_logpipe_input_plugin->pfuncAfterReadInputPlugin = pfuncAfterReadInputPlugin ;
 	p_logpipe_input_plugin->pfuncCleanInputPluginContext = pfuncCleanInputPluginContext ;
 	p_logpipe_input_plugin->pfuncUnloadInputPluginConfig = pfuncUnloadInputPluginConfig ;
 	

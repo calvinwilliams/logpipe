@@ -89,12 +89,16 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 		return -1;
 	}
 	
+	p_logpipe_input_plugin->pfuncBeforeReadInputPlugin = (funcBeforeReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "BeforeReadInputPlugin" ) ;
+	
 	p_logpipe_input_plugin->pfuncReadInputPlugin = (funcReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "ReadInputPlugin" ) ;
 	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
 	{
 		ERRORLOG( "dlsym[%s][ReadInputPlugin] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
 		return -1;
 	}
+	
+	p_logpipe_input_plugin->pfuncAfterReadInputPlugin = (funcAfterReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "AfterReadInputPlugin" ) ;
 	
 	p_logpipe_input_plugin->pfuncCleanInputPluginContext = (funcCleanInputPluginContext *)dlsym( p_logpipe_input_plugin->so_handler , "CleanInputPluginContext" ) ;
 	if( p_logpipe_input_plugin->pfuncCleanInputPluginContext == NULL )
@@ -174,11 +178,6 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	}
 	
 	p_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin = (funcBeforeWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "BeforeWriteOutputPlugin" ) ;
-	if( p_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin == NULL )
-	{
-		ERRORLOG( "dlsym[%s][BeforeWriteOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
-		return -1;
-	}
 	
 	p_logpipe_output_plugin->pfuncWriteOutputPlugin = (funcWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "WriteOutputPlugin" ) ;
 	if( p_logpipe_output_plugin->pfuncWriteOutputPlugin == NULL )
@@ -188,11 +187,6 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	}
 	
 	p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin = (funcAfterWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "AfterWriteOutputPlugin" ) ;
-	if( p_logpipe_output_plugin->pfuncAfterWriteOutputPlugin == NULL )
-	{
-		ERRORLOG( "dlsym[%s][AfterWriteOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
-		return -1;
-	}
 	
 	p_logpipe_output_plugin->pfuncCleanOutputPluginContext = (funcCleanOutputPluginContext *)dlsym( p_logpipe_output_plugin->so_handler , "CleanOutputPluginContext" ) ;
 	if( p_logpipe_output_plugin->pfuncCleanOutputPluginContext == NULL )
