@@ -359,7 +359,6 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 			INFOLOG( "RotatingFile ok , path_filename[%s]" , p_trace_file->path_filename )
 		}
 		
-#if 0
 		/* 采集完所有追加内容 */
 		nret = CheckFileOffset( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file , 0 , APPEND_COUNT_INFINITED ) ;
 		if( nret )
@@ -381,7 +380,6 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 		{
 			INFOLOG( "RemoveFileWatcher ok , path_filename[%s]" , p_trace_file->path_filename )
 		}
-#endif
 	}
 	
 	return 0;
