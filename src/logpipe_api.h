@@ -43,6 +43,7 @@ int asprintf(char **strp, const char *fmt, ...);
 
 #include "iconv.h"
 
+#include "list.h"
 #include "rbtree_tpl.h"
 
 #include "LOGC.h"

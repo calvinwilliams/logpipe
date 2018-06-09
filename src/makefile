@@ -31,6 +31,7 @@ BININST		=	$(_BININST)
 LIB		=	liblogpipe_api.so
 LIBINST		=	$(_LIBINST)
 HDER		= \
+			list.h \
 			rbtree.h \
 			LOGC.h \
 			fasterjson.h \

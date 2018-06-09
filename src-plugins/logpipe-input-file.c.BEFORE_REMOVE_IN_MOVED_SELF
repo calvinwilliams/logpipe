@@ -4,7 +4,7 @@
 logpipe -f logpipe_case1_collector.conf --start-once-for-env "start_once_for_full_dose 1"
 */
 
-char	*__LOGPIPE_INPUT_FILE_VERSION = "0.3.0" ;
+char	*__LOGPIPE_INPUT_FILE_VERSION = "0.2.0" ;
 
 /* 跟踪文件信息结构 */
 struct TraceFile
@@ -19,8 +19,6 @@ struct TraceFile
 	int			trace_line ;
 	int			rotate_size ;
 	
-	struct rb_node		inotify_path_filename_rbnode ;
-	
 	int			inotify_file_wd ;
 	struct rb_node		inotify_file_wd_rbnode ;
 	
@@ -32,14 +30,25 @@ struct TraceFile
 } ;
 
 /* 目录的IN_MOVED_FROM事件，之后如果没被IN_MOVED_SELF用掉，则被清理 */
-#define TIME_TO_FREE_ELAPSE	10
+#define TIME_TO_FREE_ELAPSE	5
 
 struct MovefromEvent
 {
 	char			filename[ PATH_MAX + 1 ] ;
 	struct list_head	movefrom_filename_node ;
 	
-	uint32_t		cookie ;
+	int			cookie ;
+	
+	time_t			time_to_free ;
+} ;
+
+/* 目录的IN_MOVED_TO事件，之后如果没被IN_MOVED_SELF用掉，则被清理 */
+struct MovetoEvent
+{
+	int			cookie ;
+	struct list_head	moveto_cookie_node ;
+	
+	char			filename[ PATH_MAX + 1 ] ;
 	
 	time_t			time_to_free ;
 } ;
@@ -81,15 +90,11 @@ struct InputPluginContext
 	
 	int			inotify_fd ;
 	int			inotify_path_wd ;
-	
-	struct rb_root		inotify_path_filename_rbtree ;
 	struct rb_root		inotify_wd_rbtree ;
-	
 	struct rb_root		modifing_timestamp_rbtree ;
 	struct rb_root		deleting_timestamp_rbtree ;
-	
 	struct list_head	movefrom_filename_list ;
-	// struct list_head	moveto_cookie_list ;
+	struct list_head	moveto_cookie_list ;
 	struct list_head	rotated_file_list ;
 	
 	char			*inotify_read_buffer ;
@@ -105,10 +110,6 @@ struct InputPluginContext
 	int			add_len ;
 	int			add_line ;
 } ;
-
-LINK_RBTREENODE_STRING( LinkTraceFilePathFilenameTreeNode , struct InputPluginContext , inotify_path_filename_rbtree , struct TraceFile , inotify_path_filename_rbnode , path_filename )
-QUERY_RBTREENODE_STRING( QueryTraceFilePathFilenameTreeNode , struct InputPluginContext , inotify_path_filename_rbtree , struct TraceFile , inotify_path_filename_rbnode , path_filename )
-UNLINK_RBTREENODE( UnlinkTraceFilePathFilenameTreeNode , struct InputPluginContext , inotify_path_filename_rbtree , struct TraceFile , inotify_path_filename_rbnode )
 
 LINK_RBTREENODE_INT( LinkTraceFileInotifyWdTreeNode , struct InputPluginContext , inotify_wd_rbtree , struct TraceFile , inotify_file_wd_rbnode , inotify_file_wd )
 QUERY_RBTREENODE_INT( QueryTraceFileInotifyWdTreeNode , struct InputPluginContext , inotify_wd_rbtree , struct TraceFile , inotify_file_wd_rbnode , inotify_file_wd )
@@ -280,7 +281,6 @@ static int RemoveFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlug
 {
 	int		nret = 0 ;
 	
-	UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 	UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
 	UnlinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
 	UnlinkTraceFileDeletingTimestampTreeNode( p_plugin_ctx , p_trace_file );
@@ -404,7 +404,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 	}
 	
 	/* 如果启用大小转档，且文件有追加内容 */
-	if( p_trace_file->rotate_size > 0 && file_stat.st_size >= p_trace_file->rotate_size )
+	if( rotate_size > 0 && file_stat.st_size >= rotate_size )
 	{
 		/* 大小转档文件 */
 		nret = RotatingFile( p_plugin_ctx , p_trace_file ) ;
@@ -688,7 +688,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_trace_file->rotate_size = p_plugin_ctx->rotate_size ;
 	
 	/* 添加文件变化监视器 */
-	p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_IGNORED|IN_Q_OVERFLOW) ) ;
+	p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED|IN_Q_OVERFLOW) ) ;
 	if( p_trace_file->inotify_file_wd == -1 )
 	{
 		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
@@ -701,26 +701,10 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%d] trace_line[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
 	}
 	
-	nret = LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
-	if( nret )
-	{
-		ERRORLOG( "LinkTraceFilePathFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-		INFOLOG( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
-		inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd );
-		close( p_trace_file->fd );
-		FreeTraceFile( p_trace_file );
-		return -1;
-	}
-	else
-	{
-		DEBUGLOG( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-	}
-	
 	nret = LinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file ) ;
 	if( nret )
 	{
 		ERRORLOG( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-		UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 		INFOLOG( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
 		inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd );
 		close( p_trace_file->fd );
@@ -929,6 +913,7 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	
 	/* 初始化其它变量 */
 	INIT_LIST_HEAD( & (p_plugin_ctx->movefrom_filename_list) );
+	INIT_LIST_HEAD( & (p_plugin_ctx->moveto_cookie_list) );
 	INIT_LIST_HEAD( & (p_plugin_ctx->rotated_file_list) );
 	
 	/* 初始化插件环境内部数据 */
@@ -972,26 +957,44 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	return 0;
 }
 
-static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , struct inotify_event *p_inotify_event )
+static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , struct inotify_event *p_inotify_event , struct TraceFile *p_trace_file )
 {
 	struct MovefromEvent	*p_curr_movefrom_filename = NULL ;
 	struct MovefromEvent	*p_next_movefrom_filename = NULL ;
-	struct TraceFile	trace_file ;
-	struct TraceFile	*p_trace_file = NULL ;
+	struct MovetoEvent	*p_curr_moveto_cookie = NULL ;
+	struct MovetoEvent	*p_next_moveto_cookie = NULL ;
+	int			cookie ;
 	
 	int			nret = 0 ;
 	
+	DEBUGLOG( "inotify IN_MOVE_SELF event , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+	
 	list_for_each_entry_safe( p_curr_movefrom_filename , p_next_movefrom_filename , & (p_plugin_ctx->movefrom_filename_list) , struct MovefromEvent , movefrom_filename_node )
 	{
-		if( p_curr_movefrom_filename->cookie == p_inotify_event->cookie )
+		if( STRCMP( p_curr_movefrom_filename->filename , == , p_trace_file->filename ) )
 		{
-			INFOLOG( "find movefrom_filename_node , cookie[%d] , filename[%s]" , p_curr_movefrom_filename->cookie , p_curr_movefrom_filename->filename )
+			INFOLOG( "find movefrom_filename_node[%s] , cookie[%d]" , p_curr_movefrom_filename->filename , p_curr_movefrom_filename->cookie )
+			cookie = p_curr_movefrom_filename->cookie ;
 			
-			memset( & trace_file , 0x00 , sizeof(struct TraceFile) );
-			snprintf( trace_file.path_filename , sizeof(trace_file.path_filename)-1 , "%s/%s" , p_plugin_ctx->path , p_curr_movefrom_filename->filename );
-			p_trace_file = QueryTraceFilePathFilenameTreeNode( p_plugin_ctx , & trace_file ) ;
-			if( p_trace_file )
+			INFOLOG( "free movefrom_filename_node , filename[%s]" , p_curr_movefrom_filename->filename )
+			list_del( & (p_curr_movefrom_filename->movefrom_filename_node) );
+			free( p_curr_movefrom_filename );
+			
+			break;
+		}
+	}
+	if( & (p_curr_movefrom_filename->movefrom_filename_node) == & (p_plugin_ctx->movefrom_filename_list) )
+	{
+		INFOLOG( "filename[%s] not found in movefrom_filename_list" , p_trace_file->filename );
+	}
+	else
+	{
+		list_for_each_entry_safe( p_curr_moveto_cookie , p_next_moveto_cookie , & (p_plugin_ctx->moveto_cookie_list) , struct MovetoEvent , moveto_cookie_node )
+		{
+			if( p_curr_moveto_cookie->cookie == cookie )
 			{
+				INFOLOG( "find moveto_cookie_node[%d]" , p_curr_moveto_cookie->cookie )
+				
 				nret = inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd ) ;
 				if( nret == -1 )
 				{
@@ -1002,7 +1005,9 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 				{
 					INFOLOG( "inotify_rm_watch ok , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 					
-					p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_IGNORED|IN_Q_OVERFLOW) ) ;
+					memset( p_trace_file->path_filename , 0x00 , sizeof(p_trace_file->path_filename) );
+					snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%s" , p_trace_file->pathname , p_curr_moveto_cookie->filename );
+					p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_IGNORED|IN_Q_OVERFLOW) ) ;
 					if( p_trace_file->inotify_file_wd == -1 )
 					{
 						ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
@@ -1025,18 +1030,18 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 						DEBUGLOG( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 					}
 				}
+				
+				INFOLOG( "free moveto_cookie_node , cookie[%d]" , p_curr_moveto_cookie->cookie )
+				list_del( & (p_curr_moveto_cookie->moveto_cookie_node) );
+				free( p_curr_moveto_cookie );
+				
+				break;
 			}
-			
-			INFOLOG( "free movefrom_filename_node , filename[%s]" , p_curr_movefrom_filename->filename )
-			list_del( & (p_curr_movefrom_filename->movefrom_filename_node) );
-			free( p_curr_movefrom_filename );
-			
-			break;
 		}
-	}
-	if( & (p_curr_movefrom_filename->movefrom_filename_node) == & (p_plugin_ctx->movefrom_filename_list) )
-	{
-		INFOLOG( "filename[%s] not found in movefrom_filename_list" , p_trace_file->filename );
+		if( & (p_curr_moveto_cookie->moveto_cookie_node) == & (p_plugin_ctx->moveto_cookie_list) )
+		{
+			WARNLOG( "cookie[%d] not found in moveto_cookie_list" , cookie );
+		}
 	}
 	
 	return 0;
@@ -1046,6 +1051,8 @@ static int CleanRenameFileTimeoutEvent( struct InputPluginContext *p_plugin_ctx 
 {
 	struct MovefromEvent		*p_curr_movefrom_filename = NULL ;
 	struct MovefromEvent		*p_next_movefrom_filename = NULL ;
+	struct MovetoEvent		*p_curr_moveto_cookie = NULL ;
+	struct MovetoEvent		*p_next_moveto_cookie = NULL ;
 	
 	list_for_each_entry_safe( p_curr_movefrom_filename , p_next_movefrom_filename , & (p_plugin_ctx->movefrom_filename_list) , struct MovefromEvent , movefrom_filename_node )
 	{
@@ -1055,6 +1062,17 @@ static int CleanRenameFileTimeoutEvent( struct InputPluginContext *p_plugin_ctx 
 			INFOLOG( "free movefrom_filename_node[%s]" , p_curr_movefrom_filename->filename )
 			list_del( & (p_curr_movefrom_filename->movefrom_filename_node) );
 			free( p_curr_movefrom_filename );
+		}
+	}
+	
+	list_for_each_entry_safe( p_curr_moveto_cookie , p_next_moveto_cookie , & (p_plugin_ctx->moveto_cookie_list) , struct MovetoEvent , moveto_cookie_node )
+	{
+		DEBUGLOG( "this_time[%d] p_curr_moveto_cookie->time_to_free[%d]" , this_time , p_curr_moveto_cookie->time_to_free )
+		if( this_time > p_curr_moveto_cookie->time_to_free )
+		{
+			INFOLOG( "free moveto_cookie_node[%s]" , p_curr_moveto_cookie->cookie )
+			list_del( & (p_curr_moveto_cookie->moveto_cookie_node) );
+			free( p_curr_moveto_cookie );
 		}
 	}
 	
@@ -1070,7 +1088,6 @@ static int CleanRotatedFile( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 	
 	list_for_each_entry_safe( p_curr_rotated_file , p_next_rotated_file , & (p_plugin_ctx->rotated_file_list) , struct RotatedFile , rotated_file_node )
 	{
-		DEBUGLOG( "rotated_file.inotify_file_wd[%d]" , p_curr_rotated_file->inotify_file_wd )
 		trace_file.inotify_file_wd = p_curr_rotated_file->inotify_file_wd ;
 		p_trace_file = QueryTraceFileInotifyWdTreeNode( p_plugin_ctx , & trace_file ) ;
 		if( p_trace_file )
@@ -1078,7 +1095,7 @@ static int CleanRotatedFile( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 			DEBUGLOG( "this_time[%d] p_curr_rotated_file->time_to_free[%d]" , this_time , p_trace_file->modifing_timestamp.tv_sec )
 			if( this_time - p_trace_file->modifing_timestamp.tv_sec > CLEAN_TIMEOUT_ROTATED_FILE_ELAPSE )
 			{
-				DEBUGLOG( "free p_curr_rotated_file[%d]" , p_curr_rotated_file->inotify_file_wd )
+				INFOLOG( "free p_curr_rotated_file[%d]" , p_curr_rotated_file->inotify_file_wd )
 				list_del( & (p_curr_rotated_file->rotated_file_node) );
 				free( p_curr_rotated_file );
 				RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
@@ -1293,16 +1310,23 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			/* 如果发生 移入文件 事件 */
 			else if( p_inotify_event->mask & IN_MOVED_TO )
 			{
+				struct MovetoEvent	*p_moveto_cookie = NULL ;
+				
 				INFOLOG( "inotify IN_MOVED_TO event , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 				
-				nret = ProcessingRenameFileEvent( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_inotify_event ) ;
-				if( nret )
+				p_moveto_cookie = (struct MovetoEvent *)malloc( sizeof(struct MovetoEvent) ) ;
+				if( p_moveto_cookie == NULL )
 				{
-					ERRORLOG( "ProcessingRenameFileEvent failed[%d]" , nret )
+					ERRORLOG( "malloc sizeof(struct MovefromEvent) failed , errno[%d]" , errno )
 				}
 				else
 				{
-					DEBUGLOG( "ProcessingRenameFileEvent ok" )
+					memset( p_moveto_cookie , 0x00 , sizeof(struct MovetoEvent) ) ;
+					p_moveto_cookie->cookie = p_inotify_event->cookie ;
+					strcpy( p_moveto_cookie->filename , p_inotify_event->name );
+					p_moveto_cookie->time_to_free = time(NULL) + TIME_TO_FREE_ELAPSE ;
+					list_add_tail( & (p_moveto_cookie->moveto_cookie_node) , & (p_plugin_ctx->moveto_cookie_list) );
+					INFOLOG( "add moveto_cookie ok , cookie[%d] filename[%s] time_to_free[%d]" , p_moveto_cookie->cookie , p_moveto_cookie->filename , p_moveto_cookie->time_to_free )
 				}
 			}
 			/* 如果发生 删除监控目录 或 移动监控目录 事件 */
@@ -1352,6 +1376,19 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 					p_trace_file->deleting_timestamp.tv_sec = now.tv_sec ;
 					p_trace_file->deleting_timestamp.tv_usec = now.tv_usec ;
 					LinkTraceFileDeletingTimestampTreeNode( p_plugin_ctx , p_trace_file );
+				}
+				/* 如果发生 移动文件 事件 */
+				else if( p_inotify_event->mask & IN_MOVE_SELF )
+				{
+					nret = ProcessingRenameFileEvent( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_inotify_event , p_trace_file ) ;
+					if( nret )
+					{
+						ERRORLOG( "ProcessingRenameFileEvent failed[%d]" , nret )
+					}
+					else
+					{
+						DEBUGLOG( "ProcessingRenameFileEvent ok" )
+					}
 				}
 				else
 				{
@@ -1585,12 +1622,18 @@ int CleanInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	struct MovefromEvent		*p_curr_movefrom_filename = NULL ;
 	struct MovefromEvent		*p_next_movefrom_filename = NULL ;
+	struct MovetoEvent		*p_curr_moveto_cookie = NULL ;
+	struct MovetoEvent		*p_next_moveto_cookie = NULL ;
 	struct RotatedFile		*p_curr_rotated_file = NULL ;
 	struct RotatedFile		*p_next_rotated_file = NULL ;
 	
 	list_for_each_entry_safe( p_curr_movefrom_filename , p_next_movefrom_filename , & (p_plugin_ctx->movefrom_filename_list) , struct MovefromEvent , movefrom_filename_node )
 	{
 		free( p_curr_movefrom_filename );
+	}
+	list_for_each_entry_safe( p_curr_moveto_cookie , p_next_moveto_cookie , & (p_plugin_ctx->moveto_cookie_list) , struct MovetoEvent , moveto_cookie_node )
+	{
+		free( p_curr_moveto_cookie );
 	}
 	list_for_each_entry_safe( p_curr_rotated_file , p_next_rotated_file , & (p_plugin_ctx->rotated_file_list) , struct RotatedFile , rotated_file_node )
 	{
