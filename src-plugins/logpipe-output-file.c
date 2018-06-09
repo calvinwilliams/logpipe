@@ -123,10 +123,8 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 }
 
 /* 打开文件 */
-static int OpenFile( struct OutputPluginContext *p_plugin_ctx )
+static int OpenFile( struct TraceFile *p_trace_file )
 {
-	struct TraceFile	*p_trace_file = p_plugin_ctx->p_trace_file ;
-	
 	p_trace_file->fd = open( p_trace_file->path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
 	if( p_trace_file->fd == -1 )
 	{
@@ -142,10 +140,8 @@ static int OpenFile( struct OutputPluginContext *p_plugin_ctx )
 }
 
 /* 关闭文件 */
-static void CloseFile( struct OutputPluginContext *p_plugin_ctx )
+static void CloseFile( struct TraceFile *p_trace_file )
 {
-	struct TraceFile	*p_trace_file = p_plugin_ctx->p_trace_file ;
-	
 	if( p_trace_file->fd >= 0 )
 	{
 		INFOLOG( "close file[%s]" , p_trace_file->path_filename )
@@ -167,7 +163,7 @@ static int RotatingFile( struct OutputPluginContext *p_plugin_ctx )
 	int			nret = 0 ;
 	
 	/* 关闭文件 */
-	CloseFile( p_plugin_ctx );
+	CloseFile( p_trace_file );
 	
 	/* 改名 */
 	snprintf( old_filename , sizeof(old_filename)-1 , "%s/%s" , p_plugin_ctx->path , p_trace_file->filename );
@@ -198,7 +194,7 @@ static int RotatingFile( struct OutputPluginContext *p_plugin_ctx )
 	}
 	
 	/* 打开文件 */
-	OpenFile( p_plugin_ctx );
+	OpenFile( p_trace_file );
 	
 	return 0;
 }
@@ -223,8 +219,9 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		nret = access( p_trace_file->path_filename , F_OK ) ;
 		if( nret == - 1 )
 		{
+			INFOLOG( "access[%.*s] failed , errno[%d]" , filename_len , filename , errno )
 			UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
-			CloseFile( p_plugin_ctx );
+			CloseFile( p_trace_file );
 			FreeTraceFile( p_trace_file );
 			
 			p_trace_file = NULL ;
@@ -262,18 +259,22 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 			return 1;
 		}
 		
-		p_plugin_ctx->p_trace_file = p_trace_file ;
-		
 		/* 打开文件 */
-		nret = OpenFile( p_plugin_ctx ) ;
+		nret = OpenFile( p_trace_file ) ;
 		if( nret )
 		{
 			ERRORLOG( "open[%s] failed[%d]" , p_trace_file->path_filename , nret )
 			FreeTraceFile( p_trace_file );
 			return 1;
 		}
+		else
+		{
+			INFOLOG( "open[%s] ok" , p_trace_file->path_filename )
+		}
 		
 		LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+		
+		p_plugin_ctx->p_trace_file = p_trace_file ;
 	}
 	
 	return 0;
@@ -295,12 +296,15 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		len = writen( p_trace_file->fd , block_buf , block_len ) ;
 		if( len == -1 )
 		{
-			ERRORLOG( "write block data to file failed , errno[%d]" , errno )
+			ERRORLOG( "write block data to file[%d][%s] failed , errno[%d]" , p_trace_file->fd , p_trace_file->path_filename , errno )
+			UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+			CloseFile( p_trace_file );
+			FreeTraceFile( p_trace_file );
 			return 1;
 		}
 		else
 		{
-			INFOLOG( "write block data to file ok , [%d]bytes" , block_len )
+			INFOLOG( "write block data to file[%d][%s] ok , [%d]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_len )
 			DEBUGHEXLOG( block_buf , len , NULL )
 		}
 	}
@@ -317,6 +321,9 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			if( nret )
 			{
 				ERRORLOG( "UncompressInputPluginData failed[%d]" , nret )
+				UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+				CloseFile( p_trace_file );
+				FreeTraceFile( p_trace_file );
 				return -1;
 			}
 			else
@@ -327,12 +334,15 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			len = writen( p_trace_file->fd , block_out_buf , block_out_len ) ;
 			if( len == -1 )
 			{
-				ERRORLOG( "write uncompress block data to file failed , errno[%d]" , errno )
+				ERRORLOG( "write uncompress block data to file[%d][%s] failed , errno[%d]" , p_trace_file->fd , p_trace_file->path_filename , errno )
+				UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+				CloseFile( p_trace_file );
+				FreeTraceFile( p_trace_file );
 				return 1;
 			}
 			else
 			{
-				INFOLOG( "write uncompress block data to file ok , [%d]bytes" , block_out_len )
+				INFOLOG( "write uncompress block data to file[%d][%s] ok , [%d]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_out_len )
 				DEBUGHEXLOG( block_out_buf , len , NULL )
 			}
 		}
@@ -353,6 +363,9 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		if( nret == -1 )
 		{
 			ERRORLOG( "fstat[%s] failed[%d] , errno[%d]" , p_trace_file->path_filename , nret , errno )
+			UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+			CloseFile( p_trace_file );
+			FreeTraceFile( p_trace_file );
 		}
 		else
 		{
@@ -362,7 +375,13 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 				INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
 				
 				/* 文件大小转档处理 */
-				RotatingFile( p_plugin_ctx );
+				nret = RotatingFile( p_plugin_ctx ) ;
+				if( nret )
+				{
+					UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+					CloseFile( p_trace_file );
+					FreeTraceFile( p_trace_file );
+				}
 			}
 		}
 	}

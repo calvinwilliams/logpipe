@@ -1,3 +1,9 @@
+0.20.8		2018-06-09	calvin
+		* 优化了logpipe-input-file.so性能
+
+0.20.7		2018-06-08	calvin
+		* 优化了logpipe-input-file.so性能
+
 0.20.6		2018-06-05	calvin
 		* 优化了logpipe-input-file.so和logpipe-output-file.so性能
 
