@@ -1,3 +1,7 @@
+0.21.9		2018-06-10	calvin
+		* 修正了小日志文件没有及时采集的问题
+		* 根据修改过的需求改造logpipe-output-ingeek.so
+
 0.20.8		2018-06-09	calvin
 		* 优化了logpipe-input-file.so性能
 
