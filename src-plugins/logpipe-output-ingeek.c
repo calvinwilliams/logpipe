@@ -370,6 +370,9 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	{
 		memset( mainfilename , 0x00 , sizeof(mainfilename) );
 		strncpy( mainfilename , p_plugin_ctx->filename , sizeof(mainfilename)-1 );
+		p = strrchr( mainfilename , '.' ) ;
+		if( p )
+			(*p) = '\0' ;
 		p = strrchr( mainfilename , '_' ) ;
 		if( p )
 			(*p) = '\0' ;
