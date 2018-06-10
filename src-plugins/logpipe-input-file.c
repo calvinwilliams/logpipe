@@ -29,6 +29,8 @@ struct TraceFile
 	
 	struct timeval		deleting_timestamp ;
 	struct rb_node		deleting_timestamp_rbnode ;
+	
+	unsigned char		need_close_write_appending ;
 } ;
 
 /* 目录的IN_MOVED_FROM事件，之后如果没被IN_MOVED_SELF用掉，则被清理 */
@@ -52,7 +54,7 @@ struct RotatedFile
 } ;
 
 /* 插件环境结构 */
-#define INOTIFY_READ_BUFSIZE	(1024*1024)
+#define INOTIFY_READ_BUFSIZE	(10*1024*1024)
 
 #define READ_FULL_FILE_FLAG	1
 #define READ_APPEND_FILE_FLAG	0
@@ -1042,15 +1044,15 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 	return 0;
 }
 
-static int CleanRenameFileTimeoutEvent( struct InputPluginContext *p_plugin_ctx , time_t this_time )
+static int CleanOldRenameFileEvent( struct InputPluginContext *p_plugin_ctx , struct timeval *p_now )
 {
 	struct MovefromEvent		*p_curr_movefrom_filename = NULL ;
 	struct MovefromEvent		*p_next_movefrom_filename = NULL ;
 	
 	list_for_each_entry_safe( p_curr_movefrom_filename , p_next_movefrom_filename , & (p_plugin_ctx->movefrom_filename_list) , struct MovefromEvent , movefrom_filename_node )
 	{
-		DEBUGLOG( "this_time[%d] p_curr_movefrom_filename->time_to_free[%d]" , this_time , p_curr_movefrom_filename->time_to_free )
-		if( this_time > p_curr_movefrom_filename->time_to_free )
+		DEBUGLOG( "this_time[%d] p_curr_movefrom_filename->time_to_free[%d]" , p_now->tv_sec , p_curr_movefrom_filename->time_to_free )
+		if( p_now->tv_sec > p_curr_movefrom_filename->time_to_free )
 		{
 			INFOLOG( "free movefrom_filename_node[%s]" , p_curr_movefrom_filename->filename )
 			list_del( & (p_curr_movefrom_filename->movefrom_filename_node) );
@@ -1061,7 +1063,7 @@ static int CleanRenameFileTimeoutEvent( struct InputPluginContext *p_plugin_ctx 
 	return 0;
 }
 
-static int CleanRotatedFile( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , time_t this_time )
+static int CleanOldRotatedFile( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , struct timeval *p_now )
 {
 	struct RotatedFile		*p_curr_rotated_file = NULL ;
 	struct RotatedFile		*p_next_rotated_file = NULL ;
@@ -1075,8 +1077,8 @@ static int CleanRotatedFile( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 		p_trace_file = QueryTraceFileInotifyWdTreeNode( p_plugin_ctx , & trace_file ) ;
 		if( p_trace_file )
 		{
-			DEBUGLOG( "this_time[%d] p_curr_rotated_file->time_to_free[%d]" , this_time , p_trace_file->modifing_timestamp.tv_sec )
-			if( this_time - p_trace_file->modifing_timestamp.tv_sec > CLEAN_TIMEOUT_ROTATED_FILE_ELAPSE )
+			DEBUGLOG( "this_time[%d] p_curr_rotated_file->time_to_free[%d]" , p_now->tv_sec , p_trace_file->modifing_timestamp.tv_sec )
+			if( p_now->tv_sec - p_trace_file->modifing_timestamp.tv_sec > CLEAN_TIMEOUT_ROTATED_FILE_ELAPSE )
 			{
 				DEBUGLOG( "free p_curr_rotated_file[%d]" , p_curr_rotated_file->inotify_file_wd )
 				list_del( & (p_curr_rotated_file->rotated_file_node) );
@@ -1093,7 +1095,7 @@ funcOnInputPluginIdle OnInputPluginIdle ;
 int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
-	time_t				this_time ;
+	struct timeval			now ;
 	
 	int				nret = 0 ;
 	
@@ -1119,28 +1121,28 @@ int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_l
 	}
 #endif
 	
-	this_time = time(NULL) ;
+	gettimeofday( & now , NULL );
 	
 	/* 处理之前保存下来的IN_MOVED_FROM、IN_MOVED_FROM事件，清理没被IN_MOVE_SELF用掉且超时的 */
-	nret = CleanRenameFileTimeoutEvent( p_plugin_ctx , this_time ) ;
+	nret = CleanOldRenameFileEvent( p_plugin_ctx , & now ) ;
 	if( nret )
 	{
-		ERRORLOG( "CleanRenameFileTimeoutEvent failed[%d]" , nret )
+		ERRORLOG( "CleanOldRenameFileEvent failed[%d]" , nret )
 	}
 	else
 	{
-		DEBUGLOG( "CleanRenameFileTimeoutEvent ok" )
+		DEBUGLOG( "CleanOldRenameFileEvent ok" )
 	}
 	
 	/* 处理长期不动的大小转档文件 */
-	nret = CleanRotatedFile( p_env , p_logpipe_input_plugin , p_plugin_ctx , this_time ) ;
+	nret = CleanOldRotatedFile( p_env , p_logpipe_input_plugin , p_plugin_ctx , & now ) ;
 	if( nret )
 	{
-		ERRORLOG( "CleanRenameFileTimeoutEvent failed[%d]" , nret )
+		ERRORLOG( "CleanOldRenameFileEvent failed[%d]" , nret )
 	}
 	else
 	{
-		DEBUGLOG( "CleanRenameFileTimeoutEvent ok" )
+		DEBUGLOG( "CleanOldRenameFileEvent ok" )
 	}
 	
 	return 0;
@@ -1154,23 +1156,22 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 #if 0
 	int				inotify_read_nbytes ;
 #endif
-	long				len ;
+	long				inotify_read_buflen ;
+	long				inotify_event_count ;
 	struct inotify_event		*p_inotify_event = NULL ;
 	struct inotify_event		*p_overflow_inotify_event = NULL ;
 	struct TraceFile		trace_file ;
 	struct TraceFile		*p_trace_file = NULL ;
-	struct timeval			now ;
 	struct rb_node			*p = NULL ;
 	struct rb_node			*p_next = NULL ;
 	struct rb_node			*p_prev = NULL ;
 	
 	static time_t			last_time = 0 ;
-	time_t				this_time ;
+	struct timeval			now ;
 	
 	int				nret = 0 ;
 	
-	this_time = time(NULL) ;
-	DEBUGLOG( "this_time[%d]" , this_time )
+	gettimeofday( & now , NULL );
 	
 #if 0
 	/* 如果累积事件数量 大于 默认事件缓冲区大小，临时扩大事件缓冲区大小 */
@@ -1200,23 +1201,22 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	/* 读文件变化事件 */
 	DEBUGLOG( "read inotify[%d] ..." , p_plugin_ctx->inotify_fd )
 	memset( p_plugin_ctx->inotify_read_buffer , 0x00 , p_plugin_ctx->inotify_read_bufsize );
-	len = read( p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_read_buffer , p_plugin_ctx->inotify_read_bufsize-1 ) ;
-	if( len == -1 )
+	inotify_read_buflen = read( p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_read_buffer , p_plugin_ctx->inotify_read_bufsize-1 ) ;
+	if( inotify_read_buflen == -1 )
 	{
 		FATALLOG( "read inotify[%d] failed , errno[%d]" , p_plugin_ctx->inotify_fd , errno )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "read inotify[%d] ok , [%d]bytes" , p_plugin_ctx->inotify_fd , len )
+		INFOLOG( "read inotify[%d] ok , [%d]bytes" , p_plugin_ctx->inotify_fd , inotify_read_buflen )
 	}
 	
 	p_inotify_event = (struct inotify_event *)(p_plugin_ctx->inotify_read_buffer) ;
-	p_overflow_inotify_event = (struct inotify_event *)(p_plugin_ctx->inotify_read_buffer+len) ;
+	p_overflow_inotify_event = (struct inotify_event *)(p_plugin_ctx->inotify_read_buffer+inotify_read_buflen) ;
+	inotify_event_count = 0 ;
 	while( p_inotify_event < p_overflow_inotify_event )
 	{
-		gettimeofday( & now , NULL );
-		
 		/* 如果发生UNMOUNT事件，logpipe退出 */
 		if( p_inotify_event->mask & IN_UNMOUNT )
 		{
@@ -1227,10 +1227,10 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		{
 			;
 		}
-		else if( p_inotify_event->wd == IN_Q_OVERFLOW )
+		else if( p_inotify_event->wd == IN_Q_OVERFLOW || INOTIFY_READ_BUFSIZE-inotify_read_buflen<sizeof(struct inotify_event)+PATH_MAX+1 )
 		{
 			/* 如果inotify缓冲区溢出，检查所有文件 */
-			WARNLOG( "inotify buffer overflow!" )
+			WARNLOG( "INOTIFY BUFFER OVERFLOW!" )
 			
 			p = rb_first( & (p_plugin_ctx->inotify_wd_rbtree) );
 			while( p )
@@ -1259,7 +1259,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			/* 如果发生 创建文件 事件 */
 			if( p_inotify_event->mask & IN_CREATE )
 			{
-				INFOLOG( "inotify IN_CREATE event , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+				INFOLOG( "INOTIFY_EVENT IN_CREATE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 				
 				nret = AddFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_inotify_event->name , READ_FULL_FILE_FLAG , p_plugin_ctx->rotate_size , p_plugin_ctx->max_append_count ) ;
 				if( nret )
@@ -1267,13 +1267,15 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 					ERRORLOG( "IN_CREATE AddFileWatcher[%s] failed , errno[%d]" , p_inotify_event->name , errno )
 					return -1;
 				}
+				
+				SendCloseWriteEvent( p_trace_file );
 			}
 			/* 如果发生 移出文件 事件 */
 			else if( p_inotify_event->mask & IN_MOVED_FROM )
 			{
 				struct MovefromEvent	*p_movefrom_filename = NULL ;
 				
-				INFOLOG( "inotify IN_MOVED_FROM event , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+				INFOLOG( "INOTIFY_EVENT IN_MOVED_FROM , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 				
 				p_movefrom_filename = (struct MovefromEvent *)malloc( sizeof(struct MovefromEvent) ) ;
 				if( p_movefrom_filename == NULL )
@@ -1293,7 +1295,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			/* 如果发生 移入文件 事件 */
 			else if( p_inotify_event->mask & IN_MOVED_TO )
 			{
-				INFOLOG( "inotify IN_MOVED_TO event , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+				INFOLOG( "INOTIFY_EVENT IN_MOVED_TO , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 				
 				nret = ProcessingRenameFileEvent( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_inotify_event ) ;
 				if( nret )
@@ -1331,10 +1333,22 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			}
 			else
 			{
-				/* 如果发生 文件变化 或 写完关闭 事件 */
-				if( ( p_inotify_event->mask & IN_MODIFY ) || ( p_inotify_event->mask & IN_CLOSE_WRITE ) )
+				/* 如果发生 文件修改 事件 */
+				if( p_inotify_event->mask & IN_MODIFY )
 				{
-					// DEBUGLOG( "inotify IN_MODIFY or IN_CLOSE_WRITE event , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+					INFOLOG( "INOTIFY_EVENT IN_MODIFY , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+					
+					/* 合并处理文件变动事件 */
+					UnlinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
+					p_trace_file->modifing_timestamp.tv_sec = now.tv_sec ;
+					p_trace_file->modifing_timestamp.tv_usec = now.tv_usec ;
+					p_trace_file->need_close_write_appending = 1 ;
+					LinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
+				}
+				/* 如果发生 写完关闭 事件 */
+				else if( p_inotify_event->mask & IN_CLOSE_WRITE )
+				{
+					INFOLOG( "INOTIFY_EVENT IN_CLOSE_WRITE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 					
 					/* 合并处理文件变动事件 */
 					UnlinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
@@ -1345,7 +1359,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 				/* 如果发生 删除文件 事件 */
 				else if( p_inotify_event->mask & IN_DELETE_SELF )
 				{
-					DEBUGLOG( "inotify IN_DELETE_SELF event , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+					DEBUGLOG( "INOTIFY_EVENT IN_DELETE_SELF , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 					
 					/* 合并处理文件删除事件 */
 					UnlinkTraceFileDeletingTimestampTreeNode( p_plugin_ctx , p_trace_file );
@@ -1361,7 +1375,10 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		}
 		
 		p_inotify_event = (struct inotify_event *)( (char*)p_inotify_event + sizeof(struct inotify_event) + p_inotify_event->len ) ;
+		inotify_event_count++;
 	}
+	
+	INFOLOG( "[%ld]bytes [%ld]inotify events processed" , inotify_event_count )
 	
 	/* 处理文件合并变动事件 */
 	p = rb_last( & (p_plugin_ctx->modifing_timestamp_rbtree) );
@@ -1373,7 +1390,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		if( p_trace_file->modifing_timestamp.tv_sec != now.tv_sec || p_trace_file->modifing_timestamp.tv_usec != now.tv_usec )
 			break;
 		
-		INFOLOG( "processing IN_MODIFY or IN_CLOSE_WRITE event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		INFOLOG( "processing INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 		
 		/* 读取文件追加内容 */
 		nret = CheckFileOffset( p_env , p_logpipe_input_plugin, p_plugin_ctx , p_trace_file , p_plugin_ctx->rotate_size , p_plugin_ctx->max_append_count ) ;
@@ -1385,6 +1402,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		else
 		{
 			INFOLOG( "CheckFileOffset ok" )
+		}
+		
+		if( p_trace_file->need_close_write_appending )
+		{
+			SendCloseWriteEvent( p_trace_file );
+			p_trace_file->need_close_write_appending = 0 ;
 		}
 		
 		p = p_prev ;
@@ -1400,7 +1423,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		if( p_trace_file->deleting_timestamp.tv_sec != now.tv_sec || p_trace_file->deleting_timestamp.tv_usec != now.tv_usec )
 			break;
 		
-		INFOLOG( "processing IN_DELETE_SELF event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		INFOLOG( "processing INOTIFY_EVENT IN_DELETE_SELF event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 		
 		/* 采集完文件全部追加内容 */
 		nret = CheckFileOffset( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file , 0 , APPEND_COUNT_INFINITED ) ;
@@ -1429,31 +1452,31 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	}
 	
 	/* 每隔一秒 */
-	if( this_time > last_time )
+	if( now.tv_sec > last_time )
 	{
 		/* 处理之前保存下来的IN_MOVED_FROM、IN_MOVED_FROM事件，清理没被IN_MOVE_SELF用掉且超时的 */
-		nret = CleanRenameFileTimeoutEvent( p_plugin_ctx , this_time ) ;
+		nret = CleanOldRenameFileEvent( p_plugin_ctx , & now ) ;
 		if( nret )
 		{
-			ERRORLOG( "CleanRenameFileTimeoutEvent failed[%d]" , nret )
+			ERRORLOG( "CleanOldRenameFileEvent failed[%d]" , nret )
 		}
 		else
 		{
-			DEBUGLOG( "CleanRenameFileTimeoutEvent ok" )
+			DEBUGLOG( "CleanOldRenameFileEvent ok" )
 		}
 		
 		/* 处理长期不动的大小转档文件 */
-		nret = CleanRotatedFile( p_env , p_logpipe_input_plugin , p_plugin_ctx , this_time ) ;
+		nret = CleanOldRotatedFile( p_env , p_logpipe_input_plugin , p_plugin_ctx , & now ) ;
 		if( nret )
 		{
-			ERRORLOG( "CleanRenameFileTimeoutEvent failed[%d]" , nret )
+			ERRORLOG( "CleanOldRenameFileEvent failed[%d]" , nret )
 		}
 		else
 		{
-			DEBUGLOG( "CleanRenameFileTimeoutEvent ok" )
+			DEBUGLOG( "CleanOldRenameFileEvent ok" )
 		}
 		
-		last_time = this_time + 5 ;
+		last_time = now.tv_sec + 5 ;
 	}
 	
 	return 0;
