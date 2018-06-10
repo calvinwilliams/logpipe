@@ -1004,6 +1004,9 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 				{
 					INFOLOG( "inotify_rm_watch ok , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 					
+					memset( p_trace_file->path_filename , 0x00 , sizeof(p_trace_file->path_filename) );
+					snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%s" , p_plugin_ctx->path , p_inotify_event->name );
+					
 					p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_IGNORED|IN_Q_OVERFLOW) ) ;
 					if( p_trace_file->inotify_file_wd == -1 )
 					{
@@ -1014,13 +1017,24 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 						INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%d] trace_line[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
 					}
 					
-					UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
+					UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+					nret = LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
+					if( nret )
+					{
+						ERRORLOG( "LinkTraceFilePathFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+						return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
+					}
+					else
+					{
+						DEBUGLOG( "LinkTraceFilePathFilenameTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+					}
 					
+					UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
 					nret = LinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file ) ;
 					if( nret )
 					{
 						ERRORLOG( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-						RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
+						return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 					}
 					else
 					{
