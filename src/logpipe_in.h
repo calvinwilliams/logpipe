@@ -18,6 +18,8 @@ extern "C" {
 #include "list.h"
 #include "rbtree.h"
 
+extern char *__LOGPIPE_VERSION ;
+
 /* 插件配置结构 */
 struct LogpipePluginConfigItem
 {
@@ -97,6 +99,12 @@ struct LogpipeEnv
 	int				log_level ; /* logpipe日志等级 */
 	struct LogpipePluginConfigItem	start_once_for_plugin_config_items ; /* 启动时只起作用一次的配置，如启动时发送所有存量日志 */
 	
+#if 0 /* 可惜inotify不支持有名管道 */
+	char				logpipe_fifo_path_filename[ PATH_MAX + 1 ] ; /* 内部状态输出有名管道路径文件名 */
+	int				logpipe_fifo_inotify_fd ; /* 内部状态输出有名管道文件监控事件描述字 */
+	int				logpipe_fifo_inotify_wd ; /* 内部状态输出有名管道文件监控事件监控描述字 */
+#endif
+	
 	int				epoll_fd ; /* epoll事件总线 */
 	
 	struct LogpipeInputPlugin	logpipe_input_plugins_list ; /* 输入插件链表 */
@@ -127,6 +135,10 @@ void UnloadOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputP
 /* 环境 */
 int InitEnvironment( struct LogpipeEnv *p_env );
 void CleanEnvironment( struct LogpipeEnv *p_env );
+
+/* 内部状态输出管道 */
+int CreateLogpipeFifo( struct LogpipeEnv *p_env );
+int ProcessLogpipeFifoEvents( struct LogpipeEnv *p_env );
 
 /* 管理进程 */
 int monitor( struct LogpipeEnv *p_env );

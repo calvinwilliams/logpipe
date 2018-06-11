@@ -11,6 +11,7 @@ c_FILE		=	\
 			main.c \
 			monitor.c \
 			worker.c \
+			logpipe_fifo.c \
 
 c_FILE2		=	\
 			list.c \
