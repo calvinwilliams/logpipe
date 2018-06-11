@@ -705,8 +705,28 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	return 0;
 }
 
+funcBeforeReadInputPlugin BeforeReadInputPlugin ; /* 所有读之前执行，可选存在函数 */
+int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_file_line )
+{
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
 funcReadInputPlugin ReadInputPlugin ;
 int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+{
+	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcAfterReadInputPlugin AfterReadInputPlugin ; /* 所有读之后执行，可选存在函数 */
+int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_file_line );
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	
@@ -747,12 +767,14 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 
 ```
 遍历所有输出插件
+	调用输入插件的BeforeReadOutputPlugin
 	调用输出插件的BeforeWriteOutputPlugin
 循环
 	调用输入插件的ReadInputPlugin
 	遍历所有输出插件
 		调用输出插件的WriteOutputPlugin
 遍历所有输出插件
+	调用输入插件的AfterReadOutputPlugin
 	调用输出插件的AfterWriteOutputPlugin
 ```
 
@@ -832,7 +854,7 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	return 0;
 }
 
-funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
+funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ; /* 所有写之前执行，可选存在函数 */
 int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
@@ -852,7 +874,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	return 0;
 }
 
-funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
+funcAfterWriteOutputPlugin AfterWriteOutputPlugin ; /* 所有写之后执行，可选存在函数 */
 int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
