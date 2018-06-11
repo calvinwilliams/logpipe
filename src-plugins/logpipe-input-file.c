@@ -1152,11 +1152,11 @@ int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_l
 	nret = CleanOldRotatedFile( p_env , p_logpipe_input_plugin , p_plugin_ctx , & now ) ;
 	if( nret )
 	{
-		ERRORLOG( "CleanOldRenameFileEvent failed[%d]" , nret )
+		ERRORLOG( "CleanOldRotatedFile failed[%d]" , nret )
 	}
 	else
 	{
-		DEBUGLOG( "CleanOldRenameFileEvent ok" )
+		DEBUGLOG( "CleanOldRotatedFile ok" )
 	}
 	
 	return 0;
