@@ -1350,7 +1350,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 				/* 如果发生 文件修改 事件 */
 				if( p_inotify_event->mask & IN_MODIFY )
 				{
-					INFOLOG( "INOTIFY_EVENT IN_MODIFY , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+					DEBUGLOG( "INOTIFY_EVENT IN_MODIFY , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 					
 					/* 合并处理文件变动事件 */
 					UnlinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
@@ -1362,7 +1362,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 				/* 如果发生 写完关闭 事件 */
 				else if( p_inotify_event->mask & IN_CLOSE_WRITE )
 				{
-					INFOLOG( "INOTIFY_EVENT IN_CLOSE_WRITE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+					DEBUGLOG( "INOTIFY_EVENT IN_CLOSE_WRITE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 					
 					/* 合并处理文件变动事件 */
 					UnlinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
