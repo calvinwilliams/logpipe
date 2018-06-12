@@ -343,7 +343,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 /* 分列解析缓冲区 */
-static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int line_len , int line_add )
+static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , int line_len , int line_add )
 {
 	char		mainfilename[ PATH_MAX + 1 ] ;
 	char		*p = NULL ;
@@ -355,8 +355,9 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	struct timeval	tv_begin_send_tail ;
 	struct timeval	tv_end_send_tail ;
 	struct timeval	tv_diff_send_tail ;
-	
 	int		len ;
+	
+	int		nret = 0 ;
 	
 	DEBUGLOG( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	
@@ -380,6 +381,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	}
 	
 	/* 发送数据块到TCP */
+_GOTO_WRITEN_LOG :
 	INFOLOG( "send-log [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	gettimeofday( & tv_begin_send_log , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->parse_buffer , line_len ) ;
@@ -388,7 +390,13 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	{
 		ERRORLOG( "send log data to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-		return -1;
+		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+		if( nret )
+		{
+			ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+			return nret;
+		}
+		goto _GOTO_WRITEN_LOG;
 	}
 	else
 	{
@@ -396,6 +404,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 		DEBUGHEXLOG( p_plugin_ctx->parse_buffer , line_len , NULL )
 	}
 	
+_GOTO_WRITEN_TAIL :
 	INFOLOG( "send-tail [%d][%.*s]" , tail_buffer_len , tail_buffer_len , tail_buffer )
 	gettimeofday( & tv_begin_send_tail , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , tail_buffer , tail_buffer_len ) ;
@@ -404,7 +413,13 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	{
 		ERRORLOG( "send tail data to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-		return -1;
+		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+		if( nret )
+		{
+			ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+			return nret;
+		}
+		goto _GOTO_WRITEN_TAIL;
 	}
 	else
 	{
@@ -420,7 +435,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 }
 
 /* 数据块合并到解析缓冲区 */
-static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint32_t block_len )
+static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint32_t block_len )
 {
 	char		*p_newline = NULL ;
 	int		line_len ;
@@ -441,7 +456,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	else
 	{
 		/* 先强制把遗留数据都处理掉 */
-		nret = ParseCombineBuffer( p_plugin_ctx , p_plugin_ctx->parse_buflen , 0 ) ;
+		nret = ParseCombineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_plugin_ctx->parse_buflen , 0 ) ;
 		if( nret < 0 )
 		{
 			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
@@ -471,7 +486,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		line_len = p_newline - p_plugin_ctx->parse_buffer ;
 		remain_len = p_plugin_ctx->parse_buflen - line_len - 1 ;
 		(*p_newline) = '\0' ;
-		nret = ParseCombineBuffer( p_plugin_ctx , line_len , line_add ) ;
+		nret = ParseCombineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , line_len , line_add ) ;
 		if( nret < 0 )
 		{
 			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
@@ -509,7 +524,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	p_plugin_ctx->block_buf = block_buf ;
 	
 	/* 数据块合并到解析缓冲区 */
-	nret = CombineToParseBuffer( p_plugin_ctx , block_buf , block_len ) ;
+	nret = CombineToParseBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , block_buf , block_len ) ;
 	if( nret < 0 )
 	{
 		ERRORLOG( "CombineToParseBuffer failed[%d]" , nret )
