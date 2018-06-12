@@ -359,11 +359,12 @@ funcWriteOutputPlugin WriteOutputPlugin ;
 int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t file_line , uint32_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	
 	uint32_t			block_len_htonl ;
-	
 	int				len ;
 	
+	int				nret = 0 ;
+	
+_GOTO_WRITEN_BLOCK_LEN :
 	/* 发送数据块到TCP */
 	block_len_htonl = htonl(block_len) ;
 	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_begin_send_block_len) , NULL );
@@ -373,7 +374,13 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	{
 		ERRORLOG( "send block len to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-		return 1;
+		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+		if( nret )
+		{
+			ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+			return nret;
+		}
+		goto _GOTO_WRITEN_BLOCK_LEN;
 	}
 	else
 	{
@@ -381,6 +388,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
 	}
 	
+_GOTO_WRITEN_BLOCK :
 	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_begin_send_block) , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , block_buf , block_len ) ;
 	gettimeofday( & (p_plugin_ctx->p_forward_session->tv_end_send_block) , NULL );
@@ -388,7 +396,13 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	{
 		ERRORLOG( "send block data to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-		return 1;
+		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+		if( nret )
+		{
+			ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+			return nret;
+		}
+		goto _GOTO_WRITEN_BLOCK;
 	}
 	else
 	{
