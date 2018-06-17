@@ -47,6 +47,16 @@ extern "C" {
 #define STRNCMP(_a_,_C_,_b_,_n_) ( strncmp(_a_,_b_,_n_) _C_ 0 )
 #endif
 
+#ifndef STRICMP
+#if ( defined _WIN32 )
+#define STRICMP(_a_,_C_,_b_) ( stricmp(_a_,_b_) _C_ 0 )
+#define STRNICMP(_a_,_C_,_b_,_n_) ( strnicmp(_a_,_b_,_n_) _C_ 0 )
+#elif ( defined __unix ) || ( defined _AIX ) || ( defined __linux__ ) || ( defined __hpux )
+#define STRICMP(_a_,_C_,_b_) ( strcasecmp(_a_,_b_) _C_ 0 )
+#define STRNICMP(_a_,_C_,_b_,_n_) ( strncasecmp(_a_,_b_,_n_) _C_ 0 )
+#endif
+#endif
+
 #ifndef MEMCMP
 #define MEMCMP(_a_,_C_,_b_,_n_) ( memcmp(_a_,_b_,_n_) _C_ 0 )
 #endif
