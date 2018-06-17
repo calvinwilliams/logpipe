@@ -37,6 +37,7 @@ extern "C" {
 #include <dlfcn.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <math.h>
 
 char *strndup(const char *s, size_t n);
 int asprintf(char **strp, const char *fmt, ...);
@@ -129,6 +130,10 @@ int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf ,
 
 /* 字符串展开 */        
 int ExpandStringBuffer( char *base , int buf_size );
+/* 大小字符串按单位转换为数字 */
+long size_atol( char *str );
+/* 微秒字符串按单位转换为数字 */
+long usleep_atol( char *str );
 
 /* 时间 */
 void DiffTimeval( struct timeval *p_tv1 , struct timeval *p_tv2 , struct timeval *p_diff );

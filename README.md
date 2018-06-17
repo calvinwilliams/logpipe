@@ -469,11 +469,12 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 * `path` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
 * `files`,`files2`,`files3` : 挑选文件名的通配表达式，用'*'表示0个或多个字符，用'?'表示1个字符；可选
 * `exclude_files`,`exclude_files2`,`exclude_files3` : 过滤文件名的通配表达式，用'*'表示0个或多个字符，用'?'表示1个字符；可选
-* `rotate_size` : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间)"并脱离监控；不填或0为关闭；可选
+* `rotate_size` : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间)"并脱离监控；不填或0为关闭；支持单位后缀，如MB；可选
 * `exec_before_rotating` : 触发文件大小转档前要执行的命令（如转档前向Nginx发送USR1信号触发重新打开日志文件），命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
 * `exec_after_rotating` : 触发文件大小转档后要执行的命令（如转档后压缩保存日志文件节省存储空间），命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
 * `compress_algorithm` : 采集数据后压缩，目前算法只有"deflate"；可选
 * `max_append_count` : 最大跟随次数，默认为0不跟随；可选
+* `max_usleep_interval` : 最大沉睡间隔，防止CPU被耗完；不填为不沉睡；可选
 
 配置项`exec_before_rotating`和`exec_after_rotating`的内置环境变量
 
@@ -509,7 +510,7 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 
 * `path` : 受到监控的目录，监控新建文件事件和文件新追加数据事件；建议用绝对路径；必选
 * `uncompress_algorithm` : 落地数据前解压，目前算法只有"deflate"；可选
-* `rotate_size` : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间_微秒)"并脱离监控；不填或0为关闭；可选
+* `rotate_size` : 文件大小转档阈值，当受监控文件大小超过该大小时自动改名为"_(原文件名-日期_时间_微秒)"并脱离监控；不填或0为关闭；支持单位后缀，如MB；可选
 * `exec_after_rotating` : 触发文件大小转档后要执行的命令（如转档后压缩保存日志文件节省存储空间），命令中出现的`"`用`\"`转义，可使用内置环境变量；同步执行；可选
 
 配置项exec_after_rotating`的内置环境变量

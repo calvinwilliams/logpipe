@@ -426,6 +426,48 @@ char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr )
         return ConvertContentEncodingEx( encFrom , encTo , inptr , NULL , NULL , NULL );
 }
 
+/* 大小字符串按单位转换为数字 */
+long size_atol( char *str )
+{
+	char	*endptr = NULL ;
+	double	value ;
+	
+	value = strtod( str , & endptr ) ;
+	if( ( value == HUGE_VALF || value == HUGE_VALL ) && errno == ERANGE )
+		return -1;
+	
+	if( STRICMP( endptr , == , "gb" ) )
+		return (long)(value*1024*1024*1024);
+	else if( STRICMP( endptr , == , "mb" ) )
+		return (long)(value*1024*1024);
+	else if( STRICMP( endptr , == , "kb" ) )
+		return (long)(value*1024);
+	else if( STRICMP( endptr , == , "b" ) )
+		return (long)(value);
+	else
+		return -1;
+}
+
+/* 微秒字符串按单位转换为数字 */
+long usleep_atol( char *str )
+{
+	char	*endptr = NULL ;
+	double	value ;
+	
+	value = strtod( str , & endptr ) ;
+	if( ( value == HUGE_VALF || value == HUGE_VALL ) && errno == ERANGE )
+		return -1;
+	
+	if( STRICMP( endptr , == , "s" ) )
+		return (long)(value*1000000);
+	else if( STRICMP( endptr , == , "ms" ) )
+		return (long)(value*1000);
+	else if( STRICMP( endptr , == , "us" ) )
+		return (long)(value);
+	else
+		return -1;
+}
+
 /* 计算两个秒戳结构之间的微秒差 */
 void DiffTimeval( struct timeval *p_tv1 , struct timeval *p_tv2 , struct timeval *p_diff )
 {

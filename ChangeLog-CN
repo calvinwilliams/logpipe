@@ -1,3 +1,11 @@
+0.21.10		2018-06-17	calvin
+		* 新增API size_atoi用于插件参数大小单位转换
+		* 新增API usleep_atoi用于插件参数微秒单位转换
+		* 插件logpipe-input-file.so
+		      新增参数max_usleep_interval用于沉睡间隔，降低CPU耗用
+		      增加捕获子目录下的文件删除事件，防止文件IN_DELETE_SELF漏事件
+		      inotify事件队列溢出时检查所有文件偏移量处理合并为一轮一次
+
 0.21.9		2018-06-10	calvin
 		* 修正了小日志文件没有及时采集的问题
 		* 根据修改过的需求改造logpipe-output-ingeek.so

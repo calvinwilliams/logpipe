@@ -18,6 +18,8 @@ extern "C" {
 #include "list.h"
 #include "rbtree.h"
 
+#include "LOGC.h"
+
 extern char *__LOGPIPE_VERSION ;
 
 /* ≤Âº˛≈‰÷√Ω·ππ */

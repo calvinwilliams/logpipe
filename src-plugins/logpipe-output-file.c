@@ -16,7 +16,7 @@ struct OutputPluginContext
 {
 	char			*path ;
 	char			*uncompress_algorithm ;
-	int			rotate_size ;
+	long			rotate_size ;
 	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_after_rotating ;
 	
@@ -81,10 +81,15 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "rotate_size" ) ;
 	if( p )
-		p_plugin_ctx->rotate_size = atoi(p) ;
+		p_plugin_ctx->rotate_size = size_atol(p) ;
 	else
 		p_plugin_ctx->rotate_size = 0 ;
-	INFOLOG( "rotate_size[%d]" , p_plugin_ctx->rotate_size )
+	INFOLOG( "rotate_size[%ld]" , p_plugin_ctx->rotate_size )
+	if( p_plugin_ctx->rotate_size < 0 )
+	{
+		ERRORLOG( "rotate_size[%ld] invalid" , p_plugin_ctx->rotate_size );
+		return -1;
+	}
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "exec_after_rotating" ) ;
 	if( p )
