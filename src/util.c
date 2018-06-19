@@ -443,7 +443,9 @@ long size_atol( char *str )
 	else if( STRICMP( endptr , == , "kb" ) )
 		return (long)(value*1024);
 	else if( STRICMP( endptr , == , "b" ) )
-		return (long)(value);
+		return (long)value;
+	else if( endptr[0] == 0 )
+		return (long)value;
 	else
 		return -1;
 }
@@ -463,7 +465,9 @@ long usleep_atol( char *str )
 	else if( STRICMP( endptr , == , "ms" ) )
 		return (long)(value*1000);
 	else if( STRICMP( endptr , == , "us" ) )
-		return (long)(value);
+		return (long)value;
+	else if( endptr[0] == 0 )
+		return (long)value;
 	else
 		return -1;
 }

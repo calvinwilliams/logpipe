@@ -1,3 +1,10 @@
+0.21.11		2018-06-19	calvin
+		* 插件logpipe-input-file.so
+		      新增参数min_usleep_interval
+		      删除事件改为立即处理
+		      其它一些优化调整
+		* 修正公函size_atol和usleep_atol
+
 0.21.10		2018-06-17	calvin
 		* 新增API size_atoi用于插件参数大小单位转换
 		* 新增API usleep_atoi用于插件参数微秒单位转换
