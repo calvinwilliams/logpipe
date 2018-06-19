@@ -402,7 +402,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 	}
 	else
 	{
-		INFOLOG( "file_size[%d] == trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )	
+		DEBUGLOG( "file_size[%d] == trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )	
 	}
 	
 	/* 如果启用大小转档，且文件有追加内容 */
