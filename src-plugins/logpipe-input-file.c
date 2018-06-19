@@ -1551,11 +1551,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		
 		inotify_read_buflen_array[ inotify_read_buflen_index ] = inotify_read_buflen ;
 		inotify_read_buflen_max = MAX( inotify_read_buflen_array[0] , inotify_read_buflen_array[1] ) ;
-		inotify_read_buflen_index = 1 - inotify_read_buflen_index ;
 		usleep_interval = (long)(((double)(INOTIFY_READ_BUFSIZE-inotify_read_buflen_max)/(double)(INOTIFY_READ_BUFSIZE))*p_plugin_ctx->max_usleep_interval) ;
 		
-		DEBUGLOG( "usleep(%ld)" , usleep_interval )
+		INFOLOG( "inotify_read_buflen_array[%d][%d] - inotify_read_buflen_max[%d] - usleep(%ld)" , inotify_read_buflen_index , inotify_read_buflen_array[inotify_read_buflen_index] , inotify_read_buflen_max , usleep_interval )
 		usleep( usleep_interval );
+		
+		inotify_read_buflen_index = 1 - inotify_read_buflen_index ;
 	}
 	
 	return 0;
