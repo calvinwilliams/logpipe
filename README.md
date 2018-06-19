@@ -475,6 +475,7 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 * `compress_algorithm` : 采集数据后压缩，目前算法只有"deflate"；可选
 * `max_append_count` : 最大跟随次数，默认为0不跟随；可选
 * `max_usleep_interval` : 最大沉睡间隔，防止CPU被耗完；不填为不沉睡；可选
+* `min_usleep_interval` : 最小沉睡间隔，防止CPU被耗完；不填为不沉睡；可选
 
 配置项`exec_before_rotating`和`exec_after_rotating`的内置环境变量
 
