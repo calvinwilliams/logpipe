@@ -4,7 +4,7 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.8	//
-APPEND_COUNT_INFINITED	src-plugins/logpipe-input-file.c	62;"	d	file:
+APPEND_COUNT_INFINITED	src-plugins/logpipe-input-file.c	59;"	d	file:
 AddFileWatcher	src-plugins/logpipe-input-file.c	/^static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , char *filename , int read_full_file_flag , int rotate_size , int max_append_count )$/;"	f	file:
 AddInputPluginEvent	src/env.c	/^void AddInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , int fd )$/;"	f
 AddInputPluginSession	src/env.c	/^struct LogpipeInputPlugin *AddInputPluginSession( struct LogpipeEnv *p_env , char *so_filename$/;"	f
@@ -51,7 +51,7 @@ CFLAGS_hdfs	src-plugins/makefile	/^CFLAGS_hdfs			=	$(CFLAGS) -I\/home\/hdfs\/exp
 CFLAGS_kafka	src-plugins/makefile	/^CFLAGS_kafka			=	$(CFLAGS) -I$(HOME)\/include\/librdkafka$/;"	m
 CLEAN_ADDITION	src-plugins/makefile	/^CLEAN_ADDITION	=	fasterhttp.o \\$/;"	m
 CLEAN_ADDITION	src/makefile	/^CLEAN_ADDITION	=$/;"	m
-CLEAN_TIMEOUT_ROTATED_FILE_ELAPSE	src-plugins/logpipe-input-file.c	64;"	d	file:
+CLEAN_TIMEOUT_ROTATED_FILE_ELAPSE	src-plugins/logpipe-input-file.c	61;"	d	file:
 CLOSE	src/LOGC.h	72;"	d
 CLOSE	src/LOGC.h	83;"	d
 CLOSESOCKET	src-plugins/fasterhttp.h	109;"	d
@@ -89,9 +89,7 @@ CleanOutputPluginContext	src-plugins/logpipe-output-tcp.c	/^funcCleanOutputPlugi
 CleanOutputPluginContext	src-plugins/logpipe-output-tcp.c	/^int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )$/;"	f
 CloseFile	src-plugins/logpipe-output-file.c	/^static void CloseFile( struct TraceFile *p_trace_file )$/;"	f	file:
 CombineToParseBuffer	src-plugins/logpipe-output-ek.c	/^static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint32_t block_len )$/;"	f	file:
-CombineToParseBuffer	src-plugins/logpipe-output-ingeek.c	/^static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint32_t block_len )$/;"	f	file:
-CompareDeletingTimestampRbTreeNode	src-plugins/logpipe-input-file.c	/^funcCompareRbTreeNodeEntry CompareDeletingTimestampRbTreeNode ;$/;"	v
-CompareDeletingTimestampRbTreeNode	src-plugins/logpipe-input-file.c	/^int CompareDeletingTimestampRbTreeNode( void *pv1 , void *pv2 )$/;"	f
+CombineToParseBuffer	src-plugins/logpipe-output-ingeek.c	/^static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint32_t block_len )$/;"	f	file:
 CompareModifingTimestampRbTreeNode	src-plugins/logpipe-input-file.c	/^funcCompareRbTreeNodeEntry CompareModifingTimestampRbTreeNode ;$/;"	v
 CompareModifingTimestampRbTreeNode	src-plugins/logpipe-input-file.c	/^int CompareModifingTimestampRbTreeNode( void *pv1 , void *pv2 )$/;"	f
 CompressBuffer	src-plugins/fasterhttp.c	/^static int CompressBuffer( struct HttpEnv *e , struct HttpBuffer *b , char *p_compress_algorithm , int compress_algorithm_len , int compress_algorithm )$/;"	f	file:
@@ -443,7 +441,7 @@ INFOLOG	src/LOGC.h	186;"	d
 INIT_HLIST_HEAD	src/list.h	322;"	d
 INIT_HLIST_NODE	src/list.c	/^void INIT_HLIST_NODE(struct hlist_node *h)$/;"	f
 INIT_LIST_HEAD	src/list.c	/^void INIT_LIST_HEAD(struct list_head *list)$/;"	f
-INOTIFY_READ_BUFSIZE	src-plugins/logpipe-input-file.c	57;"	d	file:
+INOTIFY_READ_BUFSIZE	src-plugins/logpipe-input-file.c	54;"	d	file:
 IP_PORT_MAXCNT	src-plugins/logpipe-output-ingeek.c	23;"	d	file:
 IP_PORT_MAXCNT	src-plugins/logpipe-output-tcp.c	26;"	d	file:
 InfoHexLog	src/LOGC.c	/^int InfoHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )$/;"	f
@@ -546,7 +544,7 @@ MAX	src/logpipe_api.h	54;"	d
 MAXLEN_FILENAME	src/LOGC.h	42;"	d
 MAXLEN_XMLCONTENT	src/util.c	352;"	d	file:
 MAX_EPOLL_EVENTS	src/worker.c	12;"	d	file:
-MAX_USLEEP_INTERVAL_DEFAULT	src-plugins/logpipe-input-file.c	66;"	d	file:
+MAX_USLEEP_INTERVAL_DEFAULT	src-plugins/logpipe-input-file.c	63;"	d	file:
 MEMCMP	src-plugins/fasterhttp.h	79;"	d
 MEMCMP	src/LOGC.h	61;"	d
 MEMCMP	src/fasterjson.c	9;"	d	file:
@@ -605,7 +603,7 @@ POST_BUFFER_SIZE_INCREASE	src-plugins/logpipe-output-ek.c	23;"	d	file:
 PROCESSID	src/LOGC.h	73;"	d
 PROCESSID	src/LOGC.h	84;"	d
 ParseCombineBuffer	src-plugins/logpipe-output-ek.c	/^static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int line_len )$/;"	f	file:
-ParseCombineBuffer	src-plugins/logpipe-output-ingeek.c	/^static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int line_len , int line_add )$/;"	f	file:
+ParseCombineBuffer	src-plugins/logpipe-output-ingeek.c	/^static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , int line_len , int line_add )$/;"	f	file:
 ParseCommandParameters	src/main.c	/^static int ParseCommandParameters( struct LogpipeEnv *p_env , int argc , char *argv[] )$/;"	f	file:
 ParseHttpBuffer	src-plugins/fasterhttp.c	/^static int ParseHttpBuffer( struct HttpEnv *e , struct HttpBuffer *b )$/;"	f	file:
 ParseHttpRequest	src-plugins/fasterhttp.c	/^int ParseHttpRequest( struct HttpEnv *e )$/;"	f
@@ -628,8 +626,8 @@ RB_RED	src/rbtree.h	49;"	d
 RB_ROOT	src/rbtree.h	68;"	d
 READ	src/LOGC.h	70;"	d
 READ	src/LOGC.h	81;"	d
-READ_APPEND_FILE_FLAG	src-plugins/logpipe-input-file.c	60;"	d	file:
-READ_FULL_FILE_FLAG	src-plugins/logpipe-input-file.c	59;"	d	file:
+READ_APPEND_FILE_FLAG	src-plugins/logpipe-input-file.c	57;"	d	file:
+READ_FULL_FILE_FLAG	src-plugins/logpipe-input-file.c	56;"	d	file:
 READ_ONCE	src/list.h	28;"	d
 REASONPHRASE	src-plugins/fasterhttp.c	/^	struct HttpHeader	REASONPHRASE ;$/;"	m	struct:HttpHeaders	typeref:struct:HttpHeaders::HttpHeader	file:
 ReadFilesToinotifyWdTree	src-plugins/logpipe-input-file.c	/^static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx )$/;"	f	file:
@@ -734,7 +732,7 @@ StrcpyvHttpBuffer	src-plugins/fasterhttp.c	/^int StrcpyvHttpBuffer( struct HttpB
 StrdupEntireFile	src/util.c	/^char *StrdupEntireFile( char *pathfilename , int *p_file_len )$/;"	f
 THREADID	src/LOGC.h	74;"	d
 THREADID	src/LOGC.h	85;"	d
-TIME_TO_FREE_ELAPSE	src-plugins/logpipe-input-file.c	37;"	d	file:
+TIME_TO_FREE_ELAPSE	src-plugins/logpipe-input-file.c	34;"	d	file:
 TLS	src/LOGC.h	66;"	d
 TLS	src/LOGC.h	77;"	d
 TOKENJSON	src/fasterjson.c	32;"	d	file:
@@ -836,7 +834,7 @@ _WINDLL_FUNC	src/fasterjson.h	20;"	d
 __FASTERHTTP_VERSION_1_3_0	src-plugins/fasterhttp.c	/^int			__FASTERHTTP_VERSION_1_3_0 = 0 ;$/;"	v
 __FASTERJSON_VERSION_1_1_6	src/fasterjson.c	/^int __FASTERJSON_VERSION_1_1_6 = 0 ;$/;"	v
 __LOGPIPE_INPUT_EXEC_VERSION	src-plugins/logpipe-input-exec.c	/^char	*__LOGPIPE_INPUT_EXEC_VERSION = "0.1.0" ;$/;"	v
-__LOGPIPE_INPUT_FILE_VERSION	src-plugins/logpipe-input-file.c	/^char	*__LOGPIPE_INPUT_FILE_VERSION = "0.3.0" ;$/;"	v
+__LOGPIPE_INPUT_FILE_VERSION	src-plugins/logpipe-input-file.c	/^char	*__LOGPIPE_INPUT_FILE_VERSION = "0.3.1" ;$/;"	v
 __LOGPIPE_INPUT_TCP_VERSION	src-plugins/logpipe-input-tcp.c	/^char	*__LOGPIPE_INPUT_TCP_VERSION = "0.1.0" ;$/;"	v
 __LOGPIPE_OUTPUT_EK_VERSION	src-plugins/logpipe-output-ek.c	/^char	*__LOGPIPE_OUTPUT_EK_VERSION = "0.1.0" ;$/;"	v
 __LOGPIPE_OUTPUT_FILE_VERSION	src-plugins/logpipe-output-file.c	/^char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.2.0" ;$/;"	v
@@ -844,8 +842,8 @@ __LOGPIPE_OUTPUT_HDFS_VERSION	src-plugins/logpipe-output-hdfs.c	/^char	*__LOGPIP
 __LOGPIPE_OUTPUT_INGEEK_VERSION	src-plugins/logpipe-output-ingeek.c	/^char	*__LOGPIPE_OUTPUT_INGEEK_VERSION = "0.1.0" ;$/;"	v
 __LOGPIPE_OUTPUT_KAFKA_VERSION	src-plugins/logpipe-output-kafka.c	/^char	*__LOGPIPE_OUTPUT_KAFKA_VERSION = "0.1.0" ;$/;"	v
 __LOGPIPE_OUTPUT_TCP_VERSION	src-plugins/logpipe-output-tcp.c	/^char	*__LOGPIPE_OUTPUT_TCP_VERSION = "0.1.0" ;$/;"	v
-__LOGPIPE_VERSION	src/main.c	/^char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_20_10 ;$/;"	v
-__LOGPIPE_VERSION_0_20_10	src/main.c	/^char __LOGPIPE_VERSION_0_20_10[] = "0.20.10" ;$/;"	v
+__LOGPIPE_VERSION	src/main.c	/^char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_20_11 ;$/;"	v
+__LOGPIPE_VERSION_0_20_11	src/main.c	/^char __LOGPIPE_VERSION_0_20_11[] = "0.20.11" ;$/;"	v
 __fasterhttp_status_code_httpbuf	src-plugins/fasterhttp.c	/^static struct HttpBuffer	__fasterhttp_status_code_httpbuf ;$/;"	v	typeref:struct:HttpBuffer	file:
 __hlist_del	src/list.c	/^static void __hlist_del(struct hlist_node *n)$/;"	f	file:
 __list_add	src/list.c	/^static void __list_add(struct list_head *new,$/;"	f	file:
@@ -896,8 +894,6 @@ cookie	src-plugins/logpipe-input-file.c	/^	uint32_t		cookie ;$/;"	m	struct:Movef
 count_to_clean_tmp_events	src-plugins/logpipe-input-file.c	/^	int			count_to_clean_tmp_events ;$/;"	m	struct:InputPluginContext	file:
 debug_hex_log	src/LOGC.h	213;"	d
 debug_log	src/LOGC.h	206;"	d
-deleting_timestamp	src-plugins/logpipe-input-file.c	/^	struct timeval		deleting_timestamp ;$/;"	m	struct:TraceFile	typeref:struct:TraceFile::timeval	file:
-deleting_timestamp_rbnode	src-plugins/logpipe-input-file.c	/^	struct rb_node		deleting_timestamp_rbnode ;$/;"	m	struct:TraceFile	typeref:struct:TraceFile::rb_node	file:
 deleting_timestamp_rbtree	src-plugins/logpipe-input-file.c	/^	struct rb_root		deleting_timestamp_rbtree ;$/;"	m	struct:InputPluginContext	typeref:struct:InputPluginContext::rb_root	file:
 dirname_base	src-plugins/fasterhttp.h	/^	char				*dirname_base ;$/;"	m	struct:HttpUri
 dirname_len	src-plugins/fasterhttp.h	/^	int				dirname_len ;$/;"	m	struct:HttpUri
@@ -1102,6 +1098,7 @@ main_filename_len	src-plugins/fasterhttp.h	/^	int				main_filename_len ;$/;"	m	s
 max_append_count	src-plugins/logpipe-input-file.c	/^	int			max_append_count ;$/;"	m	struct:InputPluginContext	file:
 max_usleep_interval	src-plugins/logpipe-input-file.c	/^	long			max_usleep_interval ;$/;"	m	struct:InputPluginContext	file:
 method	src-plugins/fasterhttp.c	/^	char			method ;$/;"	m	struct:HttpHeaders	file:
+min_usleep_interval	src-plugins/logpipe-input-file.c	/^	long			min_usleep_interval ;$/;"	m	struct:InputPluginContext	file:
 modifing_timestamp	src-plugins/logpipe-input-file.c	/^	struct timeval		modifing_timestamp ;$/;"	m	struct:TraceFile	typeref:struct:TraceFile::timeval	file:
 modifing_timestamp_rbnode	src-plugins/logpipe-input-file.c	/^	struct rb_node		modifing_timestamp_rbnode ;$/;"	m	struct:TraceFile	typeref:struct:TraceFile::rb_node	file:
 modifing_timestamp_rbtree	src-plugins/logpipe-input-file.c	/^	struct rb_root		modifing_timestamp_rbtree ;$/;"	m	struct:InputPluginContext	typeref:struct:InputPluginContext::rb_root	file:
