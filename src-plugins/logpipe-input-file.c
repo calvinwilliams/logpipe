@@ -15,9 +15,9 @@ struct TraceFile
 	char			path_filename[ PATH_MAX + 1 ] ;
 	uint16_t		path_filename_len ;
 	int			fd ;
-	off_t			trace_offset ;
-	int			trace_line ;
-	int			rotate_size ;
+	uint64_t		trace_offset ;
+	uint64_t		trace_line ;
+	uint64_t		rotate_size ;
 	
 	struct rb_node		inotify_path_filename_rbnode ;
 	
@@ -73,13 +73,13 @@ struct InputPluginContext
 	char			*exclude_files3 ;
 	char			exec_before_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_before_rotating ;
-	long			rotate_size ;
+	uint64_t		rotate_size ;
 	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_after_rotating ;
 	char			*compress_algorithm ;
 	int			max_append_count ;
-	long			max_usleep_interval ;
-	long			min_usleep_interval ;
+	uint64_t		max_usleep_interval ;
+	uint64_t		min_usleep_interval ;
 	int			start_once_for_full_dose ;
 	
 	int			inotify_fd ;
@@ -102,11 +102,11 @@ struct InputPluginContext
 	
 	struct TraceFile	*p_trace_file ;
 	int			fd ;
-	int			remain_len ;
-	int			read_len ;
-	int			read_line ;
-	int			add_len ;
-	int			add_line ;
+	uint64_t		remain_len ;
+	uint64_t		read_len ;
+	uint64_t		read_line ;
+	uint64_t		add_len ;
+	uint64_t		add_line ;
 } ;
 
 LINK_RBTREENODE_STRING( LinkTraceFilePathFilenameTreeNode , struct InputPluginContext , inotify_path_filename_rbtree , struct TraceFile , inotify_path_filename_rbnode , path_filename )
@@ -281,10 +281,10 @@ static void SendCloseWriteEvent( struct TraceFile *p_trace_file )
 }
 
 /* 检查文件最后偏移量 */
-static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , struct TraceFile *p_trace_file , int rotate_size , int max_append_count )
+static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , struct TraceFile *p_trace_file , uint64_t rotate_size , uint64_t max_append_count )
 {
 	struct stat		file_stat ;
-	int			append_count ;
+	uint64_t		append_count ;
 	
 	int			nret = 0 ;
 	
@@ -306,13 +306,13 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 	/* 如果文件大小 小于 跟踪的文件大小 */
 	if( file_stat.st_size < p_trace_file->trace_offset )
 	{
-		INFOLOG( "file_size[%d] < trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )
+		INFOLOG( "file_size[%"PRIu64"] < trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )
 		p_trace_file->trace_offset = file_stat.st_size ;
 	}
 	/* 如果文件大小 大于 跟踪的文件大小 */
 	else if( file_stat.st_size > p_trace_file->trace_offset )
 	{
-		INFOLOG( "file_size[%d] > trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )
+		INFOLOG( "file_size[%"PRIu64"] > trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )
 		
 		lseek( p_trace_file->fd , p_trace_file->trace_offset , SEEK_SET );
 		
@@ -357,7 +357,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 				}
 				else
 				{
-					INFOLOG( "file_size[%d] >> trace_offset[%d] , rotate_size[%d]" , file_stat.st_size , p_trace_file->trace_offset , p_trace_file->rotate_size )
+					INFOLOG( "file_size[%"PRIu64"] >> trace_offset[%"PRIu64"] , rotate_size[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset , p_trace_file->rotate_size )
 					SendCloseWriteEvent( p_trace_file );
 				}
 			}
@@ -369,7 +369,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 	}
 	else
 	{
-		DEBUGLOG( "file_size[%d] == trace_offset[%d]" , file_stat.st_size , p_trace_file->trace_offset )	
+		INFOLOG( "file_size[%"PRIu64"] == trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )	
 	}
 	
 	/* 如果启用大小转档，且文件有追加内容 */
@@ -469,11 +469,11 @@ static int IsMatchString(char *pcMatchString, char *pcObjectString, char cMatchM
 }
 
 /* 统计内存块中某字节出现的次数 */
-static int stat_memchr( char *s , size_t n , char c )
+static uint64_t stat_memchr( char *s , size_t n , char c )
 {
-	char	*p = NULL ;
-	char	*end = NULL ;
-	int	count ;
+	char		*p = NULL ;
+	char		*end = NULL ;
+	uint64_t	count ;
 	
 	if( s == NULL || n <= 0 )
 		return 0;
@@ -488,11 +488,11 @@ static int stat_memchr( char *s , size_t n , char c )
 }
 
 /* 统计文件快中某字节出现的次数 */
-static int stat_filechr( char *pathfilename , size_t n , char c )
+static uint64_t stat_filechr( char *pathfilename , size_t n , char c )
 {
 	int		fd ;
 	char		*base = NULL ;
-	int		count ;
+	uint64_t	count ;
 	
 	fd = open( pathfilename , O_RDONLY ) ;
 	if( fd == -1 )
@@ -511,11 +511,11 @@ static int stat_filechr( char *pathfilename , size_t n , char c )
 }
 
 /* 添加文件变化监视器 */
-static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , char *filename , int read_full_file_flag , int rotate_size , int max_append_count )
+static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct InputPluginContext *p_plugin_ctx , char *filename , unsigned char read_full_file_flag , uint64_t rotate_size , uint64_t max_append_count )
 {
 	struct TraceFile	*p_trace_file = NULL ;
 	struct stat		file_stat ;
-	int			survive_flag ;
+	unsigned char		survive_flag ;
 	
 	int			nret = 0 ;
 	
@@ -667,7 +667,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	else
 	{
-		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%d] trace_line[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
+		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
 	}
 	
 	nret = LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
@@ -828,13 +828,13 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "rotate_size" ) ;
 	if( p )
-		p_plugin_ctx->rotate_size = size_atol(p) ;
+		p_plugin_ctx->rotate_size = size64_atou64(p) ;
 	else
 		p_plugin_ctx->rotate_size = 0 ;
 	INFOLOG( "rotate_size[%ld]" , p_plugin_ctx->rotate_size )
-	if( p_plugin_ctx->rotate_size < 0 )
+	if( p_plugin_ctx->rotate_size == UINT64_MAX )
 	{
-		ERRORLOG( "rotate_size[%ld] invalid" , p_plugin_ctx->rotate_size );
+		ERRORLOG( "rotate_size[%"PRIu64"] invalid" , p_plugin_ctx->rotate_size );
 		return -1;
 	}
 	
@@ -873,32 +873,34 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "max_append_count" ) ;
 	if( p )
-		p_plugin_ctx->max_append_count = atoi(p) ;
+		p_plugin_ctx->max_append_count = size64_atou64(p) ;
 	else
 		p_plugin_ctx->max_append_count = 0 ;
-	INFOLOG( "max_append_count[%d]" , p_plugin_ctx->max_append_count )
+	if( p_plugin_ctx->max_append_count == UINT64_MAX )
+		p_plugin_ctx->max_append_count = 0 ;
+	INFOLOG( "max_append_count[%"PRIu64"]" , p_plugin_ctx->max_append_count )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "max_usleep_interval" ) ;
 	if( p )
-		p_plugin_ctx->max_usleep_interval = usleep_atol(p) ;
+		p_plugin_ctx->max_usleep_interval = usleep_atou64(p) ;
 	else
 		p_plugin_ctx->max_usleep_interval = 0 ;
-	INFOLOG( "max_usleep_interval[%ld]" , p_plugin_ctx->max_usleep_interval )
-	if( p_plugin_ctx->max_usleep_interval < 0 )
+	INFOLOG( "max_usleep_interval[%"PRIu64"]" , p_plugin_ctx->max_usleep_interval )
+	if( p_plugin_ctx->max_usleep_interval == UINT64_MAX )
 	{
-		ERRORLOG( "max_usleep_interval[%ld] invalid" , p_plugin_ctx->max_usleep_interval );
+		ERRORLOG( "max_usleep_interval[%"PRIu64"] invalid" , p_plugin_ctx->max_usleep_interval );
 		return -1;
 	}
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "min_usleep_interval" ) ;
 	if( p )
-		p_plugin_ctx->min_usleep_interval = usleep_atol(p) ;
+		p_plugin_ctx->min_usleep_interval = usleep_atou64(p) ;
 	else
 		p_plugin_ctx->min_usleep_interval = 0 ;
-	INFOLOG( "min_usleep_interval[%ld]" , p_plugin_ctx->min_usleep_interval )
-	if( p_plugin_ctx->min_usleep_interval < 0 )
+	INFOLOG( "min_usleep_interval[%"PRIu64"]" , p_plugin_ctx->min_usleep_interval )
+	if( p_plugin_ctx->min_usleep_interval == UINT64_MAX )
 	{
-		ERRORLOG( "max_usleep_interval[%ld] invalid" , p_plugin_ctx->min_usleep_interval );
+		ERRORLOG( "max_usleep_interval[%"PRIu64"] invalid" , p_plugin_ctx->min_usleep_interval );
 		return -1;
 	}
 	
@@ -1009,7 +1011,7 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 					}
 					else
 					{
-						INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%d] trace_line[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
+						INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
 					}
 					
 					UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
@@ -1518,15 +1520,15 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	/* 沉睡一段时间，降低CPU耗用 */
 	if( p_plugin_ctx->max_usleep_interval > 0 )
 	{
-		long	usleep_interval ;
+		uint64_t	usleep_interval ;
 		
 		inotify_read_buflen_array[ inotify_read_buflen_index ] = inotify_read_buflen ;
 		inotify_read_buflen_max = MAX( inotify_read_buflen_array[0] , inotify_read_buflen_array[1] ) ;
-		usleep_interval = (long)(((double)(INOTIFY_READ_BUFSIZE-inotify_read_buflen_max)/(double)(INOTIFY_READ_BUFSIZE))*p_plugin_ctx->max_usleep_interval) ;
+		usleep_interval = (uint64_t)(((double)(INOTIFY_READ_BUFSIZE-inotify_read_buflen_max)/(double)(INOTIFY_READ_BUFSIZE))*p_plugin_ctx->max_usleep_interval) ;
 		if( p_plugin_ctx->min_usleep_interval > 0 && usleep_interval < p_plugin_ctx->min_usleep_interval )
 			usleep_interval = p_plugin_ctx->min_usleep_interval ;
 		
-		INFOLOG( "inotify_read_buflen_array[%d][%d] - inotify_read_buflen_max[%d] - usleep(%ld)" , inotify_read_buflen_index , inotify_read_buflen_array[inotify_read_buflen_index] , inotify_read_buflen_max , usleep_interval )
+		INFOLOG( "inotify_read_buflen_array[%d][%d] - inotify_read_buflen_max[%d] - usleep(%"PRIu64")" , inotify_read_buflen_index , inotify_read_buflen_array[inotify_read_buflen_index] , inotify_read_buflen_max , usleep_interval )
 		if( usleep_interval > 0 )
 		{
 			usleep( usleep_interval );
@@ -1539,14 +1541,14 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 }
 
 funcBeforeReadInputPlugin BeforeReadInputPlugin ;
-int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_file_line )
+int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
 	
 	(*p_file_offset) = p_trace_file->trace_offset ;
 	(*p_file_line) = p_trace_file->trace_line ;
-	INFOLOG( "BeforeReadInputPlugin[%s] file_offset[%d] file_line[%d]" , p_trace_file->path_filename , (*p_file_offset) , (*p_file_line) )
+	INFOLOG( "BeforeReadInputPlugin[%s] file_offset[%"PRIu64"] file_line[%"PRIu64"]" , p_trace_file->path_filename , (*p_file_offset) , (*p_file_line) )
 	p_plugin_ctx->add_len = 0 ;
 	p_plugin_ctx->add_line = 0 ;
 	
@@ -1554,12 +1556,12 @@ int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 }
 
 funcReadInputPlugin ReadInputPlugin ;
-int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_file_line , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_bufsize )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
 	
-	int				read_len = 0 ;
+	uint64_t			read_len = 0 ;
 	
 	int				nret = 0 ;
 	
@@ -1587,7 +1589,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else
 		{
-			INFOLOG( "read file ok , [%d]bytes" , p_plugin_ctx->read_len )
+			INFOLOG( "read file ok , [%"PRIu64"]bytes" , p_plugin_ctx->read_len )
 			DEBUGHEXLOG( block_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
@@ -1599,7 +1601,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	else
 	{
 		char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
-		uint32_t		block_in_len ;
+		uint64_t		block_in_len ;
 		
 		if( p_plugin_ctx->remain_len > sizeof(block_in_buf) - 1 )
 			block_in_len = sizeof(block_in_buf) - 1 ;
@@ -1615,7 +1617,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else
 		{
-			INFOLOG( "read file ok , [%d]bytes" , p_plugin_ctx->read_len )
+			INFOLOG( "read file ok , [%"PRIu64"]bytes" , p_plugin_ctx->read_len )
 			DEBUGHEXLOG( block_in_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
@@ -1638,7 +1640,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	
 	(*p_file_offset) += p_plugin_ctx->read_len ;
 	(*p_file_line) += p_plugin_ctx->read_line ;
-	INFOLOG( "ReadInputPlugin[%s] - file_offset[%d]+=[%d] file_line[%d]+=[%d] remain_len[%d]-=[%d]" , p_trace_file->path_filename , (*p_file_offset) , p_plugin_ctx->read_len , (*p_file_line) , p_plugin_ctx->read_line , p_plugin_ctx->remain_len , read_len )
+	INFOLOG( "ReadInputPlugin[%s] - file_offset[%"PRIu64"]+=[%"PRIu64"] file_line[%"PRIu64"]+=[%"PRIu64"] remain_len[%"PRIu64"]-=[%"PRIu64"]" , p_trace_file->path_filename , (*p_file_offset) , p_plugin_ctx->read_len , (*p_file_line) , p_plugin_ctx->read_line , p_plugin_ctx->remain_len , read_len )
 	p_plugin_ctx->add_len += p_plugin_ctx->read_len ;
 	p_plugin_ctx->add_line += p_plugin_ctx->read_line ;
 	
@@ -1646,14 +1648,14 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 }
 
 funcAfterReadInputPlugin AfterReadInputPlugin ;
-int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_file_line )
+int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
 	
 	p_trace_file->trace_offset = (*p_file_offset) ;
 	p_trace_file->trace_line = (*p_file_line) ;
-	INFOLOG( "AfterReadInputPlugin[%s] - trace_offset[%d]+=[%d] trace_line[%d]+=[%d]" , p_trace_file->path_filename , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->add_len , p_trace_file->trace_line , p_plugin_ctx->add_line )
+	INFOLOG( "AfterReadInputPlugin[%s] - trace_offset[%"PRIu64"]+=[%"PRIu64"] trace_line[%"PRIu64"]+=[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->add_len , p_trace_file->trace_line , p_plugin_ctx->add_line )
 	
 	return 0;
 }

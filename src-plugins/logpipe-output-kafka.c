@@ -153,7 +153,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t file_line , uint32_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
@@ -187,7 +187,7 @@ _GOTO_RETRY_PRODUCE_1 :
 		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
 		{
 			char			block_out_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
-			uint32_t		block_out_len ;
+			uint64_t		block_out_len ;
 			
 			memset( block_out_buf , 0x00 , sizeof(block_out_buf) );
 			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len ) ;

@@ -300,14 +300,14 @@ int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct Logpi
 }
 
 funcReadInputPlugin ReadInputPlugin_accepted_session ;
-int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint32_t *p_file_offset , uint32_t *p_file_line , uint32_t *p_block_len , char *block_buf , int block_bufsize )
+int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_bufsize )
 {
 	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
-	uint32_t					block_len_htonl ;
+	uint64_t					block_len_htonl ;
 	int						len ;
 	
 	/* 接收 数据块长度 */
-	len = readn( p_accepted_session_context->accepted_sock , & block_len_htonl , sizeof(uint32_t) ) ;
+	len = readn( p_accepted_session_context->accepted_sock , & block_len_htonl , sizeof(uint64_t) ) ;
 	if( len == -1 )
 	{
 		ERRORLOG( "recv block length from accepted session sock failed , errno[%d]" , errno )
@@ -322,7 +322,7 @@ int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeI
 	}
 	else
 	{
-		INFOLOG( "recv block length from accepted session sock ok , [%d]bytes" , sizeof(uint32_t) )
+		INFOLOG( "recv block length from accepted session sock ok , [%d]bytes" , sizeof(uint64_t) )
 		DEBUGHEXLOG( (char*) & block_len_htonl , len , NULL )
 	}
 	

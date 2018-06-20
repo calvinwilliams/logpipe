@@ -683,7 +683,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 }
 
 /* 数据块合并到解析缓冲区 */
-static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint32_t block_len )
+static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint64_t block_len )
 {
 	char		*p_newline = NULL ;
 	int		line_len ;
@@ -772,7 +772,7 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t file_line , uint32_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
@@ -799,7 +799,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
 		{
 			char			block_out_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
-			uint32_t		block_out_len ;
+			uint64_t		block_out_len ;
 			
 			memset( block_out_buf , 0x00 , sizeof(block_out_buf) );
 			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len ) ;

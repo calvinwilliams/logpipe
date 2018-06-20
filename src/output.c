@@ -13,10 +13,10 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 {
 	struct LogpipeOutputPlugin	*p_travel_logpipe_output_plugin = NULL ;
 	
-	uint32_t			file_offset ;
-	uint32_t			file_line ;
+	uint64_t			file_offset ;
+	uint64_t			file_line ;
 	char				block_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
-	uint32_t			block_len ;
+	uint64_t			block_len ;
 	struct timeval			tv_begin ;
 	struct timeval			tv_end ;
 	struct timeval			tv_diff ;
