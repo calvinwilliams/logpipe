@@ -427,7 +427,7 @@ char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr )
 }
 
 /* 大小字符串按单位转换为数字 */
-long size_atol( char *str )
+uint64_t size64_atou64( char *str )
 {
 	char	*endptr = NULL ;
 	double	value ;
@@ -437,21 +437,21 @@ long size_atol( char *str )
 		return -1;
 	
 	if( STRICMP( endptr , == , "gb" ) )
-		return (long)(value*1024*1024*1024);
+		return (uint64_t)(value*1024*1024*1024);
 	else if( STRICMP( endptr , == , "mb" ) )
-		return (long)(value*1024*1024);
+		return (uint64_t)(value*1024*1024);
 	else if( STRICMP( endptr , == , "kb" ) )
-		return (long)(value*1024);
+		return (uint64_t)(value*1024);
 	else if( STRICMP( endptr , == , "b" ) )
-		return (long)value;
+		return (uint64_t)value;
 	else if( endptr[0] == 0 )
-		return (long)value;
+		return (uint64_t)value;
 	else
-		return -1;
+		return UINT64_MAX;
 }
 
 /* 微秒字符串按单位转换为数字 */
-long usleep_atol( char *str )
+uint64_t usleep_atou64( char *str )
 {
 	char	*endptr = NULL ;
 	double	value ;
@@ -461,15 +461,15 @@ long usleep_atol( char *str )
 		return -1;
 	
 	if( STRICMP( endptr , == , "s" ) )
-		return (long)(value*1000000);
+		return (uint64_t)(value*1000000);
 	else if( STRICMP( endptr , == , "ms" ) )
-		return (long)(value*1000);
+		return (uint64_t)(value*1000);
 	else if( STRICMP( endptr , == , "us" ) )
-		return (long)value;
+		return (uint64_t)value;
 	else if( endptr[0] == 0 )
-		return (long)value;
+		return (uint64_t)value;
 	else
-		return -1;
+		return UINT64_MAX;
 }
 
 /* 计算两个秒戳结构之间的微秒差 */

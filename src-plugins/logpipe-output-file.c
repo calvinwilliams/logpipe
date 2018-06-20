@@ -16,7 +16,7 @@ struct OutputPluginContext
 {
 	char			*path ;
 	char			*uncompress_algorithm ;
-	long			rotate_size ;
+	uint64_t		rotate_size ;
 	char			exec_after_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_after_rotating ;
 	
@@ -81,13 +81,13 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "rotate_size" ) ;
 	if( p )
-		p_plugin_ctx->rotate_size = size_atol(p) ;
+		p_plugin_ctx->rotate_size = size64_atou64(p) ;
 	else
 		p_plugin_ctx->rotate_size = 0 ;
-	INFOLOG( "rotate_size[%ld]" , p_plugin_ctx->rotate_size )
-	if( p_plugin_ctx->rotate_size < 0 )
+	INFOLOG( "rotate_size[%"PRIu64"]" , p_plugin_ctx->rotate_size )
+	if( p_plugin_ctx->rotate_size == UINT64_MAX )
 	{
-		ERRORLOG( "rotate_size[%ld] invalid" , p_plugin_ctx->rotate_size );
+		ERRORLOG( "rotate_size[%"PRIu64"] invalid" , p_plugin_ctx->rotate_size );
 		return -1;
 	}
 	
@@ -286,7 +286,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t file_line , uint32_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
@@ -319,7 +319,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
 		{
 			char			block_out_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
-			uint32_t		block_out_len ;
+			uint64_t		block_out_len ;
 			
 			memset( block_out_buf , 0x00 , sizeof(block_out_buf) );
 			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len ) ;
@@ -347,7 +347,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			}
 			else
 			{
-				INFOLOG( "write uncompress block data to file[%d][%s] ok , [%d]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_out_len )
+				INFOLOG( "write uncompress block data to file[%d][%s] ok , [%"PRIu64"]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_out_len )
 				DEBUGHEXLOG( block_out_buf , len , NULL )
 			}
 		}
@@ -377,7 +377,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			/* 如果到达文件转档大小 */
 			if( file_stat.st_size >= p_plugin_ctx->rotate_size )
 			{
-				INFOLOG( "file_stat.st_size[%d] > p_plugin_ctx->rotate_size[%d]" , file_stat.st_size , p_plugin_ctx->rotate_size )
+				INFOLOG( "file_stat.st_size[%"PRIu64"] > p_plugin_ctx->rotate_size[%"PRIu64"]" , file_stat.st_size , p_plugin_ctx->rotate_size )
 				
 				/* 文件大小转档处理 */
 				nret = RotatingFile( p_plugin_ctx ) ;

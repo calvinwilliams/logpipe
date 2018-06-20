@@ -3,7 +3,7 @@
 #include "zlib.h"
 
 /* 压缩输入插件数据块 */
-int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uint32_t block_in_len , char *block_out_buf , uint32_t *p_block_out_len )
+int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uint64_t block_in_len , char *block_out_buf , uint64_t *p_block_out_len )
 {
 	int		nret = 0 ;
 	
@@ -50,7 +50,7 @@ int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uin
 }
 
 /* 解压输出插件数据块 */
-int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf , uint32_t block_in_len , char *block_out_buf , uint32_t *p_block_out_len )
+int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf , uint64_t block_in_len , char *block_out_buf , uint64_t *p_block_out_len )
 {
 	int		nret = 0 ;
 	

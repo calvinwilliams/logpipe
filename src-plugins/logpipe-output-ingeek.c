@@ -37,8 +37,8 @@ struct OutputPluginContext
 	int			disable_timeout ;
 	
 	char			*filename ;
-	uint32_t		file_line ;
-	uint32_t		block_len ;
+	uint64_t		file_line ;
+	uint64_t		block_len ;
 	char			*block_buf ;
 	
 	char			parse_buffer[ PARSE_BUFFER_SIZE + 1 ] ; /* 解析缓冲区 */
@@ -343,12 +343,12 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 /* 分列解析缓冲区 */
-static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , int line_len , int line_add )
+static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , uint64_t line_len , uint64_t line_add )
 {
 	char		mainfilename[ PATH_MAX + 1 ] ;
 	char		*p = NULL ;
 	char		tail_buffer[ 1024 + 1 ] ;
-	uint32_t	tail_buffer_len ;
+	uint64_t	tail_buffer_len ;
 	struct timeval	tv_begin_send_log ;
 	struct timeval	tv_end_send_log ;
 	struct timeval	tv_diff_send_log ;
@@ -365,7 +365,7 @@ static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPl
 	memset( tail_buffer , 0x00 , sizeof(tail_buffer) );
 	if( p_plugin_ctx->key )
 	{
-		tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]\n" , p_plugin_ctx->key , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+		tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , p_plugin_ctx->key , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	else
 	{
@@ -377,12 +377,12 @@ static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPl
 		p = strchr( mainfilename , '_' ) ;
 		if( p )
 			(*p) = '\0' ;
-		tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%d]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+		tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	
 	/* 发送数据块到TCP */
 _GOTO_WRITEN_LOG :
-	INFOLOG( "send-log [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
+	INFOLOG( "send-log [%d][%.*s]" , line_len , (line_len<=1024?line_len:1024) , p_plugin_ctx->parse_buffer )
 	gettimeofday( & tv_begin_send_log , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->parse_buffer , line_len ) ;
 	gettimeofday( & tv_end_send_log , NULL );
@@ -435,12 +435,12 @@ _GOTO_WRITEN_TAIL :
 }
 
 /* 数据块合并到解析缓冲区 */
-static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint32_t block_len )
+static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint64_t block_len )
 {
 	char		*p_newline = NULL ;
-	int		line_len ;
-	int		remain_len ;
-	int		line_add ;
+	uint64_t	line_len ;
+	uint64_t	remain_len ;
+	uint64_t	line_add ;
 	
 	int		nret = 0 ;
 	
@@ -512,7 +512,7 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint32_t file_offset , uint32_t file_line , uint32_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
