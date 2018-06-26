@@ -376,7 +376,11 @@ static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPl
 			(*p) = '\0' ;
 		p = strchr( mainfilename , '_' ) ;
 		if( p )
-			(*p) = '\0' ;
+		{
+			p = strchr( p+1 , '_' ) ;
+			if( p )
+				(*p) = '\0' ;
+		}
 		tail_buffer_len = snprintf( tail_buffer , sizeof(tail_buffer)-1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	
