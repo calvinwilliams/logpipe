@@ -51,13 +51,18 @@ case $1 in
 				exit 1
 			fi
 			kill $PID
-			while [ 1 ] ; do
+			C=0
+			while [ $C -lt 5 ] ; do
 				sleep 1
 				PID=`ps -f -u $USER | grep "logpipe -f $FILE" | grep -v grep | awk '{if($3=="1")print $2}'`
 				if [ x"$PID" = x"" ] ; then
 					break
 				fi
+				C=`expr $C + 1`
 			done
+			if [ $C -ge 5 ] ; then
+				ps -f -u $USER | grep "logpipe -f $FILE" | grep -v grep | awk '{print $2}' | while read PID ; do kill -9 $PID ; done
+			fi
 			echo "logpipe end ok"
 		done
 		;;
