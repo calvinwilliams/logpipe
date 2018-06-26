@@ -11,6 +11,8 @@ MAKEFILE_POSTFIX=.Linux
 DIROBJS		= \
 			src \
 			src-plugins \
+			shbin \
+			test \
 
 ###### 加载mktpl模板库
 # 文件系统宏

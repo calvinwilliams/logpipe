@@ -9,6 +9,7 @@
 DIROBJS		= \
 			src \
 			src-plugins \
+			shbin \
 			test \
 
 ###### ╪стьmktplдё╟Е©Б
