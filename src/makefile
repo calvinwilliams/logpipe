@@ -50,6 +50,7 @@ LFLAGS		=	$(_LFLAGS) \
 			-rdynamic \
 			-ldl \
 			-lz \
+			-lm \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=
