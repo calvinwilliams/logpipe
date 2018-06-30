@@ -51,16 +51,16 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
 	
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
-	INFOLOG( "path[%s]" , p_plugin_ctx->path )
+	INFOLOGC( "path[%s]" , p_plugin_ctx->path )
 	if( p_plugin_ctx->path == NULL || p_plugin_ctx->path[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'path'" );
+		ERRORLOGC( "expect config for 'path'" )
 		return -1;
 	}
 	
@@ -73,21 +73,21 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		}
 		else
 		{
-			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm );
+			ERRORLOGC( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm )
 			return -1;
 		}
 	}
-	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
+	INFOLOGC( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "rotate_size" ) ;
 	if( p )
 		p_plugin_ctx->rotate_size = size64_atou64(p) ;
 	else
 		p_plugin_ctx->rotate_size = 0 ;
-	INFOLOG( "rotate_size[%"PRIu64"]" , p_plugin_ctx->rotate_size )
+	INFOLOGC( "rotate_size[%"PRIu64"]" , p_plugin_ctx->rotate_size )
 	if( p_plugin_ctx->rotate_size == UINT64_MAX )
 	{
-		ERRORLOG( "rotate_size[%"PRIu64"] invalid" , p_plugin_ctx->rotate_size );
+		ERRORLOGC( "rotate_size[%"PRIu64"] invalid" , p_plugin_ctx->rotate_size )
 		return -1;
 	}
 	
@@ -101,13 +101,13 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		JSONUNESCAPE_FOLD( p , strlen(p) , p_plugin_ctx->exec_after_rotating_buffer , buffer_len , remain_len )
 		if( buffer_len == -1 )
 		{
-			ERRORLOG( "p[%s] invalid" , p );
+			ERRORLOGC( "p[%s] invalid" , p )
 			return -1;
 		}
 		
 		p_plugin_ctx->exec_after_rotating = p_plugin_ctx->exec_after_rotating_buffer ;
 	}
-	INFOLOG( "exec_after_rotating[%s]" , p_plugin_ctx->exec_after_rotating )
+	INFOLOGC( "exec_after_rotating[%s]" , p_plugin_ctx->exec_after_rotating )
 	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
@@ -133,12 +133,12 @@ static int OpenFile( struct TraceFile *p_trace_file )
 	p_trace_file->fd = open( p_trace_file->path_filename , O_CREAT|O_WRONLY|O_APPEND , 00777 ) ;
 	if( p_trace_file->fd == -1 )
 	{
-		ERRORLOG( "open file[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+		ERRORLOGC( "open file[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		return 1;
 	}
 	else
 	{
-		INFOLOG( "open file[%s] ok" , p_trace_file->path_filename )
+		INFOLOGC( "open file[%s] ok" , p_trace_file->path_filename )
 	}
 	
 	return 0;
@@ -149,7 +149,7 @@ static void CloseFile( struct TraceFile *p_trace_file )
 {
 	if( p_trace_file->fd >= 0 )
 	{
-		INFOLOG( "close file[%s]" , p_trace_file->path_filename )
+		INFOLOGC( "close file[%s]" , p_trace_file->path_filename )
 		close( p_trace_file->fd ); p_trace_file->fd = -1 ;
 	}
 	
@@ -190,12 +190,12 @@ static int RotatingFile( struct OutputPluginContext *p_plugin_ctx )
 	
 	if( nret )
 	{
-		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
+		FATALLOGC( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "rename [%s] to [%s] ok" , old_filename , new_filename )
+		INFOLOGC( "rename [%s] to [%s] ok" , old_filename , new_filename )
 	}
 	
 	/* 打开文件 */
@@ -224,7 +224,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		nret = access( p_trace_file->path_filename , F_OK ) ;
 		if( nret == - 1 )
 		{
-			INFOLOG( "access[%.*s] failed , errno[%d]" , filename_len , filename , errno )
+			INFOLOGC( "access[%.*s] failed , errno[%d]" , filename_len , filename , errno )
 			UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 			CloseFile( p_trace_file );
 			FreeTraceFile( p_trace_file );
@@ -242,7 +242,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		p_trace_file = (struct TraceFile *)malloc( sizeof(struct TraceFile) ) ;
 		if( p_trace_file == NULL )
 		{
-			ERRORLOG( "malloc failed , errno[%d]" , errno )
+			ERRORLOGC( "malloc failed , errno[%d]" , errno )
 			return 1;
 		}
 		memset( p_trace_file , 0x00 , sizeof(struct TraceFile) );
@@ -251,7 +251,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		/* 填充文件跟踪结构 */
 		if( filename_len > sizeof(p_trace_file->filename)-1 )
 		{
-			ERRORLOG( "filename[%.*s] overflow" , filename_len , filename )
+			ERRORLOGC( "filename[%.*s] overflow" , filename_len , filename )
 			FreeTraceFile( p_trace_file );
 			return 1;
 		}
@@ -259,7 +259,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		len = snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%.*s" , p_plugin_ctx->path , filename_len , filename ) ;
 		if( SNPRINTF_OVERFLOW(len,sizeof(p_trace_file->path_filename) ) )
 		{
-			ERRORLOG( "filename[%.*s] overflow" , filename_len , filename )
+			ERRORLOGC( "filename[%.*s] overflow" , filename_len , filename )
 			FreeTraceFile( p_trace_file );
 			return 1;
 		}
@@ -268,13 +268,13 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		nret = OpenFile( p_trace_file ) ;
 		if( nret )
 		{
-			ERRORLOG( "open[%s] failed[%d]" , p_trace_file->path_filename , nret )
+			ERRORLOGC( "open[%s] failed[%d]" , p_trace_file->path_filename , nret )
 			FreeTraceFile( p_trace_file );
 			return 1;
 		}
 		else
 		{
-			INFOLOG( "open[%s] ok" , p_trace_file->path_filename )
+			INFOLOGC( "open[%s] ok" , p_trace_file->path_filename )
 		}
 		
 		LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
@@ -301,7 +301,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		len = writen( p_trace_file->fd , block_buf , block_len ) ;
 		if( len == -1 )
 		{
-			ERRORLOG( "write block data to file[%d][%s] failed , errno[%d]" , p_trace_file->fd , p_trace_file->path_filename , errno )
+			ERRORLOGC( "write block data to file[%d][%s] failed , errno[%d]" , p_trace_file->fd , p_trace_file->path_filename , errno )
 			UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 			CloseFile( p_trace_file );
 			FreeTraceFile( p_trace_file );
@@ -309,8 +309,8 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		}
 		else
 		{
-			INFOLOG( "write block data to file[%d][%s] ok , [%d]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_len )
-			DEBUGHEXLOG( block_buf , len , NULL )
+			INFOLOGC( "write block data to file[%d][%s] ok , [%d]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_len )
+			DEBUGHEXLOGC( block_buf , len , NULL )
 		}
 	}
 	/* 如果启用了解压 */
@@ -325,7 +325,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len ) ;
 			if( nret )
 			{
-				ERRORLOG( "UncompressInputPluginData failed[%d]" , nret )
+				ERRORLOGC( "UncompressInputPluginData failed[%d]" , nret )
 				UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 				CloseFile( p_trace_file );
 				FreeTraceFile( p_trace_file );
@@ -333,13 +333,13 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			}
 			else
 			{
-				DEBUGLOG( "UncompressInputPluginData ok" )
+				DEBUGLOGC( "UncompressInputPluginData ok" )
 			}
 			
 			len = writen( p_trace_file->fd , block_out_buf , block_out_len ) ;
 			if( len == -1 )
 			{
-				ERRORLOG( "write uncompress block data to file[%d][%s] failed , errno[%d]" , p_trace_file->fd , p_trace_file->path_filename , errno )
+				ERRORLOGC( "write uncompress block data to file[%d][%s] failed , errno[%d]" , p_trace_file->fd , p_trace_file->path_filename , errno )
 				UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 				CloseFile( p_trace_file );
 				FreeTraceFile( p_trace_file );
@@ -347,13 +347,13 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			}
 			else
 			{
-				INFOLOG( "write uncompress block data to file[%d][%s] ok , [%"PRIu64"]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_out_len )
-				DEBUGHEXLOG( block_out_buf , len , NULL )
+				INFOLOGC( "write uncompress block data to file[%d][%s] ok , [%"PRIu64"]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_out_len )
+				DEBUGHEXLOGC( block_out_buf , len , NULL )
 			}
 		}
 		else
 		{
-			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm );
+			ERRORLOGC( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm )
 			return -1;
 		}
 	}
@@ -367,7 +367,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		nret = fstat( p_trace_file->fd , & file_stat ) ;
 		if( nret == -1 )
 		{
-			ERRORLOG( "fstat[%s] failed[%d] , errno[%d]" , p_trace_file->path_filename , nret , errno )
+			ERRORLOGC( "fstat[%s] failed[%d] , errno[%d]" , p_trace_file->path_filename , nret , errno )
 			UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 			CloseFile( p_trace_file );
 			FreeTraceFile( p_trace_file );
@@ -377,7 +377,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			/* 如果到达文件转档大小 */
 			if( file_stat.st_size >= p_plugin_ctx->rotate_size )
 			{
-				INFOLOG( "file_stat.st_size[%"PRIu64"] > p_plugin_ctx->rotate_size[%"PRIu64"]" , file_stat.st_size , p_plugin_ctx->rotate_size )
+				INFOLOGC( "file_stat.st_size[%"PRIu64"] > p_plugin_ctx->rotate_size[%"PRIu64"]" , file_stat.st_size , p_plugin_ctx->rotate_size )
 				
 				/* 文件大小转档处理 */
 				nret = RotatingFile( p_plugin_ctx ) ;

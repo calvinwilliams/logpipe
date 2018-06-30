@@ -12,8 +12,8 @@
 ps -f -u $USER | grep "logpipe -f" | awk '{if($3==1)print $2}' | xargs kill
 */
 
-char __LOGPIPE_VERSION_0_22_2[] = "0.22.2" ;
-char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_22_2 ;
+char __LOGPIPE_VERSION_0_22_3[] = "0.22.3" ;
+char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_0_22_3 ;
 
 /* 显示版本号 */
 static void version()
@@ -65,7 +65,7 @@ static int ParseCommandParameters( struct LogpipeEnv *p_env , int argc , char *a
 			nret = AddPluginConfigItem( & (p_env->start_once_for_plugin_config_items) , key , strlen(key) , value , strlen(value) ) ;
 			if( nret )
 			{
-				ERRORLOG( "AddPluginConfigItem [%s][%s] failed" , key , value );
+				ERRORLOGC( "AddPluginConfigItem [%s][%s] failed" , key , value )
 				return -1;
 			}
 			c++;
@@ -102,14 +102,14 @@ int main( int argc , char *argv[] )
 	}
 	
 	/* 所有日志输出先输出到屏幕上 */
-	SetLogFile( "#" );
-	SetLogLevel( LOGLEVEL_DEBUG );
+	SetLogcFile( "#stdout" );
+	SetLogcLevel( LOGCLEVEL_DEBUG );
 	
 	/* 分配内存给环境结构 */
 	p_env = (struct LogpipeEnv *)malloc( sizeof(struct LogpipeEnv) ) ;
 	if( p_env == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno )
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return 1;
 	}
 	memset( p_env , 0x00 , sizeof(struct LogpipeEnv) );
@@ -132,12 +132,12 @@ int main( int argc , char *argv[] )
 	
 	if( list_empty( & (p_env->logpipe_input_plugins_list.this_node) ) )
 	{
-		ERRORLOG( "no inputs" )
+		ERRORLOGC( "no inputs" )
 		return 1;
 	}
 	if( list_empty( & (p_env->logpipe_output_plugins_list.this_node) ) )
 	{
-		ERRORLOG( "no outputs" )
+		ERRORLOGC( "no outputs" )
 		return 1;
 	}
 	

@@ -1,6 +1,8 @@
+0.22.3		2018-06-30	calvin
+		* 同步更新iLOG3.LOGC
+
 0.22.2		2018-06-27	calvin
-		*
-		插件logpipe-input-file.so新增逻辑，变化文件在1、2、4...秒后检测大小，一共尝试6次
+		* 插件logpipe-input-file.so新增逻辑，变化文件在1、2、4...秒后检测大小，一共尝试6次
 
 0.22.1		2018-06-26	calvin
 		* 新增脚本shbin/logpipe.sh和shbin/logpipe_pack_bin.sh

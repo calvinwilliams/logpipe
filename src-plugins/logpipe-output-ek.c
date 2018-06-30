@@ -76,7 +76,7 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
@@ -90,57 +90,57 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		}
 		else
 		{
-			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm );
+			ERRORLOGC( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm )
 			return -1;
 		}
 	}
-	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
+	INFOLOGC( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
 	
 	p_plugin_ctx->translate_charset = QueryPluginConfigItem( p_plugin_config_items , "translate_charset" ) ;
-	INFOLOG( "translate_charset[%s]" , p_plugin_ctx->translate_charset )
+	INFOLOGC( "translate_charset[%s]" , p_plugin_ctx->translate_charset )
 	
 	p_plugin_ctx->separator_charset = QueryPluginConfigItem( p_plugin_config_items , "separator_charset" ) ;
-	INFOLOG( "separator_charset[%s]" , p_plugin_ctx->separator_charset )
+	INFOLOGC( "separator_charset[%s]" , p_plugin_ctx->separator_charset )
 	if( p_plugin_ctx->separator_charset == NULL )
 		p_plugin_ctx->separator_charset = " " ;
 	
 	p_plugin_ctx->grep = QueryPluginConfigItem( p_plugin_config_items , "grep" ) ;
-	INFOLOG( "grep[%s]" , p_plugin_ctx->grep )
+	INFOLOGC( "grep[%s]" , p_plugin_ctx->grep )
 	
 	p_plugin_ctx->fields_strictly = QueryPluginConfigItem( p_plugin_config_items , "fields_strictly" ) ;
 	if( p_plugin_ctx->fields_strictly && ( STRICMP( p_plugin_ctx->fields_strictly , == , "false" ) || STRICMP( p_plugin_ctx->fields_strictly , == , "no" ) ) )
 		p_plugin_ctx->fields_strictly = NULL ;
-	INFOLOG( "fields_strictly[%s]" , p_plugin_ctx->fields_strictly )
+	INFOLOGC( "fields_strictly[%s]" , p_plugin_ctx->fields_strictly )
 	
 	p_plugin_ctx->iconv_from = QueryPluginConfigItem( p_plugin_config_items , "iconv_from" ) ;
-	INFOLOG( "iconv_from[%s]" , p_plugin_ctx->iconv_from )
+	INFOLOGC( "iconv_from[%s]" , p_plugin_ctx->iconv_from )
 	
 	p_plugin_ctx->iconv_to = QueryPluginConfigItem( p_plugin_config_items , "iconv_to" ) ;
-	INFOLOG( "iconv_to[%s]" , p_plugin_ctx->iconv_to )
+	INFOLOGC( "iconv_to[%s]" , p_plugin_ctx->iconv_to )
 	
 	if( p_plugin_ctx->iconv_from && p_plugin_ctx->iconv_to == NULL )
 	{
-		ERRORLOG( "expect config for 'iconv_to'" );
+		ERRORLOGC( "expect config for 'iconv_to'" )
 		return -1;
 	}
 	
 	if( p_plugin_ctx->iconv_from == NULL && p_plugin_ctx->iconv_to )
 	{
-		ERRORLOG( "expect config for 'iconv_from'" );
+		ERRORLOGC( "expect config for 'iconv_from'" )
 		return -1;
 	}
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "output_template" ) ;
 	if( p == NULL || p[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'output_template'" );
+		ERRORLOGC( "expect config for 'output_template'" )
 		return -1;
 	}
 	
 	p_plugin_ctx->output_template_len = strlen(p) ;
 	if( p_plugin_ctx->output_template_len > FORMAT_BUFFER_SIZE )
 	{
-		ERRORLOG( "'output_template' too long" );
+		ERRORLOGC( "'output_template' too long" )
 		return -1;
 	}
 	
@@ -152,57 +152,57 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		JSONUNESCAPE_FOLD( p , p_plugin_ctx->output_template_len , p_plugin_ctx->output_template_buffer , buffer_len , remain_len )
 		if( buffer_len == -1 )
 		{
-			ERRORLOG( "output_tempalte[%s] invalid" , p );
+			ERRORLOGC( "output_tempalte[%s] invalid" , p )
 			return -1;
 		}
 		
 		p_plugin_ctx->output_template = p_plugin_ctx->output_template_buffer ;
 		p_plugin_ctx->output_template_len = buffer_len ;
 	}
-	INFOLOG( "output_template[%s]" , p_plugin_ctx->output_template )
+	INFOLOGC( "output_template[%s]" , p_plugin_ctx->output_template )
 	
 	p_plugin_ctx->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
-	INFOLOG( "ip[%s]" , p_plugin_ctx->ip )
+	INFOLOGC( "ip[%s]" , p_plugin_ctx->ip )
 	if( p_plugin_ctx->ip == NULL || p_plugin_ctx->ip[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'ip'" );
+		ERRORLOGC( "expect config for 'ip'" )
 		return -1;
 	}
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
 	if( p == NULL || p[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'port'" );
+		ERRORLOGC( "expect config for 'port'" )
 		return -1;
 	}
 	p_plugin_ctx->port = atoi(p) ;
-	INFOLOG( "port[%d]" , p_plugin_ctx->port )
+	INFOLOGC( "port[%d]" , p_plugin_ctx->port )
 	if( p_plugin_ctx->port <= 0 )
 	{
-		ERRORLOG( "port[%s] invalid" , p );
+		ERRORLOGC( "port[%s] invalid" , p )
 		return -1;
 	}
 	
 	p_plugin_ctx->index = QueryPluginConfigItem( p_plugin_config_items , "index" ) ;
-	INFOLOG( "index[%s]" , p_plugin_ctx->index )
+	INFOLOGC( "index[%s]" , p_plugin_ctx->index )
 	if( p_plugin_ctx->index == NULL || p_plugin_ctx->index[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'index'" );
+		ERRORLOGC( "expect config for 'index'" )
 		return -1;
 	}
 	
 	p_plugin_ctx->type = QueryPluginConfigItem( p_plugin_config_items , "type" ) ;
-	INFOLOG( "type[%s]" , p_plugin_ctx->type )
+	INFOLOGC( "type[%s]" , p_plugin_ctx->type )
 	if( p_plugin_ctx->type == NULL || p_plugin_ctx->type[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'type'" );
+		ERRORLOGC( "expect config for 'type'" )
 		return -1;
 	}
 	
 	p_plugin_ctx->bulk = QueryPluginConfigItem( p_plugin_config_items , "bulk" ) ;
 	if( p_plugin_ctx->bulk && ( STRICMP( p_plugin_ctx->bulk , == , "false" ) || STRICMP( p_plugin_ctx->bulk , == , "no" ) ) )
 		p_plugin_ctx->bulk = NULL ;
-	INFOLOG( "bulk[%s]" , p_plugin_ctx->bulk )
+	INFOLOGC( "bulk[%s]" , p_plugin_ctx->bulk )
 	if( p_plugin_ctx->bulk == NULL )
 	{
 		p_plugin_ctx->bulk_uri = "" ;
@@ -229,7 +229,7 @@ static int ConnectElasticSearchServer( struct OutputPluginContext *p_plugin_ctx 
 	p_plugin_ctx->sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
 	if( p_plugin_ctx->sock == -1 )
 	{
-		ERRORLOG( "socket failed , errno[%d]" , errno );
+		ERRORLOGC( "socket failed , errno[%d]" , errno )
 		return -1;
 	}
 	
@@ -248,14 +248,14 @@ static int ConnectElasticSearchServer( struct OutputPluginContext *p_plugin_ctx 
 	nret = connect( p_plugin_ctx->sock , (struct sockaddr *) & (p_plugin_ctx->addr) , sizeof(struct sockaddr) ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->sock , errno )
+		ERRORLOGC( "connect[%s:%d][%d] failed , errno[%d]" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->sock , errno )
 		close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
 		sleep(1);
 		return 1;
 	}
 	else
 	{
-		INFOLOG( "connect[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->sock )
+		INFOLOGC( "connect[%s:%d][%d] ok" , p_plugin_ctx->ip , p_plugin_ctx->port , p_plugin_ctx->sock )
 	}
 	
 	return 0;
@@ -285,7 +285,7 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		field_index = strtol( p , & p2 , 10 ) ;
 		if( p2 == p )
 		{
-			ERRORLOG( "output_template[%s] invalid" , p_plugin_ctx->output_template )
+			ERRORLOGC( "output_template[%s] invalid" , p_plugin_ctx->output_template )
 			return -1;
 		}
 		if( field_index > max_field_index )
@@ -298,16 +298,16 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	p_plugin_ctx->field_separator_array = (struct FieldSeparatorInfo *)malloc( sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size ) ;
 	if( p_plugin_ctx->field_separator_array == NULL )
 	{
-		ERRORLOG( "malloc faild , size[%d]" , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size )
+		ERRORLOGC( "malloc faild , size[%d]" , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size )
 		return -1;
 	}
 	memset( p_plugin_ctx->field_separator_array , 0x00 , sizeof(struct FieldSeparatorInfo) * p_plugin_ctx->field_separator_array_size );
-	INFOLOG( "field_separator_array_size[%d]" , p_plugin_ctx->field_separator_array_size )
+	INFOLOGC( "field_separator_array_size[%d]" , p_plugin_ctx->field_separator_array_size )
 	
 	p_plugin_ctx->http_env = CreateHttpEnv() ;
 	if( p_plugin_ctx->http_env == NULL )
 	{
-		ERRORLOG( "CreateHttpEnv faild" )
+		ERRORLOGC( "CreateHttpEnv faild" )
 		return -1;
 	}
 	
@@ -343,7 +343,7 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	
 	int				nret = 0 ;
 	
-	DEBUGLOG( "close sock" )
+	DEBUGLOGC( "close sock" )
 	close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
 	sleep(1);
 	
@@ -391,7 +391,7 @@ _GOTO_RESEND :
 	ResetHttpEnv( p_plugin_ctx->http_env );
 	
 	/* 组织HTTP请求 */
-	DEBUGLOG( "StrcpyfHttpBuffer http body [%d][%.*s]" , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer )
+	DEBUGLOGC( "StrcpyfHttpBuffer http body [%d][%.*s]" , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer )
 	http_req = GetHttpRequestBuffer( p_plugin_ctx->http_env ) ;
 	nret = StrcpyfHttpBuffer( http_req , "POST /%s/%s%s HTTP/1.0" HTTP_RETURN_NEWLINE
 						"Content-Type: application/json%s%s" HTTP_RETURN_NEWLINE
@@ -405,16 +405,16 @@ _GOTO_RESEND :
 						, p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer ) ;
 	if( nret )
 	{
-		ERRORLOG( "StrcpyfHttpBuffer failed[%d]" , nret )
+		ERRORLOGC( "StrcpyfHttpBuffer failed[%d]" , nret )
 		return 1;
 	}
 	else
 	{
-		INFOLOG( "StrcpyfHttpBuffer ok" )
+		INFOLOGC( "StrcpyfHttpBuffer ok" )
 	}
 	
-	INFOLOG( "RequestHttp ..." )
-	INFOLOG( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
+	INFOLOGC( "RequestHttp ..." )
+	INFOLOGC( "HTTP REQ[%.*s]" , GetHttpBufferLength(http_req) , GetHttpBufferBase(http_req,NULL) )
 	/* 发送HTTP请求 */
 	gettimeofday( & tv_begin_send_http , NULL );
 	nret = RequestHttp( p_plugin_ctx->sock , NULL , p_plugin_ctx->http_env ) ;
@@ -422,8 +422,8 @@ _GOTO_RESEND :
 	http_rsp = GetHttpResponseBuffer( p_plugin_ctx->http_env ) ;
 	if( nret )
 	{
-		ERRORLOG( "RequestHttp failed[%d]" , nret )
-		ERRORLOG( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
+		ERRORLOGC( "RequestHttp failed[%d]" , nret )
+		ERRORLOGC( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
 		close( p_plugin_ctx->sock ); p_plugin_ctx->sock = -1 ;
 		while(1)
 		{
@@ -437,22 +437,22 @@ _GOTO_RESEND :
 	}
 	else
 	{
-		INFOLOG( "RequestHttp ok" )
-		INFOLOG( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
+		INFOLOGC( "RequestHttp ok" )
+		INFOLOGC( "HTTP RSP[%.*s]" , GetHttpBufferLength(http_rsp) , GetHttpBufferBase(http_rsp,NULL) )
 	}
 	
 	DiffTimeval( & tv_begin_send_http , & tv_end_send_http , & tv_diff_send_http );
-	INFOLOG( "SEND-HTTP[%ld.%06ld]" , tv_diff_send_http.tv_sec , tv_diff_send_http.tv_usec )
+	INFOLOGC( "SEND-HTTP[%ld.%06ld]" , tv_diff_send_http.tv_sec , tv_diff_send_http.tv_usec )
 	
 	/* 检查HTTP响应头 */
 	status_code = GetHttpStatusCode( p_plugin_ctx->http_env ) ;
 	if( status_code/100 != HTTP_OK/100 )
 	{
-		ERRORLOG( "status code[%d]" , status_code )
+		ERRORLOGC( "status code[%d]" , status_code )
 	}
 	else
 	{
-		INFOLOG( "status code[%d]" , status_code )
+		INFOLOGC( "status code[%d]" , status_code )
 	}
 	
 	p_plugin_ctx->post_buflen = 0 ;
@@ -474,7 +474,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	/* 把模板配置复制到模板实例化缓冲区 */
 	strcpy( p_plugin_ctx->format_buffer , p_plugin_ctx->output_template );
 	p_plugin_ctx->format_buflen = p_plugin_ctx->output_template_len ;
-	INFOLOG( "before format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
+	INFOLOGC( "before format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
 	
 	/* 模板实例化 */
 	p = p_plugin_ctx->format_buffer ;
@@ -503,7 +503,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 			d_len = p_field_separator->len - ( p_endptr-p ) ;
 			if( p_plugin_ctx->format_buflen + d_len > sizeof(p_plugin_ctx->format_buffer)-1 )
 			{
-				ERRORLOG( "format output template overflow" )
+				ERRORLOGC( "format output template overflow" )
 				return 1;
 			}
 			memmove( p_endptr + d_len , p_endptr , strlen(p_endptr)+1 );
@@ -511,7 +511,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 			p_plugin_ctx->format_buflen += d_len ;
 		}
 		
-		DEBUGLOG( "       format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
+		DEBUGLOGC( "       format [%d][%.*s]" , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buflen , p_plugin_ctx->format_buffer )
 		
 		p = p_endptr ;
 	}
@@ -524,12 +524,12 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 		p = ConvertContentEncodingEx( p_plugin_ctx->iconv_from , p_plugin_ctx->iconv_to , p_plugin_ctx->format_buffer , & (p_plugin_ctx->format_buflen) , p_plugin_ctx->format_buffer_iconv , & (p_plugin_ctx->format_buflen_iconv) ) ;
 		if( p == NULL )
 		{
-			ERRORLOG( "convert content encoding failed" )
+			ERRORLOGC( "convert content encoding failed" )
 			return 1;
 		}
 		else
 		{
-			INFOLOG( "convert content encoding ok" )
+			INFOLOGC( "convert content encoding ok" )
 		}
 		
 		p_plugin_ctx->p_format_buffer = p_plugin_ctx->format_buffer_iconv ;
@@ -557,12 +557,12 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 		tmp = (char*)realloc( p_plugin_ctx->post_buffer , new_post_bufsize ) ;
 		if( tmp == NULL )
 		{
-			FATALLOG( "realloc failed , errno[%d]" , errno )
+			FATALLOGC( "realloc failed , errno[%d]" , errno )
 			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "realloc post buffer [%d]bytes to [%d]bytes" , p_plugin_ctx->post_bufsize , new_post_bufsize )
+			DEBUGLOGC( "realloc post buffer [%d]bytes to [%d]bytes" , p_plugin_ctx->post_bufsize , new_post_bufsize )
 		}
 		memset( tmp+p_plugin_ctx->post_buflen , 0x00 , new_post_bufsize-1-p_plugin_ctx->post_buflen );
 		p_plugin_ctx->post_buffer = tmp ;
@@ -575,7 +575,7 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	}
 	
 	memcpy( p_plugin_ctx->post_buffer+p_plugin_ctx->post_buflen , p_plugin_ctx->p_format_buffer , p_plugin_ctx->format_buflen ); p_plugin_ctx->post_buflen += p_plugin_ctx->format_buflen ;
-	DEBUGLOG( "post_buffer[%.*s]" , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer )
+	DEBUGLOGC( "post_buffer[%.*s]" , p_plugin_ctx->post_buflen , p_plugin_ctx->post_buffer )
 	
 	/* 如果单条提交（非批量），发送HTTP请求到ES */
 	if( p_plugin_ctx->bulk == NULL )
@@ -583,12 +583,12 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 		nret = PostToEk( p_plugin_ctx ) ;
 		if( nret )
 		{
-			ERRORLOG( "PostToEk failed[%d]" , nret );
+			ERRORLOGC( "PostToEk failed[%d]" , nret )
 			return nret;
 		}
 		else
 		{
-			INFOLOG( "PostToEk ok" );
+			INFOLOGC( "PostToEk ok" )
 		}
 	}
 	
@@ -604,14 +604,14 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	
 	int				nret = 0 ;
 	
-	INFOLOG( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	
 	/* 丢弃不符合过滤条件的行 */
 	if( p_plugin_ctx->grep )
 	{
 		if( strstr( p_plugin_ctx->parse_buffer , p_plugin_ctx->grep ) == NULL )
 		{
-			INFOLOG( "grep return false" )
+			INFOLOGC( "grep return false" )
 			return 0;
 		}
 	}
@@ -622,7 +622,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 		for( p = p_plugin_ctx->parse_buffer ; (*p) ; p++ )
 			if( strchr( p_plugin_ctx->translate_charset , (*p) ) )
 				(*p) = p_plugin_ctx->separator_charset[0] ;
-		INFOLOG( "translated [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+		INFOLOGC( "translated [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	}
 	
 	if( p_plugin_ctx->field_separator_array_size > 0 )
@@ -637,7 +637,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	p_field_separator->begin = p_plugin_ctx->filename ;
 	p_field_separator->end = p_plugin_ctx->filename + p_plugin_ctx->filename_len ;
 	p_field_separator->len = p_plugin_ctx->filename_len ;
-	DEBUGLOG( "parse field [%d]-[%d][%.*s]" , field_index , p_field_separator->len , p_field_separator->len , p_field_separator->begin )
+	DEBUGLOGC( "parse field [%d]-[%d][%.*s]" , field_index , p_field_separator->len , p_field_separator->len , p_field_separator->begin )
 	
 	p = p_plugin_ctx->parse_buffer ;
 	for( field_index++ , p_field_separator++ ; field_index < p_plugin_ctx->field_separator_array_size ; field_index++ , p_field_separator++ )
@@ -655,7 +655,7 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 				break;
 		
 		p_field_separator->len = p_field_separator->end - p_field_separator->begin ;
-		DEBUGLOG( "parse field [%d]-[%d][%.*s]" , field_index , p_field_separator->len , p_field_separator->len , p_field_separator->begin )
+		DEBUGLOGC( "parse field [%d]-[%d][%.*s]" , field_index , p_field_separator->len , p_field_separator->len , p_field_separator->begin )
 		
 		p = p_field_separator->end + 1 ;
 	}
@@ -671,12 +671,12 @@ static int ParseCombineBuffer( struct OutputPluginContext *p_plugin_ctx , int li
 	nret = FormatOutputTemplate( p_plugin_ctx ) ;
 	if( nret )
 	{
-		ERRORLOG( "FormatOutputTemplate failed[%d]" , nret )
+		ERRORLOGC( "FormatOutputTemplate failed[%d]" , nret )
 		return nret;
 	}
 	else
 	{
-		INFOLOG( "FormatOutputTemplate ok" )
+		INFOLOGC( "FormatOutputTemplate ok" )
 	}
 	
 	return 0;
@@ -691,8 +691,8 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	
 	int		nret = 0 ;
 	
-	INFOLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
-	INFOLOG( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
+	INFOLOGC( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
 	
 	/* 如果遗留数据+当前数据块放的下解析缓冲区 */
 	if( p_plugin_ctx->parse_buflen + block_len <= sizeof(p_plugin_ctx->parse_buffer)-1 )
@@ -706,16 +706,16 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		nret = ParseCombineBuffer( p_plugin_ctx , p_plugin_ctx->parse_buflen ) ;
 		if( nret < 0 )
 		{
-			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
+			ERRORLOGC( "ParseCombineBuffer failed[%d]" , nret )
 			return nret;
 		}
 		else if( nret > 0 )
 		{
-			WARNLOG( "ParseCombineBuffer return[%d]" , nret )
+			WARNLOGC( "ParseCombineBuffer return[%d]" , nret )
 		}
 		else
 		{
-			DEBUGLOG( "ParseCombineBuffer ok" )
+			DEBUGLOGC( "ParseCombineBuffer ok" )
 		}
 		
 		strncpy( p_plugin_ctx->parse_buffer , block_buf , block_len );
@@ -735,16 +735,16 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		nret = ParseCombineBuffer( p_plugin_ctx , line_len ) ;
 		if( nret < 0 )
 		{
-			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
+			ERRORLOGC( "ParseCombineBuffer failed[%d]" , nret )
 			return nret;
 		}
 		else if( nret > 0 )
 		{
-			WARNLOG( "ParseCombineBuffer return[%d]" , nret )
+			WARNLOGC( "ParseCombineBuffer return[%d]" , nret )
 		}
 		else
 		{
-			INFOLOG( "ParseCombineBuffer ok" )
+			INFOLOGC( "ParseCombineBuffer ok" )
 		}
 		
 		memmove( p_plugin_ctx->parse_buffer , p_newline+1 , remain_len );
@@ -757,16 +757,16 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 		nret = PostToEk( p_plugin_ctx ) ;
 		if( nret )
 		{
-			ERRORLOG( "PostToEk failed[%d]" , nret );
+			ERRORLOGC( "PostToEk failed[%d]" , nret )
 			return nret;
 		}
 		else
 		{
-			INFOLOG( "PostToEk ok" );
+			INFOLOGC( "PostToEk ok" )
 		}
 	}
 	
-	INFOLOG( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	
 	return 0;
 }
@@ -785,12 +785,12 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		nret = CombineToParseBuffer( p_plugin_ctx , block_buf , block_len ) ;
 		if( nret < 0 )
 		{
-			ERRORLOG( "CombineToParseBuffer failed[%d]" , nret )
+			ERRORLOGC( "CombineToParseBuffer failed[%d]" , nret )
 			return nret;
 		}
 		else
 		{
-			INFOLOG( "CombineToParseBuffer ok" )
+			INFOLOGC( "CombineToParseBuffer ok" )
 		}
 	}
 	/* 如果启用了解压 */
@@ -805,29 +805,29 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len ) ;
 			if( nret )
 			{
-				ERRORLOG( "UncompressInputPluginData failed[%d]" , nret )
+				ERRORLOGC( "UncompressInputPluginData failed[%d]" , nret )
 				return -1;
 			}
 			else
 			{
-				DEBUGLOG( "UncompressInputPluginData ok" )
+				DEBUGLOGC( "UncompressInputPluginData ok" )
 			}
 			
 			/* 数据块合并到解析缓冲区 */
 			nret = CombineToParseBuffer( p_plugin_ctx , block_out_buf , block_out_len ) ;
 			if( nret < 0 )
 			{
-				ERRORLOG( "CombineToParseBuffer failed[%d]" , nret )
+				ERRORLOGC( "CombineToParseBuffer failed[%d]" , nret )
 				return nret;
 			}
 			else
 			{
-				INFOLOG( "CombineToParseBuffer ok" )
+				INFOLOGC( "CombineToParseBuffer ok" )
 			}
 		}
 		else
 		{
-			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm );
+			ERRORLOGC( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm )
 			return -1;
 		}
 	}
@@ -848,7 +848,7 @@ int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 	
 	free( p_plugin_ctx->field_separator_array );
 	
-	INFOLOG( "DestroyHttpEnv" )
+	INFOLOGC( "DestroyHttpEnv" )
 	DestroyHttpEnv( p_plugin_ctx->http_env );
 	
 	return 0;

@@ -22,21 +22,21 @@ int ProcessOnIdle( struct LogpipeEnv *p_env )
 		if( p_logpipe_input_plugin->pfuncOnInputPluginIdle == NULL )
 			continue;
 		
-		DEBUGLOG( "[%s]->pfuncOnInputPluginIdle ..." , p_logpipe_input_plugin->so_filename )
+		DEBUGLOGC( "[%s]->pfuncOnInputPluginIdle ..." , p_logpipe_input_plugin->so_filename )
 		nret = p_logpipe_input_plugin->pfuncOnInputPluginIdle( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
 		if( nret < 0 )
 		{
-			ERRORLOG( "[%s]->pfuncOnInputPluginIdle failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno )
+			ERRORLOGC( "[%s]->pfuncOnInputPluginIdle failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno )
 			return 1;
 		}
 		else if( nret > 0 )
 		{
-			WARNLOG( "[%s]->pfuncOnInputPluginIdle failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno )
+			WARNLOGC( "[%s]->pfuncOnInputPluginIdle failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno )
 			return 0;
 		}
 		else
 		{
-			DEBUGLOG( "[%s]->pfuncOnInputPluginIdle ok" , p_logpipe_input_plugin->so_filename )
+			DEBUGLOGC( "[%s]->pfuncOnInputPluginIdle ok" , p_logpipe_input_plugin->so_filename )
 		}
 	}
 	
@@ -46,21 +46,21 @@ int ProcessOnIdle( struct LogpipeEnv *p_env )
 		if( p_logpipe_output_plugin->pfuncOnOutputPluginIdle == NULL )
 			continue;
 		
-		DEBUGLOG( "[%s]->pfuncOnOutputPluginIdle ..." , p_logpipe_output_plugin->so_filename )
+		DEBUGLOGC( "[%s]->pfuncOnOutputPluginIdle ..." , p_logpipe_output_plugin->so_filename )
 		nret = p_logpipe_output_plugin->pfuncOnOutputPluginIdle( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
 		if( nret < 0 )
 		{
-			ERRORLOG( "[%s]->pfuncOnOutputPluginIdle failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno )
+			ERRORLOGC( "[%s]->pfuncOnOutputPluginIdle failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno )
 			return 1;
 		}
 		else if( nret > 0 )
 		{
-			WARNLOG( "[%s]->pfuncOnOutputPluginIdle failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno )
+			WARNLOGC( "[%s]->pfuncOnOutputPluginIdle failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno )
 			return 0;
 		}
 		else
 		{
-			DEBUGLOG( "[%s]->pfuncOnOutputPluginIdle ok" , p_logpipe_output_plugin->so_filename )
+			DEBUGLOGC( "[%s]->pfuncOnOutputPluginIdle ok" , p_logpipe_output_plugin->so_filename )
 		}
 	}
 	

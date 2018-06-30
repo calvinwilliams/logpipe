@@ -83,7 +83,7 @@ int monitor( struct LogpipeEnv *p_env )
 		nret = pipe( p_env->quit_pipe ) ;
 		if( nret == -1 )
 		{
-			FATALLOG( "pipe failed , errno[%d]" , errno )
+			FATALLOGC( "pipe failed , errno[%d]" , errno )
 			return -1;
 		}
 		
@@ -91,19 +91,19 @@ int monitor( struct LogpipeEnv *p_env )
 		pid = fork() ;
 		if( pid == -1 )
 		{
-			FATALLOG( "fork failed , errno[%d]" , errno )
+			FATALLOGC( "fork failed , errno[%d]" , errno )
 			return -1;
 		}
 		else if( pid == 0 )
 		{
 			close( p_env->quit_pipe[1] );
-			INFOLOG( "child : [%ld] fork [%ld]" , getppid() , getpid() )
+			INFOLOGC( "child : [%ld] fork [%ld]" , getppid() , getpid() )
 			exit(-worker(p_env));
 		}
 		else
 		{
 			close( p_env->quit_pipe[0] );
-			INFOLOG( "parent : [%ld] fork [%ld]" , getpid() , pid )
+			INFOLOGC( "parent : [%ld] fork [%ld]" , getpid() , pid )
 			/* 清除只供给一次的配置参数 */
 			UnsetStartOnceEnv( & (p_env->start_once_for_plugin_config_items) );
 		}
@@ -111,7 +111,7 @@ int monitor( struct LogpipeEnv *p_env )
 _GOTO_WAITPID :
 		
 		/* 堵塞等待工作进程结束 */
-		DEBUGLOG( "waitpid ..." )
+		DEBUGLOGC( "waitpid ..." )
 		pid2 = waitpid( pid , & status , 0 );
 		if( pid2 == -1 )
 		{
@@ -132,22 +132,22 @@ _GOTO_WAITPID :
 				}
 			}
 			
-			FATALLOG( "waitpid failed , errno[%d]" , errno )
+			FATALLOGC( "waitpid failed , errno[%d]" , errno )
 			return -1;
 		}
 		else if( pid2 != pid )
 		{
-			FATALLOG( "unexpect other child[%d]" , pid2 )
+			FATALLOGC( "unexpect other child[%d]" , pid2 )
 		}
 		
 		/* 检查工作进程是否正常结束 */
 		if( WEXITSTATUS(status) == 0 && WIFSIGNALED(status) == 0 && WTERMSIG(status) == 0 )
 		{
-			INFOLOG( "waitpid[%d] WEXITSTATUS[%d] WIFSIGNALED[%d] WTERMSIG[%d]" , pid , WEXITSTATUS(status) , WIFSIGNALED(status) , WTERMSIG(status) )
+			INFOLOGC( "waitpid[%d] WEXITSTATUS[%d] WIFSIGNALED[%d] WTERMSIG[%d]" , pid , WEXITSTATUS(status) , WIFSIGNALED(status) , WTERMSIG(status) )
 		}
 		else
 		{
-			FATALLOG( "waitpid[%d] WEXITSTATUS[%d] WIFSIGNALED[%d] WTERMSIG[%d]" , pid , WEXITSTATUS(status) , WIFSIGNALED(status) , WTERMSIG(status) )
+			FATALLOGC( "waitpid[%d] WEXITSTATUS[%d] WIFSIGNALED[%d] WTERMSIG[%d]" , pid , WEXITSTATUS(status) , WIFSIGNALED(status) , WTERMSIG(status) )
 		}
 		
 		if( p_env->quit_pipe[1] >= 0 )
@@ -176,14 +176,14 @@ int _monitor( void *pv )
 	time( & tt );
 	memset( & stime , 0x00 , sizeof(struct tm) );
 	localtime_r( & tt , & stime );
-	SetLogFile( "%s.%d" , p_env->log_file , stime.tm_hour );
-	SetLogLevel( p_env->log_level );
+	SetLogcFile( "%s.%d" , p_env->log_file , stime.tm_hour );
+	SetLogcLevel( p_env->log_level );
 	
-	INFOLOG( "--- monitor begin ---------" )
+	INFOLOGC( "--- monitor begin ---------" )
 	
 	nret = monitor( p_env ) ;
 	
-	INFOLOG( "--- monitor end ---------" )
+	INFOLOGC( "--- monitor end ---------" )
 	
 	return nret;
 }

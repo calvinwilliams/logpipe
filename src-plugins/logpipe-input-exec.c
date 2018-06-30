@@ -23,17 +23,17 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_plugin_ctx = (struct InputPluginContext *)malloc( sizeof(struct InputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct InputPluginContext) );
 	
 	/* ½âÎö²å¼þÅäÖÃ */
 	p_plugin_ctx->cmd = QueryPluginConfigItem( p_plugin_config_items , "cmd" ) ;
-	INFOLOG( "cmd[%s]" , p_plugin_ctx->cmd )
+	INFOLOGC( "cmd[%s]" , p_plugin_ctx->cmd )
 	if( p_plugin_ctx->cmd == NULL || p_plugin_ctx->cmd[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'cmd'" );
+		ERRORLOGC( "expect config for 'cmd'" )
 		return -1;
 	}
 	
@@ -45,13 +45,13 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		JSONUNESCAPE_FOLD( p_plugin_ctx->cmd , strlen(p_plugin_ctx->cmd) , p_plugin_ctx->cmd_buffer , buffer_len , remain_len )
 		if( buffer_len == -1 )
 		{
-			ERRORLOG( "output_tempalte[%s] invalid" , p_plugin_ctx->cmd );
+			ERRORLOGC( "output_tempalte[%s] invalid" , p_plugin_ctx->cmd )
 			return -1;
 		}
 		
 		p_plugin_ctx->cmd = p_plugin_ctx->cmd_buffer ;
 	}
-	INFOLOG( "cmd[%s]" , p_plugin_ctx->cmd )
+	INFOLOGC( "cmd[%s]" , p_plugin_ctx->cmd )
 	
 	p_plugin_ctx->compress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "compress_algorithm" ) ;
 	if( p_plugin_ctx->compress_algorithm )
@@ -62,17 +62,17 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		else
 		{
-			ERRORLOG( "compress_algorithm[%s] invalid" , p_plugin_ctx->compress_algorithm );
+			ERRORLOGC( "compress_algorithm[%s] invalid" , p_plugin_ctx->compress_algorithm )
 			return -1;
 		}
 	}
-	INFOLOG( "compress_algorithm[%s]" , p_plugin_ctx->compress_algorithm )
+	INFOLOGC( "compress_algorithm[%s]" , p_plugin_ctx->compress_algorithm )
 	
 	p_plugin_ctx->output_filename = QueryPluginConfigItem( p_plugin_config_items , "output_filename" ) ;
-	INFOLOG( "output_filename[%s]" , p_plugin_ctx->output_filename )
+	INFOLOGC( "output_filename[%s]" , p_plugin_ctx->output_filename )
 	if( p_plugin_ctx->output_filename == NULL || p_plugin_ctx->output_filename[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'output_filename'" );
+		ERRORLOGC( "expect config for 'output_filename'" )
 		return -1;
 	}
 	
@@ -90,17 +90,17 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 _GOTO_POPEN :
 	
 	/* Ö´ÐÐÃüÁî */
-	INFOLOG( "popen[%s] ..." , p_plugin_ctx->cmd );
+	INFOLOGC( "popen[%s] ..." , p_plugin_ctx->cmd )
 	p_plugin_ctx->pp = popen( p_plugin_ctx->cmd , "r" ) ;
 	if( p_plugin_ctx->pp == NULL )
 	{
-		ERRORLOG( "popen[%s] failed , errno[%d]" , p_plugin_ctx->cmd , errno );
+		ERRORLOGC( "popen[%s] failed , errno[%d]" , p_plugin_ctx->cmd , errno )
 		sleep(2);
 		goto _GOTO_POPEN;
 	}
 	else
 	{
-		INFOLOG( "popen[%s] ok" , p_plugin_ctx->cmd );
+		INFOLOGC( "popen[%s] ok" , p_plugin_ctx->cmd )
 	}
 	
 	/* ÉèÖÃÎª·Ç¶ÂÈû */
@@ -145,19 +145,19 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	{
 		int			len ;
 		
-		INFOLOG( "fread popen ..." )
+		INFOLOGC( "fread popen ..." )
 		memset( block_buf , 0x00 , block_bufsize );
 		len = fread( block_buf , 1 , block_bufsize-1 , p_plugin_ctx->pp ) ;
 		if( len == -1 )
 		{
 			if( errno == EAGAIN )
 			{
-				INFOLOG( "fread none" )
+				INFOLOGC( "fread none" )
 				return LOGPIPE_READ_END_OF_INPUT;
 			}
 			else
 			{
-				ERRORLOG( "fread popen failed , errno[%d]" , errno )
+				ERRORLOGC( "fread popen failed , errno[%d]" , errno )
 				DeleteInputPluginEvent( p_env , p_logpipe_input_plugin , fileno(p_plugin_ctx->pp) );
 				pclose( p_plugin_ctx->pp ); p_plugin_ctx->pp = NULL ;
 				return -1;
@@ -165,13 +165,13 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else if( len == 0 )
 		{
-			INFOLOG( "fread none" )
+			INFOLOGC( "fread none" )
 			return LOGPIPE_READ_END_OF_INPUT;
 		}
 		else
 		{
-			INFOLOG( "fread popen ok , [%d]bytes" , len )
-			DEBUGHEXLOG( block_buf , len , NULL )
+			INFOLOGC( "fread popen ok , [%d]bytes" , len )
+			DEBUGHEXLOGC( block_buf , len , NULL )
 		}
 		
 		(*p_block_len) = len ;
@@ -182,19 +182,19 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
 		int			len ;
 		
-		INFOLOG( "fread popen ..." )
+		INFOLOGC( "fread popen ..." )
 		memset( block_in_buf , 0x00 , sizeof(block_in_buf) );
 		len = fread( block_in_buf , 1 , LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE , p_plugin_ctx->pp ) ;
 		if( len == -1 )
 		{
 			if( errno == EAGAIN )
 			{
-				INFOLOG( "fread none" )
+				INFOLOGC( "fread none" )
 				return LOGPIPE_READ_END_OF_INPUT;
 			}
 			else
 			{
-				ERRORLOG( "fread popen failed , errno[%d]" , errno )
+				ERRORLOGC( "fread popen failed , errno[%d]" , errno )
 				DeleteInputPluginEvent( p_env , p_logpipe_input_plugin , fileno(p_plugin_ctx->pp) );
 				pclose( p_plugin_ctx->pp ); p_plugin_ctx->pp = NULL ;
 				return -1;
@@ -202,25 +202,25 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else if( len == 0 )
 		{
-			INFOLOG( "fread none" )
+			INFOLOGC( "fread none" )
 			return LOGPIPE_READ_END_OF_INPUT;
 		}
 		else
 		{
-			INFOLOG( "fread popen ok , [%d]bytes" , len )
-			DEBUGHEXLOG( block_in_buf , len , NULL )
+			INFOLOGC( "fread popen ok , [%d]bytes" , len )
+			DEBUGHEXLOGC( block_in_buf , len , NULL )
 		}
 		
 		memset( block_buf , 0x00 , block_bufsize );
 		nret = CompressInputPluginData( p_plugin_ctx->compress_algorithm , block_in_buf , len , block_buf , p_block_len ) ;
 		if( nret )
 		{
-			ERRORLOG( "CompressInputPluginData failed[%d]" , nret )
+			ERRORLOGC( "CompressInputPluginData failed[%d]" , nret )
 			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "CompressInputPluginData ok" )
+			DEBUGLOGC( "CompressInputPluginData ok" )
 		}
 	}
 	

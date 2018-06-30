@@ -29,8 +29,8 @@ struct TraceFile
 	int			watch_count ;
 } ;
 
-/* 目录的IN_MOVED_FROM事件，之后如果没被IN_MOVED_SELF用掉，则被清理 */
-#define TIME_TO_FREE_ELAPSE	10
+/* 目录的IN_MOVED_FROM事件，之后如果没被IN_MOVED_SELF消耗掉，则被清理 */
+#define TIME_TO_FREE_ELAPSE	60
 
 struct MovefromEvent
 {
@@ -161,7 +161,7 @@ void FreeTraceFile( void *pv )
 		/* 关闭文件 */
 		if( p_trace_file->fd >= 0 )
 		{
-			INFOLOG( "close[%d] ok , path_filename[%s]" , p_trace_file->fd , p_trace_file->path_filename )
+			INFOLOGC( "close[%d] ok , path_filename[%s]" , p_trace_file->fd , p_trace_file->path_filename )
 			close( p_trace_file->fd ); p_trace_file->fd = -1 ;
 		}
 		
@@ -217,12 +217,12 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , struct TraceF
 	/* 判断改名是否成功 */
 	if( nret )
 	{
-		FATALLOG( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
+		FATALLOGC( "rename [%s] to [%s] failed , errno[%d]" , old_filename , new_filename , errno )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "rename [%s] to [%s] ok" , old_filename , new_filename )
+		INFOLOGC( "rename [%s] to [%s] ok" , old_filename , new_filename )
 	}
 	
 	strncpy( p_trace_file->path_filename , new_filename , sizeof(p_trace_file->path_filename)-1 );
@@ -231,14 +231,14 @@ static int RotatingFile( struct InputPluginContext *p_plugin_ctx , struct TraceF
 	p_rotated_file = (struct RotatedFile *)malloc( sizeof(struct RotatedFile) ) ;
 	if( p_rotated_file == NULL )
 	{
-		ERRORLOG( "malloc sizeof(struct RotatedFile) failed , errno[%d]" , errno )
+		ERRORLOGC( "malloc sizeof(struct RotatedFile) failed , errno[%d]" , errno )
 	}
 	else
 	{
 		memset( p_rotated_file , 0x00 , sizeof(struct RotatedFile) ) ;
 		p_rotated_file->inotify_file_wd = p_trace_file->inotify_file_wd ;
 		list_add_tail( & (p_rotated_file->rotated_file_node) , & (p_plugin_ctx->rotated_file_list) );
-		INFOLOG( "add rotated file ok , inotify_wd[%d] path_filename[%s] filename[%s]" , p_rotated_file->inotify_file_wd , p_trace_file->path_filename , p_trace_file->filename )
+		INFOLOGC( "add rotated file ok , inotify_wd[%d] path_filename[%s] filename[%s]" , p_rotated_file->inotify_file_wd , p_trace_file->path_filename , p_trace_file->filename )
 	}
 	
 	/* 大小转档过的文件无需再转档 */
@@ -259,11 +259,11 @@ static int RemoveFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlug
 	nret = inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "inotify_rm_watch failed[%d] , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , nret , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		ERRORLOGC( "inotify_rm_watch failed[%d] , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , nret , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 	}
 	else
 	{
-		INFOLOG( "inotify_rm_watch ok , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		INFOLOGC( "inotify_rm_watch ok , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 	}
 	
 	FreeTraceFile( p_trace_file );
@@ -290,14 +290,14 @@ static int CheckFileOffset( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	
 	int			nret = 0 ;
 	
-	DEBUGLOG( "CheckFileOffset path_filename[%s] filename[%s]" , p_trace_file->path_filename , p_trace_file->filename )
+	DEBUGLOGC( "CheckFileOffset path_filename[%s] filename[%s]" , p_trace_file->path_filename , p_trace_file->filename )
 	
 	/* 获得文件大小 */
 	memset( & file_stat , 0x00 , sizeof(struct stat) );
 	nret = fstat( p_trace_file->fd , & file_stat ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+		ERRORLOGC( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 	}
 	
@@ -308,7 +308,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 	/* 如果文件大小 小于 跟踪的文件大小 */
 	if( file_stat.st_size < p_trace_file->trace_offset )
 	{
-		INFOLOG( "file_size[%"PRIu64"] < trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )
+		INFOLOGC( "file_size[%"PRIu64"] < trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )
 		p_trace_file->trace_offset = file_stat.st_size ;
 		
 		p_trace_file->watch_count = 1 ;
@@ -316,12 +316,12 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 		p_trace_file->modifing_timestamp.tv_sec = time(NULL) + (int)pow(2,(double)(p_trace_file->watch_count)) ;
 		p_trace_file->modifing_timestamp.tv_usec = 0 ;
 		LinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
-		DEBUGLOG( "set watch_count[%d] timestamp[%ld]" , p_trace_file->watch_count , p_trace_file->modifing_timestamp.tv_sec )
+		DEBUGLOGC( "set watch_count[%d] timestamp[%ld]" , p_trace_file->watch_count , p_trace_file->modifing_timestamp.tv_sec )
 	}
 	/* 如果文件大小 大于 跟踪的文件大小 */
 	else if( file_stat.st_size > p_trace_file->trace_offset )
 	{
-		INFOLOG( "file_size[%"PRIu64"] > trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )
+		INFOLOGC( "file_size[%"PRIu64"] > trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )
 		
 		lseek( p_trace_file->fd , p_trace_file->trace_offset , SEEK_SET );
 		
@@ -332,17 +332,17 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 		nret = WriteAllOutputPlugins( p_env , p_logpipe_input_plugin , p_trace_file->filename_len , p_trace_file->filename ) ;
 		if( nret < 0 )
 		{
-			ERRORLOG( "WriteAllOutputPlugins failed[%d]" , nret )
+			ERRORLOGC( "WriteAllOutputPlugins failed[%d]" , nret )
 			return -1;
 		}
 		else if( nret > 0 )
 		{
-			WARNLOG( "WriteAllOutputPlugins return[%d]" , nret )
+			WARNLOGC( "WriteAllOutputPlugins return[%d]" , nret )
 			return 0;
 		}
 		else
 		{
-			INFOLOG( "WriteAllOutputPlugins ok" )
+			INFOLOGC( "WriteAllOutputPlugins ok" )
 		}
 		
 		/* 再次获得文件大小 */
@@ -350,7 +350,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 		nret = fstat( p_trace_file->fd , & file_stat ) ;
 		if( nret == -1 )
 		{
-			ERRORLOG( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+			ERRORLOGC( "fstat[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 			return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 		}
 		
@@ -366,7 +366,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 				}
 				else
 				{
-					INFOLOG( "file_size[%"PRIu64"] >> trace_offset[%"PRIu64"] , rotate_size[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset , p_trace_file->rotate_size )
+					INFOLOGC( "file_size[%"PRIu64"] >> trace_offset[%"PRIu64"] , rotate_size[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset , p_trace_file->rotate_size )
 					SendCloseWriteEvent( p_trace_file );
 				}
 			}
@@ -382,12 +382,12 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 			p_trace_file->modifing_timestamp.tv_sec = time(NULL) + (int)pow(2,(double)(p_trace_file->watch_count)) ;
 			p_trace_file->modifing_timestamp.tv_usec = 0 ;
 			LinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
-			DEBUGLOG( "set watch_count[%d] timestamp[%ld]" , p_trace_file->watch_count , p_trace_file->modifing_timestamp.tv_sec )
+			DEBUGLOGC( "set watch_count[%d] timestamp[%ld]" , p_trace_file->watch_count , p_trace_file->modifing_timestamp.tv_sec )
 		}
 	}
 	else
 	{
-		INFOLOG( "file_size[%"PRIu64"] == trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )
+		INFOLOGC( "file_size[%"PRIu64"] == trace_offset[%"PRIu64"]" , file_stat.st_size , p_trace_file->trace_offset )
 		
 		p_trace_file->watch_count++;
 		if( p_trace_file->watch_count <= p_plugin_ctx->max_watch_count )
@@ -396,7 +396,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 			p_trace_file->modifing_timestamp.tv_sec = time(NULL) + (int)pow(2,(double)(p_trace_file->watch_count)) ;
 			p_trace_file->modifing_timestamp.tv_usec = 0 ;
 			LinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
-			DEBUGLOG( "set watch_count[%d] timestamp[%ld]" , p_trace_file->watch_count , p_trace_file->modifing_timestamp.tv_sec )
+			DEBUGLOGC( "set watch_count[%d] timestamp[%ld]" , p_trace_file->watch_count , p_trace_file->modifing_timestamp.tv_sec )
 		}
 		else
 		{
@@ -406,7 +406,7 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 			p_trace_file->modifing_timestamp.tv_sec = 0 ;
 			p_trace_file->modifing_timestamp.tv_usec = 0 ;
 			LinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
-			DEBUGLOG( "unset watch timestamp" )
+			DEBUGLOGC( "unset watch timestamp" )
 		}
 	}
 	
@@ -417,11 +417,11 @@ _GOTO_WRITEALLOUTPUTPLUGINS :
 		nret = RotatingFile( p_plugin_ctx , p_trace_file ) ;
 		if( nret )
 		{
-			ERRORLOG( "RotatingFile failed[%d] , path_filename[%s]" , nret , p_trace_file->path_filename )
+			ERRORLOGC( "RotatingFile failed[%d] , path_filename[%s]" , nret , p_trace_file->path_filename )
 		}
 		else
 		{
-			INFOLOG( "RotatingFile ok , path_filename[%s]" , p_trace_file->path_filename )
+			INFOLOGC( "RotatingFile ok , path_filename[%s]" , p_trace_file->path_filename )
 		}
 	}
 	
@@ -536,7 +536,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	/* 不处理文件名以'.'或'_'开头的文件 */
 	if( filename[0] == '.' || filename[0] == '_' )
 	{
-		DEBUGLOG( "filename[%s] ignored" , filename )
+		DEBUGLOGC( "filename[%s] ignored" , filename )
 		return 0;
 	}
 	
@@ -547,7 +547,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		if( IsMatchString( p_plugin_ctx->files , filename , '*' , '?' ) != 0 )
 		{
-			DEBUGLOG( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files )
+			DEBUGLOGC( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files )
 			survive_flag = 0 ;
 		}
 	}
@@ -556,7 +556,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		if( IsMatchString( p_plugin_ctx->files2 , filename , '*' , '?' ) != 0 )
 		{
-			DEBUGLOG( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files2 )
+			DEBUGLOGC( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files2 )
 			survive_flag = 0 ;
 		}
 	}
@@ -565,7 +565,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		if( IsMatchString( p_plugin_ctx->files3 , filename , '*' , '?' ) != 0 )
 		{
-			DEBUGLOG( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files3 )
+			DEBUGLOGC( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files3 )
 			survive_flag = 0 ;
 		}
 	}
@@ -578,7 +578,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		if( IsMatchString( p_plugin_ctx->exclude_files , filename , '*' , '?' ) == 0 )
 		{
-			DEBUGLOG( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files )
+			DEBUGLOGC( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files )
 			return 0;
 		}
 	}
@@ -587,7 +587,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		if( IsMatchString( p_plugin_ctx->exclude_files2 , filename , '*' , '?' ) == 0 )
 		{
-			DEBUGLOG( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files2 )
+			DEBUGLOGC( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files2 )
 			return 0;
 		}
 	}
@@ -596,7 +596,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		if( IsMatchString( p_plugin_ctx->exclude_files3 , filename , '*' , '?' ) == 0 )
 		{
-			DEBUGLOG( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files3 )
+			DEBUGLOGC( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files3 )
 			return 0;
 		}
 	}
@@ -605,7 +605,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_trace_file = (struct TraceFile *)malloc( sizeof(struct TraceFile) ) ;
 	if( p_trace_file == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno )
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
 	memset( p_trace_file , 0x00 , sizeof(struct TraceFile) );
@@ -616,14 +616,14 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_trace_file->filename_len = snprintf( p_trace_file->filename , sizeof(p_trace_file->filename)-1 , "%s" , filename ) ;
 	if( SNPRINTF_OVERFLOW( p_trace_file->filename_len , sizeof(p_trace_file->filename) ) )
 	{
-		ERRORLOG( "snprintf[%s] overflow" , filename )
+		ERRORLOGC( "snprintf[%s] overflow" , filename )
 		FreeTraceFile( p_trace_file );
 		return -1;
 	}
 	p_trace_file->path_filename_len = snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%s" , p_plugin_ctx->path , filename ) ;
 	if( SNPRINTF_OVERFLOW( p_trace_file->filename_len , sizeof(p_trace_file->filename) ) )
 	{
-		ERRORLOG( "snprintf[%s] overflow" , filename )
+		ERRORLOGC( "snprintf[%s] overflow" , filename )
 		FreeTraceFile( p_trace_file );
 		return -1;
 	}
@@ -631,19 +631,19 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_trace_file->fd = open( p_trace_file->path_filename , O_RDONLY ) ;
 	if( p_trace_file->fd == -1 )
 	{
-		ERRORLOG( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+		ERRORLOGC( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		FreeTraceFile( p_trace_file );
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "open[%s] ok , fd[%d]" , p_trace_file->path_filename , p_trace_file->fd )
+		INFOLOGC( "open[%s] ok , fd[%d]" , p_trace_file->path_filename , p_trace_file->fd )
 	}
 	
 	nret = fstat( p_trace_file->fd , & file_stat ) ;
 	if( nret == -1 )
 	{
-		WARNLOG( "file[%s] not found" , p_trace_file->path_filename )
+		WARNLOGC( "file[%s] not found" , p_trace_file->path_filename )
 		close( p_trace_file->fd );
 		FreeTraceFile( p_trace_file );
 		return 0;
@@ -651,7 +651,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	if( ! S_ISREG(file_stat.st_mode) )
 	{
-		INFOLOG( "[%s] is not a file" , p_trace_file->path_filename )
+		INFOLOGC( "[%s] is not a file" , p_trace_file->path_filename )
 		close( p_trace_file->fd );
 		FreeTraceFile( p_trace_file );
 		return 0;
@@ -674,21 +674,21 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_IGNORED|IN_Q_OVERFLOW) ) ;
 	if( p_trace_file->inotify_file_wd == -1 )
 	{
-		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+		ERRORLOGC( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		close( p_trace_file->fd );
 		FreeTraceFile( p_trace_file );
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
+		INFOLOGC( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
 	}
 	
 	nret = LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
 	if( nret )
 	{
-		ERRORLOG( "LinkTraceFilePathFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-		INFOLOG( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
+		ERRORLOGC( "LinkTraceFilePathFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		INFOLOGC( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
 		inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd );
 		close( p_trace_file->fd );
 		FreeTraceFile( p_trace_file );
@@ -696,15 +696,15 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	else
 	{
-		DEBUGLOG( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		DEBUGLOGC( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 	}
 	
 	nret = LinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file ) ;
 	if( nret )
 	{
-		ERRORLOG( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		ERRORLOGC( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 		UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
-		INFOLOG( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
+		INFOLOGC( "inotify_rm_watch[%s] , inotify_fd[%d] inotify_wd[%d]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd )
 		inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd );
 		close( p_trace_file->fd );
 		FreeTraceFile( p_trace_file );
@@ -712,7 +712,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	else
 	{
-		DEBUGLOG( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		DEBUGLOGC( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 	}
 	
 	gettimeofday( & (p_trace_file->modifing_timestamp) , NULL );
@@ -723,11 +723,11 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	nret = CheckFileOffset( p_env , p_logpipe_input_plugin, p_plugin_ctx , p_trace_file , rotate_size , max_append_count ) ;
 	if( nret )
 	{
-		ERRORLOG( "CheckFileOffset failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		ERRORLOGC( "CheckFileOffset failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 	}
 	else
 	{
-		INFOLOG( "CheckFileOffset ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		INFOLOGC( "CheckFileOffset ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 	}
 	
 	return 0;
@@ -745,7 +745,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 	dir = opendir( p_plugin_ctx->path ) ;
 	if( dir == NULL )
 	{
-		ERRORLOG( "opendir[%s] failed , errno[%d]\n" , p_plugin_ctx->path , errno );
+		ERRORLOGC( "opendir[%s] failed , errno[%d]\n" , p_plugin_ctx->path , errno )
 		return -1;
 	}
 	
@@ -761,7 +761,7 @@ static int ReadFilesToinotifyWdTree( struct LogpipeEnv *p_env , struct LogpipeIn
 			nret = AddFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , ent->d_name , (p_plugin_ctx->start_once_for_full_dose?READ_FULL_FILE_FLAG:READ_APPEND_FILE_FLAG) , p_plugin_ctx->rotate_size , p_plugin_ctx->max_append_count ) ;
 			if( nret )
 			{
-				ERRORLOG( "AddFileWatcher[%s] failed[%d]" , ent->d_name , nret );
+				ERRORLOGC( "AddFileWatcher[%s] failed[%d]" , ent->d_name , nret )
 				closedir( dir );
 				return -1;
 			}
@@ -784,37 +784,37 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_plugin_ctx = (struct InputPluginContext *)malloc( sizeof(struct InputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct InputPluginContext) );
 	
 	/* 解析插件配置 */
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
-	INFOLOG( "path[%s]" , p_plugin_ctx->path )
+	INFOLOGC( "path[%s]" , p_plugin_ctx->path )
 	if( p_plugin_ctx->path == NULL || p_plugin_ctx->path[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'path'" );
+		ERRORLOGC( "expect config for 'path'" )
 		return -1;
 	}
 	
 	p_plugin_ctx->files = QueryPluginConfigItem( p_plugin_config_items , "files" ) ;
-	INFOLOG( "files[%s]" , p_plugin_ctx->files )
+	INFOLOGC( "files[%s]" , p_plugin_ctx->files )
 	
 	p_plugin_ctx->files2 = QueryPluginConfigItem( p_plugin_config_items , "files2" ) ;
-	INFOLOG( "files2[%s]" , p_plugin_ctx->files2 )
+	INFOLOGC( "files2[%s]" , p_plugin_ctx->files2 )
 	
 	p_plugin_ctx->files3 = QueryPluginConfigItem( p_plugin_config_items , "files3" ) ;
-	INFOLOG( "files3[%s]" , p_plugin_ctx->files3 )
+	INFOLOGC( "files3[%s]" , p_plugin_ctx->files3 )
 	
 	p_plugin_ctx->exclude_files = QueryPluginConfigItem( p_plugin_config_items , "exclude_files" ) ;
-	INFOLOG( "exclude_files[%s]" , p_plugin_ctx->exclude_files )
+	INFOLOGC( "exclude_files[%s]" , p_plugin_ctx->exclude_files )
 	
 	p_plugin_ctx->exclude_files2 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files2" ) ;
-	INFOLOG( "exclude_files2[%s]" , p_plugin_ctx->exclude_files2 )
+	INFOLOGC( "exclude_files2[%s]" , p_plugin_ctx->exclude_files2 )
 	
 	p_plugin_ctx->exclude_files3 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files3" ) ;
-	INFOLOG( "exclude_files3[%s]" , p_plugin_ctx->exclude_files3 )
+	INFOLOGC( "exclude_files3[%s]" , p_plugin_ctx->exclude_files3 )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "exec_before_rotating" ) ;
 	if( p )
@@ -826,23 +826,23 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		JSONUNESCAPE_FOLD( p , strlen(p) , p_plugin_ctx->exec_before_rotating_buffer , buffer_len , remain_len )
 		if( buffer_len == -1 )
 		{
-			ERRORLOG( "exec_before_rotating[%s] invalid" , p );
+			ERRORLOGC( "exec_before_rotating[%s] invalid" , p )
 			return -1;
 		}
 		
 		p_plugin_ctx->exec_before_rotating = p_plugin_ctx->exec_before_rotating_buffer ;
 	}
-	INFOLOG( "exec_before_rotating[%s]" , p_plugin_ctx->exec_before_rotating )
+	INFOLOGC( "exec_before_rotating[%s]" , p_plugin_ctx->exec_before_rotating )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "rotate_size" ) ;
 	if( p )
 		p_plugin_ctx->rotate_size = size64_atou64(p) ;
 	else
 		p_plugin_ctx->rotate_size = 0 ;
-	INFOLOG( "rotate_size[%ld]" , p_plugin_ctx->rotate_size )
+	INFOLOGC( "rotate_size[%ld]" , p_plugin_ctx->rotate_size )
 	if( p_plugin_ctx->rotate_size == UINT64_MAX )
 	{
-		ERRORLOG( "rotate_size[%"PRIu64"] invalid" , p_plugin_ctx->rotate_size );
+		ERRORLOGC( "rotate_size[%"PRIu64"] invalid" , p_plugin_ctx->rotate_size )
 		return -1;
 	}
 	
@@ -856,13 +856,13 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		JSONUNESCAPE_FOLD( p , strlen(p) , p_plugin_ctx->exec_after_rotating_buffer , buffer_len , remain_len )
 		if( buffer_len == -1 )
 		{
-			ERRORLOG( "exec_after_rotating[%s] invalid" , p );
+			ERRORLOGC( "exec_after_rotating[%s] invalid" , p )
 			return -1;
 		}
 		
 		p_plugin_ctx->exec_after_rotating = p_plugin_ctx->exec_after_rotating_buffer ;
 	}
-	INFOLOG( "exec_after_rotating[%s]" , p_plugin_ctx->exec_after_rotating )
+	INFOLOGC( "exec_after_rotating[%s]" , p_plugin_ctx->exec_after_rotating )
 	
 	p_plugin_ctx->compress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "compress_algorithm" ) ;
 	if( p_plugin_ctx->compress_algorithm )
@@ -873,11 +873,11 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		else
 		{
-			ERRORLOG( "compress_algorithm[%s] invalid" , p_plugin_ctx->compress_algorithm );
+			ERRORLOGC( "compress_algorithm[%s] invalid" , p_plugin_ctx->compress_algorithm )
 			return -1;
 		}
 	}
-	INFOLOG( "compress_algorithm[%s]" , p_plugin_ctx->compress_algorithm )
+	INFOLOGC( "compress_algorithm[%s]" , p_plugin_ctx->compress_algorithm )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "max_append_count" ) ;
 	if( p )
@@ -886,7 +886,7 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		p_plugin_ctx->max_append_count = 0 ;
 	if( p_plugin_ctx->max_append_count == UINT64_MAX )
 		p_plugin_ctx->max_append_count = 0 ;
-	INFOLOG( "max_append_count[%"PRIu64"]" , p_plugin_ctx->max_append_count )
+	INFOLOGC( "max_append_count[%"PRIu64"]" , p_plugin_ctx->max_append_count )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "max_watch_count" ) ;
 	if( p )
@@ -895,17 +895,17 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		p_plugin_ctx->max_watch_count = 0 ;
 	if( p_plugin_ctx->max_watch_count == UINT64_MAX || p_plugin_ctx->max_watch_count <= 0 )
 		p_plugin_ctx->max_watch_count = WATCH_COUNT_DEFAULT ;
-	INFOLOG( "max_watch_count[%"PRIu64"]" , p_plugin_ctx->max_watch_count )
+	INFOLOGC( "max_watch_count[%"PRIu64"]" , p_plugin_ctx->max_watch_count )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "max_usleep_interval" ) ;
 	if( p )
 		p_plugin_ctx->max_usleep_interval = usleep_atou64(p) ;
 	else
 		p_plugin_ctx->max_usleep_interval = 0 ;
-	INFOLOG( "max_usleep_interval[%"PRIu64"]" , p_plugin_ctx->max_usleep_interval )
+	INFOLOGC( "max_usleep_interval[%"PRIu64"]" , p_plugin_ctx->max_usleep_interval )
 	if( p_plugin_ctx->max_usleep_interval == UINT64_MAX )
 	{
-		ERRORLOG( "max_usleep_interval[%"PRIu64"] invalid" , p_plugin_ctx->max_usleep_interval );
+		ERRORLOGC( "max_usleep_interval[%"PRIu64"] invalid" , p_plugin_ctx->max_usleep_interval )
 		return -1;
 	}
 	
@@ -914,10 +914,10 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		p_plugin_ctx->min_usleep_interval = usleep_atou64(p) ;
 	else
 		p_plugin_ctx->min_usleep_interval = 0 ;
-	INFOLOG( "min_usleep_interval[%"PRIu64"]" , p_plugin_ctx->min_usleep_interval )
+	INFOLOGC( "min_usleep_interval[%"PRIu64"]" , p_plugin_ctx->min_usleep_interval )
 	if( p_plugin_ctx->min_usleep_interval == UINT64_MAX )
 	{
-		ERRORLOG( "max_usleep_interval[%"PRIu64"] invalid" , p_plugin_ctx->min_usleep_interval );
+		ERRORLOGC( "max_usleep_interval[%"PRIu64"] invalid" , p_plugin_ctx->min_usleep_interval )
 		return -1;
 	}
 	
@@ -941,7 +941,7 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		p_plugin_ctx->start_once_for_full_dose = 1 ;
 	else
 		p_plugin_ctx->start_once_for_full_dose = 0 ;
-	INFOLOG( "start_once_for_full_dose[%d]" , p_plugin_ctx->start_once_for_full_dose )
+	INFOLOGC( "start_once_for_full_dose[%d]" , p_plugin_ctx->start_once_for_full_dose )
 	
 	/* 初始化其它变量 */
 	INIT_LIST_HEAD( & (p_plugin_ctx->movefrom_filename_list) );
@@ -951,26 +951,26 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	p_plugin_ctx->inotify_fd = inotify_init() ;
 	if( p_plugin_ctx->inotify_fd == -1 )
 	{
-		ERRORLOG( "inotify_init failed , errno[%d]" , errno );
+		ERRORLOGC( "inotify_init failed , errno[%d]" , errno )
 		return -1;
 	}
 	
 	p_plugin_ctx->inotify_path_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_plugin_ctx->path , (uint32_t)(IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_DELETE_SELF|IN_MOVE_SELF|IN_Q_OVERFLOW) );
 	if( p_plugin_ctx->inotify_path_wd == -1 )
 	{
-		ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_plugin_ctx->path , errno );
+		ERRORLOGC( "inotify_add_watch[%s] failed , errno[%d]" , p_plugin_ctx->path , errno )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_plugin_ctx->path , p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_path_wd )
+		INFOLOGC( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_plugin_ctx->path , p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_path_wd )
 	}
 	
 	p_plugin_ctx->inotify_read_bufsize = INOTIFY_READ_BUFSIZE ;
 	p_plugin_ctx->inotify_read_buffer = (char*)malloc( p_plugin_ctx->inotify_read_bufsize ) ;
 	if( p_plugin_ctx->inotify_read_buffer == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
 	memset( p_plugin_ctx->inotify_read_buffer , 0x00 , p_plugin_ctx->inotify_read_bufsize );
@@ -1001,7 +1001,7 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 	{
 		if( p_curr_movefrom_filename->cookie == p_inotify_event->cookie )
 		{
-			INFOLOG( "find movefrom_filename_node , cookie[%d] , filename[%s]" , p_curr_movefrom_filename->cookie , p_curr_movefrom_filename->filename )
+			INFOLOGC( "find movefrom_filename_node , cookie[%d] , filename[%s]" , p_curr_movefrom_filename->cookie , p_curr_movefrom_filename->filename )
 			
 			memset( & trace_file , 0x00 , sizeof(struct TraceFile) );
 			snprintf( trace_file.path_filename , sizeof(trace_file.path_filename)-1 , "%s/%s" , p_plugin_ctx->path , p_curr_movefrom_filename->filename );
@@ -1011,12 +1011,12 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 				nret = inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd ) ;
 				if( nret == -1 )
 				{
-					ERRORLOG( "inotify_rm_watch failed[%d] , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , nret , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+					ERRORLOGC( "inotify_rm_watch failed[%d] , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , nret , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 					RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 				}
 				else
 				{
-					INFOLOG( "inotify_rm_watch ok , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+					INFOLOGC( "inotify_rm_watch ok , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 					
 					memset( p_trace_file->path_filename , 0x00 , sizeof(p_trace_file->path_filename) );
 					snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%s" , p_plugin_ctx->path , p_inotify_event->name );
@@ -1024,40 +1024,40 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 					p_trace_file->inotify_file_wd = inotify_add_watch( p_plugin_ctx->inotify_fd , p_trace_file->path_filename , (uint32_t)(IN_MODIFY|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_IGNORED|IN_Q_OVERFLOW) ) ;
 					if( p_trace_file->inotify_file_wd == -1 )
 					{
-						ERRORLOG( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
+						ERRORLOGC( "inotify_add_watch[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 					}
 					else
 					{
-						INFOLOG( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
+						INFOLOGC( "inotify_add_watch[%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
 					}
 					
 					UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 					nret = LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
 					if( nret )
 					{
-						ERRORLOG( "LinkTraceFilePathFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+						ERRORLOGC( "LinkTraceFilePathFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 						return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 					}
 					else
 					{
-						DEBUGLOG( "LinkTraceFilePathFilenameTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+						DEBUGLOGC( "LinkTraceFilePathFilenameTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 					}
 					
 					UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
 					nret = LinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file ) ;
 					if( nret )
 					{
-						ERRORLOG( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+						ERRORLOGC( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 						return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 					}
 					else
 					{
-						DEBUGLOG( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+						DEBUGLOGC( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 					}
 				}
 			}
 			
-			INFOLOG( "free movefrom_filename_node , filename[%s]" , p_curr_movefrom_filename->filename )
+			INFOLOGC( "free movefrom_filename_node , filename[%s]" , p_curr_movefrom_filename->filename )
 			list_del( & (p_curr_movefrom_filename->movefrom_filename_node) );
 			free( p_curr_movefrom_filename );
 			
@@ -1066,7 +1066,7 @@ static int ProcessingRenameFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 	}
 	if( & (p_curr_movefrom_filename->movefrom_filename_node) == & (p_plugin_ctx->movefrom_filename_list) )
 	{
-		INFOLOG( "filename[%s] not found in movefrom_filename_list" , p_trace_file->filename );
+		INFOLOGC( "filename[%s] not found in movefrom_filename_list" , p_trace_file->filename )
 	}
 	
 	return 0;
@@ -1079,10 +1079,10 @@ static int CleanOldRenameFileEvent( struct InputPluginContext *p_plugin_ctx , st
 	
 	list_for_each_entry_safe( p_curr_movefrom_filename , p_next_movefrom_filename , & (p_plugin_ctx->movefrom_filename_list) , struct MovefromEvent , movefrom_filename_node )
 	{
-		DEBUGLOG( "this_time[%d] p_curr_movefrom_filename->time_to_free[%d]" , p_now->tv_sec , p_curr_movefrom_filename->time_to_free )
+		DEBUGLOGC( "this_time[%d] p_curr_movefrom_filename->time_to_free[%d]" , p_now->tv_sec , p_curr_movefrom_filename->time_to_free )
 		if( p_now->tv_sec > p_curr_movefrom_filename->time_to_free )
 		{
-			INFOLOG( "free movefrom_filename_node[%s]" , p_curr_movefrom_filename->filename )
+			INFOLOGC( "free movefrom_filename_node[%s]" , p_curr_movefrom_filename->filename )
 			list_del( & (p_curr_movefrom_filename->movefrom_filename_node) );
 			free( p_curr_movefrom_filename );
 		}
@@ -1100,15 +1100,15 @@ static int CleanOldRotatedFile( struct LogpipeEnv *p_env , struct LogpipeInputPl
 	
 	list_for_each_entry_safe( p_curr_rotated_file , p_next_rotated_file , & (p_plugin_ctx->rotated_file_list) , struct RotatedFile , rotated_file_node )
 	{
-		DEBUGLOG( "rotated_file.inotify_file_wd[%d]" , p_curr_rotated_file->inotify_file_wd )
+		DEBUGLOGC( "rotated_file.inotify_file_wd[%d]" , p_curr_rotated_file->inotify_file_wd )
 		trace_file.inotify_file_wd = p_curr_rotated_file->inotify_file_wd ;
 		p_trace_file = QueryTraceFileInotifyWdTreeNode( p_plugin_ctx , & trace_file ) ;
 		if( p_trace_file )
 		{
-			DEBUGLOG( "this_time[%d] p_curr_rotated_file->time_to_free[%d]" , p_now->tv_sec , p_trace_file->modifing_timestamp.tv_sec )
+			DEBUGLOGC( "this_time[%d] p_curr_rotated_file->time_to_free[%d]" , p_now->tv_sec , p_trace_file->modifing_timestamp.tv_sec )
 			if( p_now->tv_sec - p_trace_file->modifing_timestamp.tv_sec > CLEAN_TIMEOUT_ROTATED_FILE_ELAPSE )
 			{
-				DEBUGLOG( "free p_curr_rotated_file[%d]" , p_curr_rotated_file->inotify_file_wd )
+				DEBUGLOGC( "free p_curr_rotated_file[%d]" , p_curr_rotated_file->inotify_file_wd )
 				list_del( & (p_curr_rotated_file->rotated_file_node) );
 				free( p_curr_rotated_file );
 				RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
@@ -1129,7 +1129,7 @@ int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_l
 	int				nret = 0 ;
 	
 	gettimeofday( & (p_plugin_ctx->now) , NULL );
-	DEBUGLOG( "now[%ld.%06ld]" , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
+	DEBUGLOGC( "now[%ld.%06ld]" , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
 	
 #if 0
 	/* 恢复临时调整事件缓冲区 */
@@ -1137,19 +1137,19 @@ int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_l
 	{
 		char	*tmp = NULL ;
 		
-		WARNLOG( "inotify read buffer resize [%d]bytes to [%d]bytes" , p_plugin_ctx->inotify_read_bufsize , INOTIFY_READ_BUFSIZE )
+		WARNLOGC( "inotify read buffer resize [%d]bytes to [%d]bytes" , p_plugin_ctx->inotify_read_bufsize , INOTIFY_READ_BUFSIZE )
 		p_plugin_ctx->inotify_read_bufsize = INOTIFY_READ_BUFSIZE ;
 		tmp = (char*)realloc( p_plugin_ctx->inotify_read_buffer , p_plugin_ctx->inotify_read_bufsize ) ;
 		if( tmp == NULL )
 		{
-			FATALLOG( "realloc failed , errno[%d]" , errno )
+			FATALLOGC( "realloc failed , errno[%d]" , errno )
 			return -1;
 		}
 		p_plugin_ctx->inotify_read_buffer = tmp ;
 	}
 	else
 	{
-		INFOLOG( "input idle" )
+		INFOLOGC( "input idle" )
 	}
 #endif
 	
@@ -1160,24 +1160,24 @@ int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_l
 		p_prev = rb_prev( p ) ;
 		
 		p_trace_file = container_of( p , struct TraceFile , modifing_timestamp_rbnode ) ;
-		DEBUGLOG( "checking INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , now[%ld.%06ld] modifing_timestamp[%ld.%06ld]" , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec , p_trace_file->modifing_timestamp.tv_sec , p_trace_file->modifing_timestamp.tv_usec )
+		DEBUGLOGC( "checking INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , now[%ld.%06ld] modifing_timestamp[%ld.%06ld]" , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec , p_trace_file->modifing_timestamp.tv_sec , p_trace_file->modifing_timestamp.tv_usec )
 		if( p_plugin_ctx->now.tv_sec > p_trace_file->modifing_timestamp.tv_sec || ( p_plugin_ctx->now.tv_sec == p_trace_file->modifing_timestamp.tv_sec && p_plugin_ctx->now.tv_usec >= p_trace_file->modifing_timestamp.tv_usec ) )
 			;
 		else
 			break;
 		
-		INFOLOG( "processing INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		INFOLOGC( "processing INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 		
 		/* 读取文件追加内容 */
 		nret = CheckFileOffset( p_env , p_logpipe_input_plugin, p_plugin_ctx , p_trace_file , p_plugin_ctx->rotate_size , p_plugin_ctx->max_append_count ) ;
 		if( nret )
 		{
-			ERRORLOG( "CheckFileOffset failed[%d] , path_filename[%s]" , nret , p_trace_file->path_filename )
+			ERRORLOGC( "CheckFileOffset failed[%d] , path_filename[%s]" , nret , p_trace_file->path_filename )
 			return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 		}
 		else
 		{
-			INFOLOG( "CheckFileOffset ok" )
+			INFOLOGC( "CheckFileOffset ok" )
 		}
 		
 		p = p_prev ;
@@ -1187,22 +1187,22 @@ int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_l
 	nret = CleanOldRenameFileEvent( p_plugin_ctx , & (p_plugin_ctx->now) ) ;
 	if( nret )
 	{
-		ERRORLOG( "CleanOldRenameFileEvent failed[%d]" , nret )
+		ERRORLOGC( "CleanOldRenameFileEvent failed[%d]" , nret )
 	}
 	else
 	{
-		DEBUGLOG( "CleanOldRenameFileEvent ok" )
+		DEBUGLOGC( "CleanOldRenameFileEvent ok" )
 	}
 	
 	/* 处理长期不动的大小转档文件 */
 	nret = CleanOldRotatedFile( p_env , p_logpipe_input_plugin , p_plugin_ctx , & (p_plugin_ctx->now) ) ;
 	if( nret )
 	{
-		ERRORLOG( "CleanOldRotatedFile failed[%d]" , nret )
+		ERRORLOGC( "CleanOldRotatedFile failed[%d]" , nret )
 	}
 	else
 	{
-		DEBUGLOG( "CleanOldRotatedFile ok" )
+		DEBUGLOGC( "CleanOldRotatedFile ok" )
 	}
 	
 	return 0;
@@ -1236,14 +1236,14 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	int				nret = 0 ;
 	
 	gettimeofday( & (p_plugin_ctx->now) , NULL );
-	DEBUGLOG( "now[%ld.%06ld]" , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
+	DEBUGLOGC( "now[%ld.%06ld]" , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
 	
 #if 0
 	/* 如果累积事件数量 大于 默认事件缓冲区大小，临时扩大事件缓冲区大小 */
 	nret = ioctl( p_plugin_ctx->inotify_fd , FIONREAD , & inotify_read_nbytes );
 	if( nret )
 	{
-		FATALLOG( "ioctl failed , errno[%d]" , errno )
+		FATALLOGC( "ioctl failed , errno[%d]" , errno )
 		return -1;
 	}
 	
@@ -1251,12 +1251,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	{
 		char	*tmp = NULL ;
 		
-		WARNLOG( "inotify read buffer resize [%d]bytes to [%d]bytes" , p_plugin_ctx->inotify_read_bufsize , inotify_read_nbytes+1 )
+		WARNLOGC( "inotify read buffer resize [%d]bytes to [%d]bytes" , p_plugin_ctx->inotify_read_bufsize , inotify_read_nbytes+1 )
 		p_plugin_ctx->inotify_read_bufsize = inotify_read_nbytes+1 ;
 		tmp = (char*)realloc( p_plugin_ctx->inotify_read_buffer , p_plugin_ctx->inotify_read_bufsize ) ;
 		if( tmp == NULL )
 		{
-			FATALLOG( "realloc failed , errno[%d]" , errno )
+			FATALLOGC( "realloc failed , errno[%d]" , errno )
 			return -1;
 		}
 		p_plugin_ctx->inotify_read_buffer = tmp ;
@@ -1264,17 +1264,17 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 #endif
 	
 	/* 读文件变化事件 */
-	DEBUGLOG( "read inotify[%d] ..." , p_plugin_ctx->inotify_fd )
+	DEBUGLOGC( "read inotify[%d] ..." , p_plugin_ctx->inotify_fd )
 	memset( p_plugin_ctx->inotify_read_buffer , 0x00 , p_plugin_ctx->inotify_read_bufsize );
 	inotify_read_buflen = read( p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_read_buffer , p_plugin_ctx->inotify_read_bufsize-1 ) ;
 	if( inotify_read_buflen == -1 )
 	{
-		FATALLOG( "read inotify[%d] failed , errno[%d]" , p_plugin_ctx->inotify_fd , errno )
+		FATALLOGC( "read inotify[%d] failed , errno[%d]" , p_plugin_ctx->inotify_fd , errno )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "read inotify[%d] ok , [%d]bytes" , p_plugin_ctx->inotify_fd , inotify_read_buflen )
+		INFOLOGC( "read inotify[%d] ok , [%d]bytes" , p_plugin_ctx->inotify_fd , inotify_read_buflen )
 	}
 	
 	p_inotify_event = (struct inotify_event *)(p_plugin_ctx->inotify_read_buffer) ;
@@ -1286,7 +1286,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		/* 如果发生UNMOUNT事件，logpipe退出 */
 		if( p_inotify_event->mask & IN_UNMOUNT )
 		{
-			FATALLOG( "something unmounted" )
+			FATALLOGC( "something unmounted" )
 			return -1;
 		}
 		else if( p_inotify_event->mask & IN_IGNORED )
@@ -1296,7 +1296,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		else if( p_inotify_event->wd == IN_Q_OVERFLOW )
 		{
 			/* 如果inotify事件队列溢出，检查所有文件 */
-			WARNLOG( "INOTIFY EVENT QUEUE OVERFLOW!" )
+			WARNLOGC( "INOTIFY EVENT QUEUE OVERFLOW!" )
 			
 			check_all_files_offset_flag = 1 ;
 		}
@@ -1305,12 +1305,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			/* 如果发生 创建文件 事件 */
 			if( p_inotify_event->mask & IN_CREATE )
 			{
-				INFOLOG( "INOTIFY_EVENT IN_CREATE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+				INFOLOGC( "INOTIFY_EVENT IN_CREATE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 				
 				nret = AddFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_inotify_event->name , READ_FULL_FILE_FLAG , p_plugin_ctx->rotate_size , p_plugin_ctx->max_append_count ) ;
 				if( nret )
 				{
-					ERRORLOG( "IN_CREATE AddFileWatcher[%s] failed , errno[%d]" , p_inotify_event->name , errno )
+					ERRORLOGC( "IN_CREATE AddFileWatcher[%s] failed , errno[%d]" , p_inotify_event->name , errno )
 					return -1;
 				}
 			}
@@ -1319,12 +1319,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			{
 				struct MovefromEvent	*p_movefrom_filename = NULL ;
 				
-				INFOLOG( "INOTIFY_EVENT IN_MOVED_FROM , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+				INFOLOGC( "INOTIFY_EVENT IN_MOVED_FROM , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 				
 				p_movefrom_filename = (struct MovefromEvent *)malloc( sizeof(struct MovefromEvent) ) ;
 				if( p_movefrom_filename == NULL )
 				{
-					ERRORLOG( "malloc sizeof(struct MovefromEvent) failed , errno[%d]" , errno )
+					ERRORLOGC( "malloc sizeof(struct MovefromEvent) failed , errno[%d]" , errno )
 				}
 				else
 				{
@@ -1333,28 +1333,28 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 					p_movefrom_filename->cookie = p_inotify_event->cookie ;
 					p_movefrom_filename->time_to_free = time(NULL) + TIME_TO_FREE_ELAPSE ;
 					list_add_tail( & (p_movefrom_filename->movefrom_filename_node) , & (p_plugin_ctx->movefrom_filename_list) );
-					INFOLOG( "add movefrom_filename ok , filename[%s] cookie[%d] time_to_free[%d]" , p_movefrom_filename->filename , p_movefrom_filename->cookie , p_movefrom_filename->time_to_free )
+					INFOLOGC( "add movefrom_filename ok , filename[%s] cookie[%d] time_to_free[%d]" , p_movefrom_filename->filename , p_movefrom_filename->cookie , p_movefrom_filename->time_to_free )
 				}
 			}
 			/* 如果发生 移入文件 事件 */
 			else if( p_inotify_event->mask & IN_MOVED_TO )
 			{
-				INFOLOG( "INOTIFY_EVENT IN_MOVED_TO , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+				INFOLOGC( "INOTIFY_EVENT IN_MOVED_TO , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 				
 				nret = ProcessingRenameFileEvent( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_inotify_event ) ;
 				if( nret )
 				{
-					ERRORLOG( "ProcessingRenameFileEvent failed[%d]" , nret )
+					ERRORLOGC( "ProcessingRenameFileEvent failed[%d]" , nret )
 				}
 				else
 				{
-					DEBUGLOG( "ProcessingRenameFileEvent ok" )
+					DEBUGLOGC( "ProcessingRenameFileEvent ok" )
 				}
 			}
 			/* 如果发生 删除文件 事件 */
 			else if( p_inotify_event->mask & IN_DELETE )
 			{
-				INFOLOG( "INOTIFY_EVENT IN_DELETE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
+				INFOLOGC( "INOTIFY_EVENT IN_DELETE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name )
 				
 				snprintf( trace_file.path_filename , sizeof(trace_file.path_filename)-1 , "%s/%s" , p_plugin_ctx->path , p_inotify_event->name );
 				p_trace_file = QueryTraceFilePathFilenameTreeNode( p_plugin_ctx , & trace_file ) ;
@@ -1364,19 +1364,19 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 					nret = CheckFileOffset( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file , 0 , APPEND_COUNT_INFINITED ) ;
 					if( nret )
 					{
-						ERRORLOG( "CheckFileOffset failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
+						ERRORLOGC( "CheckFileOffset failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
 					}
 					else
 					{
-						INFOLOG( "CheckFileOffset ok , path_filename[%s]" , p_trace_file->path_filename )
+						INFOLOGC( "CheckFileOffset ok , path_filename[%s]" , p_trace_file->path_filename )
 					}
 					
 					/* 清除原文件 */
-					INFOLOG( "RemoveFileWatcher ... path_filename[%s]" , p_trace_file->path_filename )
+					INFOLOGC( "RemoveFileWatcher ... path_filename[%s]" , p_trace_file->path_filename )
 					nret = RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file ) ;
 					if( nret )
 					{
-						ERRORLOG( "RemoveFileWatcher failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
+						ERRORLOGC( "RemoveFileWatcher failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
 						return -1;
 					}
 				}
@@ -1384,14 +1384,14 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			/* 如果发生 删除监控目录 或 移动监控目录 事件 */
 			else if( ( p_inotify_event->mask & IN_DELETE_SELF ) || ( p_inotify_event->mask & IN_MOVE_SELF ) )
 			{
-				ERRORLOG( "[%s] had deleted or moved out" , p_plugin_ctx->path )
-				ERRORLOG( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_plugin_ctx->path , p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_path_wd )
+				ERRORLOGC( "[%s] had deleted or moved out" , p_plugin_ctx->path )
+				ERRORLOGC( "inotify_rm_watch[%s] ok , inotify_fd[%d] inotify_wd[%d]" , p_plugin_ctx->path , p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_path_wd )
 				inotify_rm_watch( p_plugin_ctx->inotify_fd , p_plugin_ctx->inotify_path_wd );
 				return -1;
 			}
 			else
 			{
-				ERRORLOG( "unknow dir inotify event mask[0x%X]" , p_inotify_event->mask )
+				ERRORLOGC( "unknow dir inotify event mask[0x%X]" , p_inotify_event->mask )
 			}
 		}
 		else
@@ -1402,7 +1402,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			if( p_trace_file == NULL )
 			{
 				/*
-				WARNLOG( "wd[%d] not found" , trace_file.inotify_file_wd )
+				WARNLOGC( "wd[%d] not found" , trace_file.inotify_file_wd )
 				*/
 			}
 			else
@@ -1410,7 +1410,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 				/* 如果发生 文件修改 事件 */
 				if( p_inotify_event->mask & IN_MODIFY )
 				{
-					DEBUGLOG( "INOTIFY_EVENT IN_MODIFY , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s] , now[%ld.%06ld]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
+					DEBUGLOGC( "INOTIFY_EVENT IN_MODIFY , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s] , now[%ld.%06ld]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
 					
 					/* 合并处理文件变动事件 */
 					UnlinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
@@ -1421,7 +1421,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 				/* 如果发生 写完关闭 事件 */
 				else if( p_inotify_event->mask & IN_CLOSE_WRITE )
 				{
-					DEBUGLOG( "INOTIFY_EVENT IN_CLOSE_WRITE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s] , now[%ld.%06ld]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
+					DEBUGLOGC( "INOTIFY_EVENT IN_CLOSE_WRITE , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s] , now[%ld.%06ld]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
 					
 					/* 合并处理文件变动事件 */
 					UnlinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
@@ -1432,31 +1432,31 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 				/* 如果发生 删除文件 事件 */
 				else if( p_inotify_event->mask & IN_DELETE_SELF )
 				{
-					DEBUGLOG( "INOTIFY_EVENT IN_DELETE_SELF , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s] , now[%ld.%06ld]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
+					DEBUGLOGC( "INOTIFY_EVENT IN_DELETE_SELF , wd[%d] mask[0x%X] cookie[%d] len[%d] name[%.*s] , now[%ld.%06ld]" , p_inotify_event->wd , p_inotify_event->mask , p_inotify_event->cookie , p_inotify_event->len , p_inotify_event->len , p_inotify_event->name , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec )
 					
 					/* 采集完文件全部追加内容 */
 					nret = CheckFileOffset( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file , 0 , APPEND_COUNT_INFINITED ) ;
 					if( nret )
 					{
-						ERRORLOG( "CheckFileOffset failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
+						ERRORLOGC( "CheckFileOffset failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
 					}
 					else
 					{
-						INFOLOG( "CheckFileOffset ok , path_filename[%s]" , p_trace_file->path_filename )
+						INFOLOGC( "CheckFileOffset ok , path_filename[%s]" , p_trace_file->path_filename )
 					}
 					
 					/* 清除原文件 */
-					INFOLOG( "RemoveFileWatcher ... path_filename[%s]" , p_trace_file->path_filename )
+					INFOLOGC( "RemoveFileWatcher ... path_filename[%s]" , p_trace_file->path_filename )
 					nret = RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file ) ;
 					if( nret )
 					{
-						ERRORLOG( "RemoveFileWatcher failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
+						ERRORLOGC( "RemoveFileWatcher failed[%d] , errno[%d] path_filename[%s]" , nret , errno , p_trace_file->path_filename )
 						return -1;
 					}
 				}
 				else
 				{
-					ERRORLOG( "unknow file inotify event mask[0x%X]" , p_inotify_event->mask )
+					ERRORLOGC( "unknow file inotify event mask[0x%X]" , p_inotify_event->mask )
 				}
 			}
 		}
@@ -1465,12 +1465,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		inotify_event_count++;
 	}
 	
-	INFOLOG( "[%ld]bytes [%ld]inotify events processed" , inotify_read_buflen , inotify_event_count )
+	INFOLOGC( "[%ld]bytes [%ld]inotify events processed" , inotify_read_buflen , inotify_event_count )
 	
 	/* 如果inotify缓冲区溢出，检查所有文件 */
 	if( INOTIFY_READ_BUFSIZE-inotify_read_buflen<sizeof(struct inotify_event)+PATH_MAX+1 )
 	{
-		WARNLOG( "INOTIFY BUFFER OVERFLOW!" )
+		WARNLOGC( "INOTIFY BUFFER OVERFLOW!" )
 		
 		check_all_files_offset_flag = 1 ;
 	}
@@ -1489,12 +1489,12 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			nret = CheckFileOffset( p_env , p_logpipe_input_plugin, p_plugin_ctx , p_trace_file , 0 , APPEND_COUNT_INFINITED ) ;
 			if( nret )
 			{
-				ERRORLOG( "CheckFileOffset failed[%d] , path_filename[%s]" , nret , p_trace_file->path_filename )
+				ERRORLOGC( "CheckFileOffset failed[%d] , path_filename[%s]" , nret , p_trace_file->path_filename )
 				return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 			}
 			else
 			{
-				INFOLOG( "CheckFileOffset ok , path_filename[%s]" , p_trace_file->path_filename )
+				INFOLOGC( "CheckFileOffset ok , path_filename[%s]" , p_trace_file->path_filename )
 			}
 			
 			p = p_next ;
@@ -1510,24 +1510,24 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 			p_prev = rb_prev( p ) ;
 			
 			p_trace_file = container_of( p , struct TraceFile , modifing_timestamp_rbnode ) ;
-			DEBUGLOG( "checking INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , now[%ld.%06ld] modifing_timestamp[%ld.%06ld]" , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec , p_trace_file->modifing_timestamp.tv_sec , p_trace_file->modifing_timestamp.tv_usec )
+			DEBUGLOGC( "checking INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , now[%ld.%06ld] modifing_timestamp[%ld.%06ld]" , p_plugin_ctx->now.tv_sec , p_plugin_ctx->now.tv_usec , p_trace_file->modifing_timestamp.tv_sec , p_trace_file->modifing_timestamp.tv_usec )
 			if( p_plugin_ctx->now.tv_sec > p_trace_file->modifing_timestamp.tv_sec || ( p_plugin_ctx->now.tv_sec == p_trace_file->modifing_timestamp.tv_sec && p_plugin_ctx->now.tv_usec >= p_trace_file->modifing_timestamp.tv_usec ) )
 				;
 			else
 				break;
 			
-			INFOLOG( "processing INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+			INFOLOGC( "processing INOTIFY_EVENT IN_MODIFY or IN_CLOSE_WRITE event , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
 			
 			/* 读取文件追加内容 */
 			nret = CheckFileOffset( p_env , p_logpipe_input_plugin, p_plugin_ctx , p_trace_file , p_plugin_ctx->rotate_size , p_plugin_ctx->max_append_count ) ;
 			if( nret )
 			{
-				ERRORLOG( "CheckFileOffset failed[%d] , path_filename[%s]" , nret , p_trace_file->path_filename )
+				ERRORLOGC( "CheckFileOffset failed[%d] , path_filename[%s]" , nret , p_trace_file->path_filename )
 				return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 			}
 			else
 			{
-				INFOLOG( "CheckFileOffset ok" )
+				INFOLOGC( "CheckFileOffset ok" )
 			}
 			
 			p = p_prev ;
@@ -1537,26 +1537,26 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	/* 每隔一秒 */
 	if( p_plugin_ctx->now.tv_sec > last_time )
 	{
-		/* 处理之前保存下来的IN_MOVED_FROM、IN_MOVED_FROM事件，清理没被IN_MOVE_SELF用掉且超时的 */
+		/* 处理之前保存下来的IN_MOVED_FROM、IN_MOVED_FROM事件，清理没被IN_MOVE_SELF消耗掉且超时的 */
 		nret = CleanOldRenameFileEvent( p_plugin_ctx , & (p_plugin_ctx->now) ) ;
 		if( nret )
 		{
-			ERRORLOG( "CleanOldRenameFileEvent failed[%d]" , nret )
+			ERRORLOGC( "CleanOldRenameFileEvent failed[%d]" , nret )
 		}
 		else
 		{
-			DEBUGLOG( "CleanOldRenameFileEvent ok" )
+			DEBUGLOGC( "CleanOldRenameFileEvent ok" )
 		}
 		
 		/* 处理长期不动的大小转档文件 */
 		nret = CleanOldRotatedFile( p_env , p_logpipe_input_plugin , p_plugin_ctx , & (p_plugin_ctx->now) ) ;
 		if( nret )
 		{
-			ERRORLOG( "CleanOldRenameFileEvent failed[%d]" , nret )
+			ERRORLOGC( "CleanOldRenameFileEvent failed[%d]" , nret )
 		}
 		else
 		{
-			DEBUGLOG( "CleanOldRenameFileEvent ok" )
+			DEBUGLOGC( "CleanOldRenameFileEvent ok" )
 		}
 		
 		last_time = p_plugin_ctx->now.tv_sec + 5 ;
@@ -1573,7 +1573,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		if( p_plugin_ctx->min_usleep_interval > 0 && usleep_interval < p_plugin_ctx->min_usleep_interval )
 			usleep_interval = p_plugin_ctx->min_usleep_interval ;
 		
-		INFOLOG( "inotify_read_buflen_array[%d][%d] - inotify_read_buflen_max[%d] - usleep(%"PRIu64")" , inotify_read_buflen_index , inotify_read_buflen_array[inotify_read_buflen_index] , inotify_read_buflen_max , usleep_interval )
+		INFOLOGC( "inotify_read_buflen_array[%d][%d] - inotify_read_buflen_max[%d] - usleep(%"PRIu64")" , inotify_read_buflen_index , inotify_read_buflen_array[inotify_read_buflen_index] , inotify_read_buflen_max , usleep_interval )
 		if( usleep_interval > 0 )
 		{
 			usleep( usleep_interval );
@@ -1593,7 +1593,7 @@ int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	(*p_file_offset) = p_trace_file->trace_offset ;
 	(*p_file_line) = p_trace_file->trace_line ;
-	INFOLOG( "BeforeReadInputPlugin[%s] file_offset[%"PRIu64"] file_line[%"PRIu64"]" , p_trace_file->path_filename , (*p_file_offset) , (*p_file_line) )
+	INFOLOGC( "BeforeReadInputPlugin[%s] file_offset[%"PRIu64"] file_line[%"PRIu64"]" , p_trace_file->path_filename , (*p_file_offset) , (*p_file_line) )
 	p_plugin_ctx->add_len = 0 ;
 	p_plugin_ctx->add_line = 0 ;
 	
@@ -1624,18 +1624,18 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_buf , read_len ) ;
 		if( p_plugin_ctx->read_len == -1 )
 		{
-			ERRORLOG( "read file failed , errno[%d]" , errno )
+			ERRORLOGC( "read file failed , errno[%d]" , errno )
 			return -1;
 		}
 		else if( p_plugin_ctx->read_len == 0 )
 		{
-			WARNLOG( "read eof of file" )
+			WARNLOGC( "read eof of file" )
 			return LOGPIPE_READ_END_OF_INPUT;
 		}
 		else
 		{
-			INFOLOG( "read file ok , [%"PRIu64"]bytes" , p_plugin_ctx->read_len )
-			DEBUGHEXLOG( block_buf , p_plugin_ctx->read_len , NULL )
+			INFOLOGC( "read file ok , [%"PRIu64"]bytes" , p_plugin_ctx->read_len )
+			DEBUGHEXLOGC( block_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
 		p_plugin_ctx->read_line = stat_memchr( block_buf , p_plugin_ctx->read_len , '\n' ) ;
@@ -1657,13 +1657,13 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_in_buf , block_in_len ) ;
 		if( p_plugin_ctx->read_len == -1 )
 		{
-			ERRORLOG( "read file failed , errno[%d]" , errno )
+			ERRORLOGC( "read file failed , errno[%d]" , errno )
 			return -1;
 		}
 		else
 		{
-			INFOLOG( "read file ok , [%"PRIu64"]bytes" , p_plugin_ctx->read_len )
-			DEBUGHEXLOG( block_in_buf , p_plugin_ctx->read_len , NULL )
+			INFOLOGC( "read file ok , [%"PRIu64"]bytes" , p_plugin_ctx->read_len )
+			DEBUGHEXLOGC( block_in_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
 		p_plugin_ctx->read_line = stat_memchr( block_buf , p_plugin_ctx->read_len , '\n' ) ;
@@ -1672,12 +1672,12 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		nret = CompressInputPluginData( p_plugin_ctx->compress_algorithm , block_in_buf , p_plugin_ctx->read_len , block_buf , p_block_len ) ;
 		if( nret )
 		{
-			ERRORLOG( "CompressInputPluginData failed[%d]" , nret )
+			ERRORLOGC( "CompressInputPluginData failed[%d]" , nret )
 			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "CompressInputPluginData ok" )
+			DEBUGLOGC( "CompressInputPluginData ok" )
 		}
 	}
 	
@@ -1685,7 +1685,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	
 	(*p_file_offset) += p_plugin_ctx->read_len ;
 	(*p_file_line) += p_plugin_ctx->read_line ;
-	INFOLOG( "ReadInputPlugin[%s] - file_offset[%"PRIu64"]+=[%"PRIu64"] file_line[%"PRIu64"]+=[%"PRIu64"] remain_len[%"PRIu64"]-=[%"PRIu64"]" , p_trace_file->path_filename , (*p_file_offset) , p_plugin_ctx->read_len , (*p_file_line) , p_plugin_ctx->read_line , p_plugin_ctx->remain_len , read_len )
+	INFOLOGC( "ReadInputPlugin[%s] - file_offset[%"PRIu64"]+=[%"PRIu64"] file_line[%"PRIu64"]+=[%"PRIu64"] remain_len[%"PRIu64"]-=[%"PRIu64"]" , p_trace_file->path_filename , (*p_file_offset) , p_plugin_ctx->read_len , (*p_file_line) , p_plugin_ctx->read_line , p_plugin_ctx->remain_len , read_len )
 	p_plugin_ctx->add_len += p_plugin_ctx->read_len ;
 	p_plugin_ctx->add_line += p_plugin_ctx->read_line ;
 	
@@ -1700,7 +1700,7 @@ int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *
 	
 	p_trace_file->trace_offset = (*p_file_offset) ;
 	p_trace_file->trace_line = (*p_file_line) ;
-	INFOLOG( "AfterReadInputPlugin[%s] - trace_offset[%"PRIu64"]+=[%"PRIu64"] trace_line[%"PRIu64"]+=[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->add_len , p_trace_file->trace_line , p_plugin_ctx->add_line )
+	INFOLOGC( "AfterReadInputPlugin[%s] - trace_offset[%"PRIu64"]+=[%"PRIu64"] trace_line[%"PRIu64"]+=[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->add_len , p_trace_file->trace_line , p_plugin_ctx->add_line )
 	
 	return 0;
 }

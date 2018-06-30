@@ -11,7 +11,7 @@
 
 /* 代码宏 */
 #define OFFSET_BUFPTR(_buffer_,_bufptr_,_len_,_buflen_,_remain_len_) \
-	if( _len_ > 0 && _buflen_+_len_ <= sizeof(_buffer_)-1 && _bufptr_[0] ) \
+	if( _len_ > 0 && _len_ < _remain_len_ ) \
 	{ \
 		_bufptr_ += _len_ ; \
 		_buflen_ += _len_ ; \
@@ -19,7 +19,7 @@
 	} \
 
 #define OFFSET_BUFPTR_IN_LOOP(_buffer_,_bufptr_,_len_,_buflen_,_remain_len_) \
-	if( _len_ > 0 && _buflen_+_len_ <= sizeof(_buffer_)-1 && _bufptr_[0] ) \
+	if( _len_ > 0 && _len_ < _remain_len_ ) \
 	{ \
 		_bufptr_ += _len_ ; \
 		_buflen_ += _len_ ; \
@@ -31,57 +31,107 @@
 	} \
 
 /* 日志文件名 */
-TLS char	g_log_pathfilename[ MAXLEN_FILENAME + 1 ] = "" ;
-TLS int		g_log_level = LOGLEVEL_INFO ;
-TLS pid_t	g_pid ;
+TLS char	_g_logc_pathfilename[ MAXLEN_FILENAME + 1 ] = "" ;
+TLS int		_g_logc_level = LOGCLEVEL_NOLOG ;
+TLS pid_t	_g_logc_pid = 0 ;
+TLS char	_g_logc_cust_label1[ LOGC_MAXLEN_CUST_LABEL + 1 ] = "" ;
+TLS char	_g_logc_cust_label2[ LOGC_MAXLEN_CUST_LABEL + 1 ] = "" ;
+TLS char	_g_logc_cust_label3[ LOGC_MAXLEN_CUST_LABEL + 1 ] = "" ;
+TLS char	_g_logc_cust_label4[ LOGC_MAXLEN_CUST_LABEL + 1 ] = "" ;
+TLS char	_g_logc_cust_label5[ LOGC_MAXLEN_CUST_LABEL + 1 ] = "" ;
 
-const char log_level_itoa[][6] = { "" , "DEBUG" , "INFO" , "WARN" , "ERROR" , "FATAL" } ;
+static const char _logc_level_itoa[][6] = { "DEBUG" , "INFO" , "WARN" , "ERROR" , "FATAL" } ;
 
 /* 设置日志文件名 */
-void SetLogFile( char *format , ... )
+void SetLogcFile( char *format , ... )
 {
 	va_list		valist ;
 	
 	va_start( valist , format );
-	SetLogFileV( format , valist );
+	SetLogcFileV( format , valist );
 	va_end( valist );
+	
+	_g_logc_pid = getpid() ;
 	
 	return;
 }
 
-void SetLogFileV( char *format , va_list valist )
+void SetLogcFileV( char *format , va_list valist )
 {
-	VSNPRINTF( g_log_pathfilename , sizeof(g_log_pathfilename)-1 , format , valist );
-	
-	g_pid = getpid() ;
-	
+	VSNPRINTF( _g_logc_pathfilename , sizeof(_g_logc_pathfilename)-1 , format , valist );
+	_g_logc_pid = getpid() ;
 	return;
+}
+
+char *GetLogcFilePtr()
+{
+	return _g_logc_pathfilename;
 }
 
 /* 设置日志等级 */
-void SetLogLevel( int log_level )
+void SetLogcLevel( int log_level )
 {
-	g_log_level = log_level ;
-	
+	_g_logc_level = log_level ;
+	return;
+}
+
+int GetLogcLevel()
+{
+	return _g_logc_level;
+}
+
+/* 自定义标签 */
+void SetCustLabel1( char *cust_label )
+{
+	memset( _g_logc_cust_label1 , 0x00 , sizeof(_g_logc_cust_label1) );
+	strncpy( _g_logc_cust_label1 , cust_label , sizeof(_g_logc_cust_label1)-1 );
+	return;
+}
+
+void SetCustLabel2( char *cust_label )
+{
+	memset( _g_logc_cust_label2 , 0x00 , sizeof(_g_logc_cust_label2) );
+	strncpy( _g_logc_cust_label2 , cust_label , sizeof(_g_logc_cust_label2)-1 );
+	return;
+}
+
+void SetCustLabel3( char *cust_label )
+{
+	memset( _g_logc_cust_label3 , 0x00 , sizeof(_g_logc_cust_label3) );
+	strncpy( _g_logc_cust_label3 , cust_label , sizeof(_g_logc_cust_label3)-1 );
+	return;
+}
+
+void SetCustLabel4( char *cust_label )
+{
+	memset( _g_logc_cust_label4 , 0x00 , sizeof(_g_logc_cust_label4) );
+	strncpy( _g_logc_cust_label4 , cust_label , sizeof(_g_logc_cust_label4)-1 );
+	return;
+}
+
+void SetCustLabel5( char *cust_label )
+{
+	memset( _g_logc_cust_label5 , 0x00 , sizeof(_g_logc_cust_label5) );
+	strncpy( _g_logc_cust_label5 , cust_label , sizeof(_g_logc_cust_label5)-1 );
 	return;
 }
 
 /* 输出日志 */
-int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *format , va_list valist )
+int WriteLogcBaseV( int log_level , char *c_filename , long c_fileline , char *format , va_list valist )
 {
-	char		c_filename_copy[ MAXLEN_FILENAME + 1 ] ;
-	char		*p_c_filename = NULL ;
+	char			c_filename_copy[ MAXLEN_FILENAME + 1 ] ;
+	char			*p_c_filename = NULL ;
 	
 	struct timeval		tv ;
 	struct tm		stime ;
 	static struct timeval	last_tv = { 0 , 0 } ;
 	static char		last_time_buf[ 10+1+8 + 1 ] = "" ;
 	
-	char		log_buffer[ 150*1024 + 1 ] ;
-	char		*log_bufptr = NULL ;
-	size_t		log_buflen ;
-	size_t		log_buf_remain_len ;
-	size_t		len ;
+	char			log_buffer[ 4096 + 1 ] ;
+	char			*log_bufptr = NULL ;
+	size_t			log_buflen ;
+	size_t			log_buf_remain_len ;
+	size_t			len ;
 	
 	/* 处理源代码文件名 */
 	memset( c_filename_copy , 0x00 , sizeof(c_filename_copy) );
@@ -118,28 +168,61 @@ int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *fo
 	memset( log_buffer , 0x00 , sizeof(log_buffer) );
 	log_bufptr = log_buffer ;
 	log_buflen = 0 ;
-	log_buf_remain_len = sizeof(log_buffer) - 1 ;
+	log_buf_remain_len = sizeof(log_buffer) - 1 - sizeof(NEWLINE) ;
 	
-	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s.%06ld | %-5s | %d:%s:%ld | " , last_time_buf , (long)(tv.tv_usec) , log_level_itoa[log_level] , g_pid , p_c_filename , c_fileline ) ;
+	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s.%06ld | %-5s | " , last_time_buf , (long)(tv.tv_usec) , _logc_level_itoa[log_level] ) ;
+	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
+	if( _g_logc_cust_label1[0] )
+	{
+		len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s " ,  _g_logc_cust_label1 ) ;
+		OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
+	}
+	if( _g_logc_cust_label2[0] )
+	{
+		len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s " ,  _g_logc_cust_label2 ) ;
+		OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
+	}
+	if( _g_logc_cust_label3[0] )
+	{
+		len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s " ,  _g_logc_cust_label3 ) ;
+		OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
+	}
+	if( _g_logc_cust_label4[0] )
+	{
+		len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s " ,  _g_logc_cust_label4 ) ;
+		OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
+	}
+	if( _g_logc_cust_label5[0] )
+	{
+		len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s " ,  _g_logc_cust_label5 ) ;
+		OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
+	}
+	if( _g_logc_cust_label1[0] || _g_logc_cust_label2[0] || _g_logc_cust_label3[0] || _g_logc_cust_label4[0] || _g_logc_cust_label5[0] )
+	{
+		len = SNPRINTF( log_bufptr , log_buf_remain_len , "| " ) ;
+		OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
+	}
+	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%d:%s:%ld | " ,  _g_logc_pid , p_c_filename , c_fileline ) ;
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
 	len = VSNPRINTF( log_bufptr , log_buf_remain_len , format , valist );
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
+	log_buf_remain_len += sizeof(NEWLINE) ;
 	len = SNPRINTF( log_bufptr , log_buf_remain_len , NEWLINE ) ;
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
 	
 	/* 输出行日志 */
-	if( g_log_pathfilename[0] == '#' )
+	if( STRCMP( _g_logc_pathfilename , == , "#stdout" ) )
 	{
 		WRITE( 1 , log_buffer , log_buflen );
 	}
-	else if( g_log_pathfilename[0] )
+	else if( _g_logc_pathfilename[0] )
 	{
 		int		fd ;
 		
 #if ( defined __linux__ ) || ( defined __unix ) || ( defined _AIX )
-		fd = OPEN( g_log_pathfilename , O_CREAT | O_WRONLY | O_APPEND , S_IRWXU | S_IRWXG | S_IRWXO ) ;
+		fd = OPEN( _g_logc_pathfilename , O_CREAT | O_WRONLY | O_APPEND , S_IRWXU | S_IRWXG | S_IRWXO ) ;
 #elif ( defined _WIN32 )
-		fd = OPEN( g_log_pathfilename , _O_CREAT | _O_WRONLY | _O_APPEND | _O_BINARY , _S_IREAD | _S_IWRITE ) ;
+		fd = OPEN( _g_logc_pathfilename , _O_CREAT | _O_WRONLY | _O_APPEND | _O_BINARY , _S_IREAD | _S_IWRITE ) ;
 #endif
 		if( fd == -1 )
 			return -1;
@@ -152,12 +235,12 @@ int WriteLogBaseV( int log_level , char *c_filename , long c_fileline , char *fo
 	return 0;
 }
 
-int WriteLogBase( int log_level , char *c_filename , long c_fileline , char *format , ... )
+int WriteLogcBase( int log_level , char *c_filename , long c_fileline , char *format , ... )
 {
 	va_list		valist ;
 	
 	va_start( valist , format );
-	WriteLogBaseV( log_level , c_filename , c_fileline , format , valist );
+	WriteLogcBaseV( log_level , c_filename , c_fileline , format , valist );
 	va_end( valist );
 	
 	return 0;
@@ -167,85 +250,99 @@ int WriteLogBase( int log_level , char *c_filename , long c_fileline , char *for
 
 #else
 
-int WriteLog( int log_level , char *c_filename , long c_fileline , char *format , ... )
+int WriteLevelLogc( int log_level , char *c_filename , long c_fileline , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( log_level < g_log_level )
+	if( log_level < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteLogBaseV( log_level , c_filename , c_fileline , format , valist );
+	WriteLogcBaseV( log_level , c_filename , c_fileline , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int FatalLog( char *c_filename , long c_fileline , char *format , ... )
+int WriteFatalLogc( char *c_filename , long c_fileline , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_FATAL < g_log_level )
+	if( LOGCLEVEL_FATAL < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteLogBaseV( LOGLEVEL_FATAL , c_filename , c_fileline , format , valist );
+	WriteLogcBaseV( LOGCLEVEL_FATAL , c_filename , c_fileline , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int ErrorLog( char *c_filename , long c_fileline , char *format , ... )
+int WriteErrorLogc( char *c_filename , long c_fileline , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_ERROR < g_log_level )
+	if( LOGCLEVEL_ERROR < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteLogBaseV( LOGLEVEL_ERROR , c_filename , c_fileline , format , valist );
+	WriteLogcBaseV( LOGCLEVEL_ERROR , c_filename , c_fileline , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int WarnLog( char *c_filename , long c_fileline , char *format , ... )
+int WriteWarnLogc( char *c_filename , long c_fileline , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_WARN < g_log_level )
+	if( LOGCLEVEL_WARN < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteLogBaseV( LOGLEVEL_WARN , c_filename , c_fileline , format , valist );
+	WriteLogcBaseV( LOGCLEVEL_WARN , c_filename , c_fileline , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int InfoLog( char *c_filename , long c_fileline , char *format , ... )
+int WriteNoticeLogc( char *c_filename , long c_fileline , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_INFO < g_log_level )
+	if( LOGCLEVEL_NOTICE < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteLogBaseV( LOGLEVEL_INFO , c_filename , c_fileline , format , valist );
+	WriteLogcBaseV( LOGCLEVEL_NOTICE , c_filename , c_fileline , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int DebugLog( char *c_filename , long c_fileline , char *format , ... )
+int WriteInfoLogc( char *c_filename , long c_fileline , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_DEBUG < g_log_level )
+	if( LOGCLEVEL_INFO < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteLogBaseV( LOGLEVEL_DEBUG , c_filename , c_fileline , format , valist );
+	WriteLogcBaseV( LOGCLEVEL_INFO , c_filename , c_fileline , format , valist );
+	va_end( valist );
+	
+	return 0;
+}
+
+int WriteDebugLogc( char *c_filename , long c_fileline , char *format , ... )
+{
+	va_list		valist ;
+	
+	if( LOGCLEVEL_DEBUG < _g_logc_level )
+		return 0;
+	
+	va_start( valist , format );
+	WriteLogcBaseV( LOGCLEVEL_DEBUG , c_filename , c_fileline , format , valist );
 	va_end( valist );
 	
 	return 0;
@@ -253,9 +350,9 @@ int DebugLog( char *c_filename , long c_fileline , char *format , ... )
 
 #endif
 
-int WriteHexLogBaseV( int log_level , char *c_filename , long c_fileline , char *buf , long buflen , char *format , va_list valist )
+int WriteHexLogcBaseV( int log_level , char *c_filename , long c_fileline , char *buf , long buflen , char *format , va_list valist )
 {
-	char		hexlog_buffer[ 300*1024 + 1 ] ;
+	char		hexlog_buffer[ 10*4096 + 1 ] ;
 	char		*hexlog_bufptr = NULL ;
 	size_t		hexlog_buflen ;
 	size_t		hexlog_buf_remain_len ;
@@ -269,10 +366,7 @@ int WriteHexLogBaseV( int log_level , char *c_filename , long c_fileline , char 
 		return -1;
 	
 	/* 输出行日志 */
-	if( format )
-	{
-		WriteLogBaseV( log_level , c_filename , c_fileline , format , valist );
-	}
+	WriteLogcBaseV( log_level , c_filename , c_fileline , format , valist );
 	
 	/* 填充十六进制块日志 */
 	memset( hexlog_buffer , 0x00 , sizeof(hexlog_buffer) );
@@ -340,18 +434,18 @@ int WriteHexLogBaseV( int log_level , char *c_filename , long c_fileline , char 
 	}
 	
 	/* 输出十六进制块日志 */
-	if( g_log_pathfilename[0] == '\0' )
+	if( STRCMP( _g_logc_pathfilename , == , "#stdout" ) )
 	{
 		WRITE( 1 , hexlog_buffer , hexlog_buflen );
 	}
-	else
+	else if( _g_logc_pathfilename[0] )
 	{
 		int		fd ;
 		
 #if ( defined __linux__ ) || ( defined __unix ) || ( defined _AIX )
-		fd = OPEN( g_log_pathfilename , O_CREAT | O_WRONLY | O_APPEND , S_IRWXU | S_IRWXG | S_IRWXO ) ;
+		fd = OPEN( _g_logc_pathfilename , O_CREAT | O_WRONLY | O_APPEND , S_IRWXU | S_IRWXG | S_IRWXO ) ;
 #elif ( defined _WIN32 )
-		fd = OPEN( g_log_pathfilename , _O_CREAT | _O_WRONLY | _O_APPEND | _O_BINARY , _S_IREAD | _S_IWRITE ) ;
+		fd = OPEN( _g_logc_pathfilename , _O_CREAT | _O_WRONLY | _O_APPEND | _O_BINARY , _S_IREAD | _S_IWRITE ) ;
 #endif
 		if( fd == -1 )
 			return -1;
@@ -364,12 +458,12 @@ int WriteHexLogBaseV( int log_level , char *c_filename , long c_fileline , char 
 	return 0;
 }
 
-int WriteHexLogBase( int log_level , char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+int WriteHexLogcBase( int log_level , char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
 {
 	va_list		valist ;
 	
 	va_start( valist , format );
-	WriteHexLogBaseV( log_level , c_filename , c_fileline , buf , buflen , format , valist );
+	WriteHexLogcBaseV( log_level , c_filename , c_fileline , buf , buflen , format , valist );
 	va_end( valist );
 	
 	return 0;
@@ -379,85 +473,99 @@ int WriteHexLogBase( int log_level , char *c_filename , long c_fileline , char *
 
 #else
 
-int WriteHexLog( int log_level , char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+int WriteLevelHexLogc( int log_level , char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( log_level < g_log_level )
+	if( log_level < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteHexLogBaseV( log_level , c_filename , c_fileline , buf , buflen , format , valist );
+	WriteHexLogcBaseV( log_level , c_filename , c_fileline , buf , buflen , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int FatalHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+int WriteFatalHexLogc( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_FATAL < g_log_level )
+	if( LOGCLEVEL_FATAL < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteHexLogBaseV( LOGLEVEL_FATAL , c_filename , c_fileline , buf , buflen , format , valist );
+	WriteHexLogcBaseV( LOGCLEVEL_FATAL , c_filename , c_fileline , buf , buflen , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int ErrorHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+int WriteErrorHexLogc( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_ERROR < g_log_level )
+	if( LOGCLEVEL_ERROR < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteHexLogBaseV( LOGLEVEL_ERROR , c_filename , c_fileline , buf , buflen , format , valist );
+	WriteHexLogcBaseV( LOGCLEVEL_ERROR , c_filename , c_fileline , buf , buflen , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int WarnHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+int WriteWarnHexLogc( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_WARN < g_log_level )
+	if( LOGCLEVEL_WARN < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteHexLogBaseV( LOGLEVEL_WARN , c_filename , c_fileline , buf , buflen , format , valist );
+	WriteHexLogcBaseV( LOGCLEVEL_WARN , c_filename , c_fileline , buf , buflen , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int InfoHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+int WriteNoticeHexLogc( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_INFO < g_log_level )
+	if( LOGCLEVEL_NOTICE < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteHexLogBaseV( LOGLEVEL_INFO , c_filename , c_fileline , buf , buflen , format , valist );
+	WriteHexLogcBaseV( LOGCLEVEL_NOTICE , c_filename , c_fileline , buf , buflen , format , valist );
 	va_end( valist );
 	
 	return 0;
 }
 
-int DebugHexLog( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+int WriteInfoHexLogc( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
 {
 	va_list		valist ;
 	
-	if( LOGLEVEL_DEBUG < g_log_level )
+	if( LOGCLEVEL_INFO < _g_logc_level )
 		return 0;
 	
 	va_start( valist , format );
-	WriteHexLogBaseV( LOGLEVEL_DEBUG , c_filename , c_fileline , buf , buflen , format , valist );
+	WriteHexLogcBaseV( LOGCLEVEL_INFO , c_filename , c_fileline , buf , buflen , format , valist );
+	va_end( valist );
+	
+	return 0;
+}
+
+int WriteDebugHexLogc( char *c_filename , long c_fileline , char *buf , long buflen , char *format , ... )
+{
+	va_list		valist ;
+	
+	if( LOGCLEVEL_DEBUG < _g_logc_level )
+		return 0;
+	
+	va_start( valist , format );
+	WriteHexLogcBaseV( LOGCLEVEL_DEBUG , c_filename , c_fileline , buf , buflen , format , valist );
 	va_end( valist );
 	
 	return 0;
