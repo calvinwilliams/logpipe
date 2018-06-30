@@ -101,6 +101,9 @@ struct LogpipeEnv
 	int				log_level ; /* logpipe日志等级 */
 	struct LogpipePluginConfigItem	start_once_for_plugin_config_items ; /* 启动时只起作用一次的配置，如启动时发送所有存量日志 */
 	
+	char				hostname[ HOST_NAME_MAX + 1 ] ;
+	struct passwd			*pwd ;
+	
 #if 0 /* 可惜inotify不支持有名管道 */
 	char				logpipe_fifo_path_filename[ PATH_MAX + 1 ] ; /* 内部状态输出有名管道路径文件名 */
 	int				logpipe_fifo_inotify_fd ; /* 内部状态输出有名管道文件监控事件描述字 */

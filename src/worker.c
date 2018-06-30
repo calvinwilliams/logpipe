@@ -34,34 +34,33 @@ int worker( struct LogpipeEnv *p_env )
 	
 	/* 设置子进程日志文件名 */
 	time( & tt );
-	memset( & stime , 0x00 , sizeof(struct tm) );
-	localtime_r( & tt , & stime );
-	SetLogFile( "%s.%d" , p_env->log_file , stime.tm_hour );
-	SetLogLevel( p_env->log_level );
-	memcpy( & old_stime , & stime , sizeof(struct tm) );
+	memset( & old_stime , 0x00 , sizeof(struct tm) );
+	localtime_r( & tt , & old_stime );
+	SetLogcFile( "%s.%d" , p_env->log_file , old_stime.tm_hour );
+	SetLogcLevel( p_env->log_level );
 	
 	/* 创建事件总线 */
 	p_env->epoll_fd = epoll_create( 1024 ) ;
 	if( p_env->epoll_fd == -1 )
 	{
-		ERRORLOG( "epoll_create failed , errno[%d]" , errno );
+		ERRORLOGC( "epoll_create failed , errno[%d]" , errno )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "epoll_create ok , epoll_fd[%d]" , p_env->epoll_fd )
+		INFOLOGC( "epoll_create ok , epoll_fd[%d]" , p_env->epoll_fd )
 	}
 	
 	/* 初始化插件环境 */
 	nret = InitEnvironment( p_env ) ;
 	if( nret )
 	{
-		ERRORLOG( "InitEnvironment failed[%d]" , nret );
+		ERRORLOGC( "InitEnvironment failed[%d]" , nret )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "InitEnvironment ok" )
+		INFOLOGC( "InitEnvironment ok" )
 	}
 	
 	/* 管道描述字加入epoll */
@@ -71,12 +70,12 @@ int worker( struct LogpipeEnv *p_env )
 	nret = epoll_ctl( p_env->epoll_fd , EPOLL_CTL_ADD , p_env->quit_pipe[0] , & event ) ;
 	if( nret == -1 )
 	{
-		ERRORLOG( "epoll_ctl[%d] add quit pipe fd[%d] failed , errno[%d]" , p_env->epoll_fd , p_env->quit_pipe[0] , errno );
+		ERRORLOGC( "epoll_ctl[%d] add quit pipe fd[%d] failed , errno[%d]" , p_env->epoll_fd , p_env->quit_pipe[0] , errno )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "epoll_ctl[%d] add quit pipe fd[%d] ok" , p_env->epoll_fd , p_env->quit_pipe[0] );
+		INFOLOGC( "epoll_ctl[%d] add quit pipe fd[%d] ok" , p_env->epoll_fd , p_env->quit_pipe[0] )
 	}
 	
 #if 0
@@ -86,12 +85,12 @@ int worker( struct LogpipeEnv *p_env )
 	nret = CreateLogpipeFifo( p_env ) ;
 	if( nret )
 	{
-		ERRORLOG( "CreateLogpipeFifo failed[%d]" , nret );
+		ERRORLOGC( "CreateLogpipeFifo failed[%d]" , nret )
 		return -1;
 	}
 	else
 	{
-		INFOLOG( "CreateLogpipeFifo ok" );
+		INFOLOGC( "CreateLogpipeFifo ok" )
 	}
 #endif
 	
@@ -102,13 +101,15 @@ int worker( struct LogpipeEnv *p_env )
 		time( & tt );
 		memset( & stime , 0x00 , sizeof(struct tm) );
 		localtime_r( & tt , & stime );
-		SetLogFile( "%s.%d" , p_env->log_file , stime.tm_hour );
 		if( stime.tm_hour != old_stime.tm_hour )
-			unlink( g_log_pathfilename );
-		memcpy( & old_stime , & stime , sizeof(struct tm) );
+		{
+			SetLogcFile( "%s.%d" , p_env->log_file , stime.tm_hour );
+			unlink( GetLogcFilePtr() );
+			memcpy( & old_stime , & stime , sizeof(struct tm) );
+		}
 		
 		/* 等待epoll事件，或者1秒超时 */
-		INFOLOG( "epoll_wait[%d] ..." , p_env->epoll_fd );
+		INFOLOGC( "epoll_wait[%d] ..." , p_env->epoll_fd )
 		memset( events , 0x00 , sizeof(events) );
 		if( p_env->idle_processing_flag )
 			timeout = 1000 ;
@@ -119,11 +120,11 @@ int worker( struct LogpipeEnv *p_env )
 		{
 			if( errno == EINTR )
 			{
-				INFOLOG( "epoll_wait[%d] interrupted" , p_env->epoll_fd )
+				INFOLOGC( "epoll_wait[%d] interrupted" , p_env->epoll_fd )
 			}
 			else
 			{
-				ERRORLOG( "epoll_wait[%d] failed , errno[%d]" , p_env->epoll_fd , errno )
+				ERRORLOGC( "epoll_wait[%d] failed , errno[%d]" , p_env->epoll_fd , errno )
 				return -1;
 			}
 		}
@@ -132,17 +133,17 @@ int worker( struct LogpipeEnv *p_env )
 			nret = ProcessOnIdle( p_env ) ;
 			if( nret )
 			{
-				ERRORLOG( "ProcessOnIdle failed[%d] , errno[%d]" , nret , errno )
+				ERRORLOGC( "ProcessOnIdle failed[%d] , errno[%d]" , nret , errno )
 				return -1;
 			}
 			else
 			{
-				DEBUGLOG( "ProcessOnIdle ok" )
+				DEBUGLOGC( "ProcessOnIdle ok" )
 			}
 		}
 		else
 		{
-			INFOLOG( "epoll_wait[%d] return[%d]events" , p_env->epoll_fd , epoll_nfds );
+			INFOLOGC( "epoll_wait[%d] return[%d]events" , p_env->epoll_fd , epoll_nfds )
 		}
 		
 		/* 循环处理所有epoll事件 */
@@ -151,7 +152,7 @@ int worker( struct LogpipeEnv *p_env )
 			/* 如果是父子进程命令管道 */
 			if( p_event->data.ptr == p_env->quit_pipe )
 			{
-				DEBUGLOG( "p_event->data.ptr[%p] quit_pipe" , p_event->data.ptr )
+				DEBUGLOGC( "p_event->data.ptr[%p] quit_pipe" , p_event->data.ptr )
 				quit_flag = 1 ;
 			}
 #if 0
@@ -161,12 +162,12 @@ int worker( struct LogpipeEnv *p_env )
 				nret = ProcessLogpipeFifoEvents( p_env ) ;
 				if( nret )
 				{
-					ERRORLOG( "ProcessLogpipeFifoEvents failed[%d]\n" , nret )
+					ERRORLOGC( "ProcessLogpipeFifoEvents failed[%d]\n" , nret )
 					return -1;
 				}
 				else
 				{
-					DEBUGLOG( "ProcessLogpipeFifoEvents ok\n" )
+					DEBUGLOGC( "ProcessLogpipeFifoEvents ok\n" )
 				}
 			}
 #endif
@@ -181,7 +182,7 @@ int worker( struct LogpipeEnv *p_env )
 					struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
 					char				so_filename[ sizeof(((struct LogpipeInputPlugin *)0)->so_filename) ] ;
 					
-					DEBUGLOG( "p_event->data.ptr[%p] p_logpipe_input_plugin" , p_event->data.ptr )
+					DEBUGLOGC( "p_event->data.ptr[%p] p_logpipe_input_plugin" , p_event->data.ptr )
 					
 					p_logpipe_input_plugin = (struct LogpipeInputPlugin *)(p_event->data.ptr) ;
 					strcpy( so_filename , p_logpipe_input_plugin->so_filename );
@@ -193,22 +194,22 @@ int worker( struct LogpipeEnv *p_env )
 						nret = p_logpipe_input_plugin->pfuncOnInputPluginEvent( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context ) ;
 						if( nret < 0 )
 						{
-							FATALLOG( "[%s]->pfuncOnInputPluginEvent failed[%d]" , so_filename , nret )
+							FATALLOGC( "[%s]->pfuncOnInputPluginEvent failed[%d]" , so_filename , nret )
 							return -1;
 						}
 						else if( nret > 0 )
 						{
-							WARNLOG( "[%s]->pfuncOnInputPluginEvent return[%d]" , so_filename , nret )
+							WARNLOGC( "[%s]->pfuncOnInputPluginEvent return[%d]" , so_filename , nret )
 						}
 						else
 						{
-							DEBUGLOG( "[%s]->pfuncOnInputPluginEvent ok" , so_filename )
+							DEBUGLOGC( "[%s]->pfuncOnInputPluginEvent ok" , so_filename )
 						}
 					}
 					/* 其它事件 */
 					else
 					{
-						FATALLOG( "[%s]->pfuncOnInputPluginEvent unknow event[0x%X]" , so_filename , p_event->events )
+						FATALLOGC( "[%s]->pfuncOnInputPluginEvent unknow event[0x%X]" , so_filename , p_event->events )
 						return -1;
 					}
 				}
@@ -218,7 +219,7 @@ int worker( struct LogpipeEnv *p_env )
 					struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
 					char				so_filename[ sizeof(((struct LogpipeOutputPlugin *)0)->so_filename) ] ;
 					
-					DEBUGLOG( "p_event->data.ptr[%p] p_logpipe_output_plugin" , p_event->data.ptr )
+					DEBUGLOGC( "p_event->data.ptr[%p] p_logpipe_output_plugin" , p_event->data.ptr )
 					
 					p_logpipe_output_plugin = (struct LogpipeOutputPlugin *)(p_event->data.ptr) ;
 					strcpy( so_filename , p_logpipe_output_plugin->so_filename );
@@ -230,28 +231,28 @@ int worker( struct LogpipeEnv *p_env )
 						nret = p_logpipe_output_plugin->pfuncOnOutputPluginEvent( p_env , p_logpipe_output_plugin , p_logpipe_output_plugin->context ) ;
 						if( nret < 0 )
 						{
-							FATALLOG( "[%s]->pfuncOnOutputPluginEvent failed[%d]" , so_filename , nret )
+							FATALLOGC( "[%s]->pfuncOnOutputPluginEvent failed[%d]" , so_filename , nret )
 							return -1;
 						}
 						else if( nret > 0 )
 						{
-							WARNLOG( "[%s]->pfuncOnOutputPluginEvent return[%d]" , so_filename , nret )
+							WARNLOGC( "[%s]->pfuncOnOutputPluginEvent return[%d]" , so_filename , nret )
 						}
 						else
 						{
-							DEBUGLOG( "[%s]->pfuncOnOutputPluginEvent ok" , so_filename )
+							DEBUGLOGC( "[%s]->pfuncOnOutputPluginEvent ok" , so_filename )
 						}
 					}
 					/* 其它事件 */
 					else
 					{
-						FATALLOG( "[%s]->pfuncOnOutputPluginEvent unknow event[0x%X]" , so_filename , p_event->events )
+						FATALLOGC( "[%s]->pfuncOnOutputPluginEvent unknow event[0x%X]" , so_filename , p_event->events )
 						return -1;
 					}
 				}
 				else
 				{
-					FATALLOG( "unknow plugin[%p] type[%c]" , p_event->data.ptr , p_logpipe_plugin->type )
+					FATALLOGC( "unknow plugin[%p] type[%c]" , p_event->data.ptr , p_logpipe_plugin->type )
 					return -1;
 				}
 				
@@ -261,10 +262,10 @@ int worker( struct LogpipeEnv *p_env )
 	
 	/* 清理插件环境 */
 	CleanEnvironment( p_env );
-	INFOLOG( "CleanEnvironment" )
+	INFOLOGC( "CleanEnvironment" )
 	
 	/* 关闭事件总线 */
-	INFOLOG( " close epoll_fd[%d]" , p_env->epoll_fd )
+	INFOLOGC( " close epoll_fd[%d]" , p_env->epoll_fd )
 	close( p_env->epoll_fd );
 	
 	return 0;

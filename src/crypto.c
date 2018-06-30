@@ -15,7 +15,7 @@ int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uin
 		nret = deflateInit( & deflate_strm , Z_DEFAULT_COMPRESSION ) ;
 		if( nret != Z_OK )
 		{
-			FATALLOG( "deflateInit failed[%d]" , nret );
+			FATALLOGC( "deflateInit failed[%d]" , nret )
 			return -1;
 		}
 		
@@ -26,13 +26,13 @@ int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uin
 		nret = deflate( & deflate_strm , Z_FINISH ) ;
 		if( nret == Z_STREAM_ERROR )
 		{
-			FATALLOG( "deflate return Z_STREAM_ERROR" )
+			FATALLOGC( "deflate return Z_STREAM_ERROR" )
 			deflateEnd( & deflate_strm );
 			return -1;
 		}
 		if( deflate_strm.avail_out == 0 )
 		{
-			FATALLOG( "deflate remain data [%d]bytes" , deflate_strm.avail_out )
+			FATALLOGC( "deflate remain data [%d]bytes" , deflate_strm.avail_out )
 			deflateEnd( & deflate_strm );
 			return -1;
 		}
@@ -42,7 +42,7 @@ int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uin
 	}
 	else
 	{
-		ERRORLOG( "compress_algorithm[%s] invalid" , compress_algorithm );
+		ERRORLOGC( "compress_algorithm[%s] invalid" , compress_algorithm )
 		return -1;
 	}
 	
@@ -62,7 +62,7 @@ int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf ,
 		nret = inflateInit( & inflate_strm ) ;
 		if( nret != Z_OK )
 		{
-			FATALLOG( "inflateInit failed[%d]" , nret );
+			FATALLOGC( "inflateInit failed[%d]" , nret )
 			return -1;
 		}
 		
@@ -73,19 +73,19 @@ int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf ,
 		nret = inflate( & inflate_strm , Z_NO_FLUSH ) ;
 		if( nret == Z_STREAM_ERROR )
 		{
-			FATALLOG( "inflate return Z_STREAM_ERROR" )
+			FATALLOGC( "inflate return Z_STREAM_ERROR" )
 			inflateEnd( & inflate_strm );
 			return 1;
 		}
 		else if( nret == Z_NEED_DICT || nret == Z_DATA_ERROR || nret == Z_MEM_ERROR )
 		{
-			FATALLOG( "inflate return[%d]" , nret )
+			FATALLOGC( "inflate return[%d]" , nret )
 			inflateEnd( & inflate_strm );
 			return 1;
 		}
 		if( inflate_strm.avail_out == 0 )
 		{
-			FATALLOG( "unexpect inflate avail_out[%d] unexpect" , inflate_strm.avail_out )
+			FATALLOGC( "unexpect inflate avail_out[%d] unexpect" , inflate_strm.avail_out )
 			inflateEnd( & inflate_strm );
 			return 1;
 		}
@@ -95,7 +95,7 @@ int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf ,
 	}
 	else
 	{
-		ERRORLOG( "uncompress_algorithm[%s] invalid" , uncompress_algorithm );
+		ERRORLOGC( "uncompress_algorithm[%s] invalid" , uncompress_algorithm )
 		return -1;
 	}
 	

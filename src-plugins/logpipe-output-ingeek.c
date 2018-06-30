@@ -57,19 +57,19 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
 	
 	p_plugin_ctx->key = QueryPluginConfigItem( p_plugin_config_items , "key" ) ;
-	INFOLOG( "key[%s]" , p_plugin_ctx->key )
+	INFOLOGC( "key[%s]" , p_plugin_ctx->key )
 	
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
-	INFOLOG( "path[%s]" , p_plugin_ctx->path )
+	INFOLOGC( "path[%s]" , p_plugin_ctx->path )
 	if( p_plugin_ctx->path == NULL || p_plugin_ctx->path[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'path'" );
+		ERRORLOGC( "expect config for 'path'" )
 		return -1;
 	}
 	
@@ -79,12 +79,12 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		if( i == 0 )
 		{
 			p_forward_session->ip = QueryPluginConfigItem( p_plugin_config_items , "ip" ) ;
-			INFOLOG( "ip[%s]" , p_forward_session->ip )
+			INFOLOGC( "ip[%s]" , p_forward_session->ip )
 		}
 		else
 		{
 			p_forward_session->ip = QueryPluginConfigItem( p_plugin_config_items , "ip%d" , i+1 ) ;
-			INFOLOG( "ip%d[%s]" , i+1 , p_forward_session->ip )
+			INFOLOGC( "ip%d[%s]" , i+1 , p_forward_session->ip )
 		}
 		if( p_forward_session->ip == NULL || p_forward_session->ip[0] == '\0' )
 			break;
@@ -95,21 +95,21 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 			p = QueryPluginConfigItem( p_plugin_config_items , "port%d" , i+1 ) ;
 		if( p == NULL || p[0] == '\0' )
 		{
-			ERRORLOG( "expect config for 'port'" );
+			ERRORLOGC( "expect config for 'port'" )
 			return -1;
 		}
 		p_forward_session->port = atoi(p) ;
 		if( i == 0 )
 		{
-			INFOLOG( "port[%d]" , p_forward_session->port )
+			INFOLOGC( "port[%d]" , p_forward_session->port )
 		}
 		else
 		{
-			INFOLOG( "port%d[%d]" , i+1 , p_forward_session->port )
+			INFOLOGC( "port%d[%d]" , i+1 , p_forward_session->port )
 		}
 		if( p_forward_session->port <= 0 )
 		{
-			ERRORLOG( "port[%s] invalid" , p );
+			ERRORLOGC( "port[%s] invalid" , p )
 			return -1;
 		}
 		
@@ -117,7 +117,7 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	}
 	if( p_plugin_ctx->forward_session_count == 0 )
 	{
-		ERRORLOG( "expect config for 'ip'" );
+		ERRORLOGC( "expect config for 'ip'" )
 		return -1;
 	}
 	
@@ -145,7 +145,7 @@ static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct Logpi
 	
 	int			nret = 0 ;
 	
-	DEBUGLOG( "forward_session_index[%d]" , forward_session_index )
+	DEBUGLOGC( "forward_session_index[%d]" , forward_session_index )
 	
 	while(1)
 	{
@@ -160,7 +160,7 @@ static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct Logpi
 				p_plugin_ctx->forward_session_index++;
 				if( p_plugin_ctx->forward_session_index >= p_plugin_ctx->forward_session_count )
 					p_plugin_ctx->forward_session_index = 0 ;
-				DEBUGLOG( "p_plugin_ctx->forward_session_index[%d]" , p_plugin_ctx->forward_session_index )
+				DEBUGLOGC( "p_plugin_ctx->forward_session_index[%d]" , p_plugin_ctx->forward_session_index )
 				p_plugin_ctx->p_forward_session = p_forward_session = p_plugin_ctx->forward_session_array + p_plugin_ctx->forward_session_index ;
 			}
 			
@@ -182,7 +182,7 @@ static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct Logpi
 			p_forward_session->sock = socket( AF_INET , SOCK_STREAM , IPPROTO_TCP ) ;
 			if( p_forward_session->sock == -1 )
 			{
-				ERRORLOG( "socket failed , errno[%d]" , errno );
+				ERRORLOGC( "socket failed , errno[%d]" , errno )
 				return -1;
 			}
 			
@@ -201,14 +201,14 @@ static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct Logpi
 			nret = connect( p_forward_session->sock , (struct sockaddr *) & (p_forward_session->addr) , sizeof(struct sockaddr) ) ;
 			if( nret == -1 )
 			{
-				ERRORLOG( "connect[%s:%d] failed , errno[%d]" , p_forward_session->ip , p_forward_session->port , errno );
+				ERRORLOGC( "connect[%s:%d] failed , errno[%d]" , p_forward_session->ip , p_forward_session->port , errno )
 				close( p_forward_session->sock ); p_forward_session->sock = -1 ;
 				if( forward_session_index < 0 )
 					p_forward_session->enable_timestamp = time(NULL) + p_plugin_ctx->disable_timeout ;
 			}
 			else
 			{
-				INFOLOG( "connect[%s:%d] ok , sock[%d]" , p_forward_session->ip , p_forward_session->port , p_forward_session->sock );
+				INFOLOGC( "connect[%s:%d] ok , sock[%d]" , p_forward_session->ip , p_forward_session->port , p_forward_session->sock )
 				/* 设置输入描述字 */
 				AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
 				return 0;
@@ -247,7 +247,7 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , i ) ;
 		if( nret )
 		{
-			ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+			ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
 			return -1;
 		}
 	}
@@ -258,7 +258,7 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 	if( nret )
 	{
-		ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+		ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
 		return nret;
 	}
 	
@@ -278,7 +278,7 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	
 	int				nret = 0 ;
 	
-	DEBUGLOG( "OnOutputPluginEvent" )
+	DEBUGLOGC( "OnOutputPluginEvent" )
 	
 	/* 侦测所有对端logpipe服务器可用 */
 	FD_ZERO( & read_fds );
@@ -293,7 +293,7 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 		FD_SET( p_forward_session->sock , & except_fds );
 		if( p_forward_session->sock > max_fd )
 			max_fd = p_forward_session->sock ;
-		DEBUGLOG( "add fd[%d] to select fds" , p_forward_session->sock )
+		DEBUGLOGC( "add fd[%d] to select fds" , p_forward_session->sock )
 	}
 	
 	timeout.tv_sec = 0 ;
@@ -308,11 +308,11 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 			
 			if( FD_ISSET( p_forward_session->sock , & read_fds ) || FD_ISSET( p_forward_session->sock , & except_fds ) )
 			{
-				DEBUGLOG( "select fd[%d] hited" , p_forward_session->sock )
+				DEBUGLOGC( "select fd[%d] hited" , p_forward_session->sock )
 				
 				/* 关闭连接 */
 				DeleteOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
-				ERRORLOG( "remote socket closed , close forward sock[%d]" , p_forward_session->sock )
+				ERRORLOGC( "remote socket closed , close forward sock[%d]" , p_forward_session->sock )
 				close( p_forward_session->sock ); p_forward_session->sock = -1 ;
 			}
 		}
@@ -332,7 +332,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 	if( nret )
 	{
-		ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+		ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
 		return nret;
 	}
 	
@@ -359,7 +359,7 @@ static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPl
 	
 	int		nret = 0 ;
 	
-	DEBUGLOG( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
+	DEBUGLOGC( "parse [%d][%.*s]" , line_len , line_len , p_plugin_ctx->parse_buffer )
 	
 	/* 填充尾巴 */
 	memset( tail_buffer , 0x00 , sizeof(tail_buffer) );
@@ -386,54 +386,54 @@ static int ParseCombineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPl
 	
 	/* 发送数据块到TCP */
 _GOTO_WRITEN_LOG :
-	INFOLOG( "send-log [%d][%.*s]" , line_len , (line_len<=1024?line_len:1024) , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "send-log [%d][%.*s]" , line_len , (line_len<=1024?line_len:1024) , p_plugin_ctx->parse_buffer )
 	gettimeofday( & tv_begin_send_log , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->parse_buffer , line_len ) ;
 	gettimeofday( & tv_end_send_log , NULL );
 	if( len == -1 )
 	{
-		ERRORLOG( "send log data to socket failed , errno[%d]" , errno )
+		ERRORLOGC( "send log data to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 		if( nret )
 		{
-			ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+			ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
 			return nret;
 		}
 		goto _GOTO_WRITEN_LOG;
 	}
 	else
 	{
-		INFOLOG( "send log data to socket ok , [%d]bytes" , line_len )
-		DEBUGHEXLOG( p_plugin_ctx->parse_buffer , line_len , NULL )
+		INFOLOGC( "send log data to socket ok , [%d]bytes" , line_len )
+		DEBUGHEXLOGC( p_plugin_ctx->parse_buffer , line_len , NULL )
 	}
 	
 _GOTO_WRITEN_TAIL :
-	INFOLOG( "send-tail [%d][%.*s]" , tail_buffer_len , tail_buffer_len , tail_buffer )
+	INFOLOGC( "send-tail [%d][%.*s]" , tail_buffer_len , tail_buffer_len , tail_buffer )
 	gettimeofday( & tv_begin_send_tail , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , tail_buffer , tail_buffer_len ) ;
 	gettimeofday( & tv_end_send_tail , NULL );
 	if( len == -1 )
 	{
-		ERRORLOG( "send tail data to socket failed , errno[%d]" , errno )
+		ERRORLOGC( "send tail data to socket failed , errno[%d]" , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 		if( nret )
 		{
-			ERRORLOG( "CheckAndConnectForwardSocket failed[%d]" , nret );
+			ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
 			return nret;
 		}
 		goto _GOTO_WRITEN_TAIL;
 	}
 	else
 	{
-		INFOLOG( "send tail data to socket ok , [%d]bytes" , tail_buffer_len )
-		DEBUGHEXLOG( tail_buffer , tail_buffer_len , NULL )
+		INFOLOGC( "send tail data to socket ok , [%d]bytes" , tail_buffer_len )
+		DEBUGHEXLOGC( tail_buffer , tail_buffer_len , NULL )
 	}
 	
 	DiffTimeval( & tv_begin_send_log , & tv_end_send_log , & tv_diff_send_log );
 	DiffTimeval( & tv_begin_send_tail , & tv_end_send_tail , & tv_diff_send_tail );
-	INFOLOG( "SEND-LOG[%ld.%06ld] SEND-TAIL[%ld.%06ld]" , tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec , tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec )
+	INFOLOGC( "SEND-LOG[%ld.%06ld] SEND-TAIL[%ld.%06ld]" , tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec , tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec )
 	
 	return 0;
 }
@@ -448,8 +448,8 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 	
 	int		nret = 0 ;
 	
-	INFOLOG( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
-	INFOLOG( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
+	INFOLOGC( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
 	
 	/* 如果遗留数据+当前数据块放的下解析缓冲区 */
 	if( p_plugin_ctx->parse_buflen + block_len <= sizeof(p_plugin_ctx->parse_buffer)-1 )
@@ -463,16 +463,16 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 		nret = ParseCombineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_plugin_ctx->parse_buflen , 0 ) ;
 		if( nret < 0 )
 		{
-			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
+			ERRORLOGC( "ParseCombineBuffer failed[%d]" , nret )
 			return nret;
 		}
 		else if( nret > 0 )
 		{
-			WARNLOG( "ParseCombineBuffer return[%d]" , nret )
+			WARNLOGC( "ParseCombineBuffer return[%d]" , nret )
 		}
 		else
 		{
-			DEBUGLOG( "ParseCombineBuffer ok" )
+			DEBUGLOGC( "ParseCombineBuffer ok" )
 		}
 		
 		strncpy( p_plugin_ctx->parse_buffer , block_buf , block_len );
@@ -493,16 +493,16 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 		nret = ParseCombineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , line_len , line_add ) ;
 		if( nret < 0 )
 		{
-			ERRORLOG( "ParseCombineBuffer failed[%d]" , nret )
+			ERRORLOGC( "ParseCombineBuffer failed[%d]" , nret )
 			return nret;
 		}
 		else if( nret > 0 )
 		{
-			WARNLOG( "ParseCombineBuffer return[%d]" , nret )
+			WARNLOGC( "ParseCombineBuffer return[%d]" , nret )
 		}
 		else
 		{
-			DEBUGLOG( "ParseCombineBuffer ok" )
+			DEBUGLOGC( "ParseCombineBuffer ok" )
 		}
 		
 		memmove( p_plugin_ctx->parse_buffer , p_newline+1 , remain_len );
@@ -510,7 +510,7 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 		line_add++;
 	}
 	
-	INFOLOG( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
 	
 	return 0;
 }
@@ -531,12 +531,12 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	nret = CombineToParseBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , block_buf , block_len ) ;
 	if( nret < 0 )
 	{
-		ERRORLOG( "CombineToParseBuffer failed[%d]" , nret )
+		ERRORLOGC( "CombineToParseBuffer failed[%d]" , nret )
 		return nret;
 	}
 	else
 	{
-		DEBUGLOG( "CombineToParseBuffer ok" )
+		DEBUGLOGC( "CombineToParseBuffer ok" )
 	}
 	
 	return 0;
@@ -555,7 +555,7 @@ int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 	
 	if( p_plugin_ctx->p_forward_session->sock >= 0 )
 	{
-		INFOLOG( "close forward sock[%d]" , p_plugin_ctx->p_forward_session->sock )
+		INFOLOGC( "close forward sock[%d]" , p_plugin_ctx->p_forward_session->sock )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 	}
 	

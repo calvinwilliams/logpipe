@@ -64,7 +64,7 @@ void FreeTraceFile( void *pv )
 	
 	if( p_trace_file )
 	{
-		INFOLOG( "hdfsCloseFile[%s]" , p_trace_file->path_filename )
+		INFOLOGC( "hdfsCloseFile[%s]" , p_trace_file->path_filename )
 		hdfsCloseFile( p_trace_file->fs , p_trace_file->file );
 		
 		free( p_trace_file );
@@ -86,41 +86,41 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
 	if( p_plugin_ctx == NULL )
 	{
-		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		ERRORLOGC( "malloc failed , errno[%d]" , errno )
 		return -1;
 	}
 	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
 	
 	p_plugin_ctx->name_node = QueryPluginConfigItem( p_plugin_config_items , "name_node" ) ;
-	INFOLOG( "name_node[%s]" , p_plugin_ctx->name_node )
+	INFOLOGC( "name_node[%s]" , p_plugin_ctx->name_node )
 	if( p_plugin_ctx->name_node == NULL || p_plugin_ctx->name_node[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'name_node'" );
+		ERRORLOGC( "expect config for 'name_node'" )
 		return -1;
 	}
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "port" ) ;
 	if( p == NULL || p[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'port'" );
+		ERRORLOGC( "expect config for 'port'" )
 		return -1;
 	}
 	p_plugin_ctx->port = atoi(p) ;
-	INFOLOG( "port[%d]" , p_plugin_ctx->port )
+	INFOLOGC( "port[%d]" , p_plugin_ctx->port )
 	if( p_plugin_ctx->port < 0 )
 	{
-		ERRORLOG( "port[%s] invalid" , p );
+		ERRORLOGC( "port[%s] invalid" , p )
 		return -1;
 	}
 	
 	p_plugin_ctx->user = QueryPluginConfigItem( p_plugin_config_items , "user" ) ;
-	INFOLOG( "user[%s]" , p_plugin_ctx->user )
+	INFOLOGC( "user[%s]" , p_plugin_ctx->user )
 	
 	p_plugin_ctx->path = QueryPluginConfigItem( p_plugin_config_items , "path" ) ;
-	INFOLOG( "path[%s]" , p_plugin_ctx->path )
+	INFOLOGC( "path[%s]" , p_plugin_ctx->path )
 	if( p_plugin_ctx->path == NULL || p_plugin_ctx->path[0] == '\0' )
 	{
-		ERRORLOG( "expect config for 'path'" );
+		ERRORLOGC( "expect config for 'path'" )
 		return -1;
 	}
 	
@@ -133,11 +133,11 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		}
 		else
 		{
-			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm );
+			ERRORLOGC( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm )
 			return -1;
 		}
 	}
-	INFOLOG( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
+	INFOLOGC( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
 	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
@@ -157,30 +157,30 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	/* 连接HDFS */
 	if( p_plugin_ctx->user && p_plugin_ctx->user[0] )
 	{
-		INFOLOG( "hdfsConnectAsUser ... name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
+		INFOLOGC( "hdfsConnectAsUser ... name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
 		p_plugin_ctx->fs = hdfsConnectAsUser( p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user ) ;
 		if( p_plugin_ctx->fs == NULL )
 		{
-			ERRORLOG( "hdfsConnectAsUser failed , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
+			ERRORLOGC( "hdfsConnectAsUser failed , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
 			return -1;
 		}
 		else
 		{
-			INFOLOG( "hdfsConnectAsUser ok , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
+			INFOLOGC( "hdfsConnectAsUser ok , name_node[%s] port[%d] user[%s]" , p_plugin_ctx->name_node , p_plugin_ctx->port , p_plugin_ctx->user )
 		}
 	}
 	else
 	{
-		INFOLOG( "hdfsConnect ... name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
+		INFOLOGC( "hdfsConnect ... name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
 		p_plugin_ctx->fs = hdfsConnect( p_plugin_ctx->name_node , p_plugin_ctx->port ) ;
 		if( p_plugin_ctx->fs == NULL )
 		{
-			ERRORLOG( "hdfsConnect failed , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
+			ERRORLOGC( "hdfsConnect failed , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
 			return -1;
 		}
 		else
 		{
-			INFOLOG( "hdfsConnect ok , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
+			INFOLOGC( "hdfsConnect ok , name_node[%s] port[%d]" , p_plugin_ctx->name_node , p_plugin_ctx->port )
 		}
 	}
 	
@@ -192,12 +192,12 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
 	if( nret )
 	{
-		ERRORLOG( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
+		ERRORLOGC( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
 		return -1;
 	}
 	else
 	{
-		DEBUGLOG( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
+		DEBUGLOGC( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
 	}
 	
 	return 0;
@@ -225,7 +225,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	localtime_r( & tt , & stime );
 	if( stime.tm_year != p_plugin_ctx->stime.tm_year || stime.tm_mon != p_plugin_ctx->stime.tm_mon || stime.tm_mday != p_plugin_ctx->stime.tm_mday )
 	{
-		INFOLOG( "DestroyTraceFilenameTree" )
+		INFOLOGC( "DestroyTraceFilenameTree" )
 		DestroyTraceFilenameTree( p_plugin_ctx );
 		
 		memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
@@ -233,15 +233,15 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
 		if( nret )
 		{
-			ERRORLOG( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
+			ERRORLOGC( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
 			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
+			DEBUGLOGC( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
 		}
 		
-		INFOLOG( "DestroyTraceFilenameTree" )
+		INFOLOGC( "DestroyTraceFilenameTree" )
 		DestroyTraceFilenameTree( p_plugin_ctx );
 	}
 	
@@ -254,7 +254,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		p_plugin_ctx->p_trace_file = (struct TraceFile *)malloc( sizeof(struct TraceFile) ) ;
 		if( p_plugin_ctx->p_trace_file == NULL )
 		{
-			ERRORLOG( "malloc failed , errno[%d]" , errno )
+			ERRORLOGC( "malloc failed , errno[%d]" , errno )
 			return -1;
 		}
 		memset( p_plugin_ctx->p_trace_file , 0x00 , sizeof(struct TraceFile) );
@@ -267,23 +267,23 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		p_plugin_ctx->p_trace_file->file = hdfsOpenFile( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->path_filename , O_CREAT|O_WRONLY , 0 , 0 , 0 ) ;
 		if( p_plugin_ctx->p_trace_file->file == NULL )
 		{
-			ERRORLOG( "hdfsOpenFile[%s] failed , errno[%d]" , p_plugin_ctx->p_trace_file->path_filename , errno )
+			ERRORLOGC( "hdfsOpenFile[%s] failed , errno[%d]" , p_plugin_ctx->p_trace_file->path_filename , errno )
 			free( p_plugin_ctx->p_trace_file );
 			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "hdfsOpenFile[%s] ok" , p_plugin_ctx->p_trace_file->path_filename )
+			DEBUGLOGC( "hdfsOpenFile[%s] ok" , p_plugin_ctx->p_trace_file->path_filename )
 		}
 		
 		/* 挂接文件跟踪结构树 */
 		nret = LinkTraceFilenameTreeNode( p_plugin_ctx , p_plugin_ctx->p_trace_file ) ;
 		if( nret )
 		{
-			INFOLOG( "hdfsCloseFile[%s]" , p_plugin_ctx->p_trace_file->path_filename )
+			INFOLOGC( "hdfsCloseFile[%s]" , p_plugin_ctx->p_trace_file->path_filename )
 			hdfsCloseFile( p_plugin_ctx->p_trace_file->fs , p_plugin_ctx->p_trace_file->file );
 			free( p_plugin_ctx->p_trace_file );
-			ERRORLOG( "LinkTraceFilenameTreeNode failed , errno[%d]" , errno )
+			ERRORLOGC( "LinkTraceFilenameTreeNode failed , errno[%d]" , errno )
 			return 1;
 		}
 	}
@@ -306,24 +306,24 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		len = hdfsWrite( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file , block_buf , block_len ) ;
 		if( len == -1 )
 		{
-			ERRORLOG( "hdfsWrite data to hdfs failed , errno[%d]" , errno )
+			ERRORLOGC( "hdfsWrite data to hdfs failed , errno[%d]" , errno )
 			return -1;
 		}
 		else
 		{
-			INFOLOG( "hdfsWrite data to hdfs ok , [%d]bytes" , block_len )
-			DEBUGHEXLOG( block_buf , len , NULL )
+			INFOLOGC( "hdfsWrite data to hdfs ok , [%d]bytes" , block_len )
+			DEBUGHEXLOGC( block_buf , len , NULL )
 		}
 		
 		nret = hdfsHFlush( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file ) ;
 		if( nret )
 		{
-			ERRORLOG( "hdfsHFlush data to hdfs failed , errno[%d]" , errno )
+			ERRORLOGC( "hdfsHFlush data to hdfs failed , errno[%d]" , errno )
 			return -1;
 		}
 		else
 		{
-			INFOLOG( "hdfsHFlush data to hdfs ok , [%d]bytes" , block_len )
+			INFOLOGC( "hdfsHFlush data to hdfs ok , [%d]bytes" , block_len )
 		}
 	}
 	/* 如果启用了解压 */
@@ -338,40 +338,40 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len ) ;
 			if( nret )
 			{
-				ERRORLOG( "UncompressInputPluginData failed[%d]" , nret )
+				ERRORLOGC( "UncompressInputPluginData failed[%d]" , nret )
 				return -1;
 			}
 			else
 			{
-				DEBUGLOG( "UncompressInputPluginData ok" )
+				DEBUGLOGC( "UncompressInputPluginData ok" )
 			}
 			
 			len = hdfsWrite( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file , block_out_buf , block_out_len ) ;
 			if( len == -1 )
 			{
-				ERRORLOG( "hdfsWrite data to hdfs failed , errno[%d]" , errno )
+				ERRORLOGC( "hdfsWrite data to hdfs failed , errno[%d]" , errno )
 				return -1;
 			}
 			else
 			{
-				INFOLOG( "hdfsWrite data to hdfs ok , [%d]bytes" , block_len )
-				DEBUGHEXLOG( block_out_buf , len , NULL )
+				INFOLOGC( "hdfsWrite data to hdfs ok , [%d]bytes" , block_len )
+				DEBUGHEXLOGC( block_out_buf , len , NULL )
 			}
 			
 			nret = hdfsHFlush( p_plugin_ctx->fs , p_plugin_ctx->p_trace_file->file ) ;
 			if( nret )
 			{
-				ERRORLOG( "dfsWrite data to hdfs failed , errno[%d]" , errno )
+				ERRORLOGC( "dfsWrite data to hdfs failed , errno[%d]" , errno )
 				return -1;
 			}
 			else
 			{
-				INFOLOG( "dfsWrite data to hdfs ok , [%d]bytes" , block_len )
+				INFOLOGC( "dfsWrite data to hdfs ok , [%d]bytes" , block_len )
 			}
 		}
 		else
 		{
-			ERRORLOG( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm );
+			ERRORLOGC( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm )
 			return -1;
 		}
 	}
@@ -390,10 +390,10 @@ int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
-	INFOLOG( "DestroyTraceFilenameTree" )
+	INFOLOGC( "DestroyTraceFilenameTree" )
 	DestroyTraceFilenameTree( p_plugin_ctx );
 	
-	INFOLOG( "hdfsDisconnect" )
+	INFOLOGC( "hdfsDisconnect" )
 	hdfsDisconnect( p_plugin_ctx->fs ); p_plugin_ctx->fs = NULL ;
 	
 	return 0;

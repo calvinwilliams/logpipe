@@ -19,15 +19,15 @@
 static int ConvLogLevelStr( char *log_level_str , int log_level_str_len )
 {
 	if( log_level_str_len == 5 && STRNCMP( log_level_str , == , "DEBUG" , log_level_str_len ) )
-		return LOGLEVEL_DEBUG;
+		return LOGCLEVEL_DEBUG;
 	else if( log_level_str_len == 4 && STRNCMP( log_level_str , == , "INFO" , log_level_str_len ) )
-		return LOGLEVEL_INFO ;
+		return LOGCLEVEL_INFO ;
 	else if( log_level_str_len == 4 && STRNCMP( log_level_str , == , "WARN" , log_level_str_len ) )
-		return LOGLEVEL_WARN ;
+		return LOGCLEVEL_WARN ;
 	else if( log_level_str_len == 5 && STRNCMP( log_level_str , == , "ERROR" , log_level_str_len ) )
-		return LOGLEVEL_ERROR ;
+		return LOGCLEVEL_ERROR ;
 	else if( log_level_str_len == 5 && STRNCMP( log_level_str , == , "FATAL" , log_level_str_len ) )
-		return LOGLEVEL_FATAL ;
+		return LOGCLEVEL_FATAL ;
 	else
 		return -1;
 }
@@ -41,7 +41,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 	p = QueryPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) , "plugin" ) ;
 	if( p == NULL )
 	{
-		ERRORLOG( "expect 'plugin' in 'inputs'" );
+		ERRORLOGC( "expect 'plugin' in 'inputs'" )
 		return -1;
 	}
 	
@@ -59,7 +59,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 	p_logpipe_input_plugin->so_handler = dlopen( p_logpipe_input_plugin->so_path_filename , RTLD_LAZY ) ;
 	if( p_logpipe_input_plugin->so_handler == NULL )
 	{
-		ERRORLOG( "dlopen[%s] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlopen[%s] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -67,14 +67,14 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 	p_logpipe_input_plugin->pfuncLoadInputPluginConfig = (funcLoadInputPluginConfig *)dlsym( p_logpipe_input_plugin->so_handler , "LoadInputPluginConfig" ) ;
 	if( p_logpipe_input_plugin->pfuncLoadInputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][LoadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][LoadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
 	p_logpipe_input_plugin->pfuncInitInputPluginContext = (funcInitInputPluginContext *)dlsym( p_logpipe_input_plugin->so_handler , "InitInputPluginContext" ) ;
 	if( p_logpipe_input_plugin->pfuncInitInputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][LoadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][LoadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -85,7 +85,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 	p_logpipe_input_plugin->pfuncOnInputPluginEvent = (funcOnInputPluginEvent *)dlsym( p_logpipe_input_plugin->so_handler , "OnInputPluginEvent" ) ;
 	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
 	{
-		ERRORLOG( "dlsym[%s][OnInputPluginEvent] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][OnInputPluginEvent] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -94,7 +94,7 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 	p_logpipe_input_plugin->pfuncReadInputPlugin = (funcReadInputPlugin *)dlsym( p_logpipe_input_plugin->so_handler , "ReadInputPlugin" ) ;
 	if( p_logpipe_input_plugin->pfuncOnInputPluginEvent == NULL )
 	{
-		ERRORLOG( "dlsym[%s][ReadInputPlugin] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][ReadInputPlugin] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -103,14 +103,14 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 	p_logpipe_input_plugin->pfuncCleanInputPluginContext = (funcCleanInputPluginContext *)dlsym( p_logpipe_input_plugin->so_handler , "CleanInputPluginContext" ) ;
 	if( p_logpipe_input_plugin->pfuncCleanInputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][CleanInputPluginContext] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][CleanInputPluginContext] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
 	p_logpipe_input_plugin->pfuncUnloadInputPluginConfig = (funcUnloadInputPluginConfig *)dlsym( p_logpipe_input_plugin->so_handler , "UnloadInputPluginConfig" ) ;
 	if( p_logpipe_input_plugin->pfuncUnloadInputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][UnloadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][UnloadInputPluginConfig] failed , dlerror[%s]" , p_logpipe_input_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -129,7 +129,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	p = QueryPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) , "plugin" ) ;
 	if( p == NULL )
 	{
-		ERRORLOG( "expect 'plugin' in 'outputs'" );
+		ERRORLOGC( "expect 'plugin' in 'outputs'" )
 		return -1;
 	}
 	
@@ -147,7 +147,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	p_logpipe_output_plugin->so_handler = dlopen( p_logpipe_output_plugin->so_path_filename , RTLD_LAZY ) ;
 	if( p_logpipe_output_plugin->so_handler == NULL )
 	{
-		ERRORLOG( "dlopen[%s] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlopen[%s] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -155,14 +155,14 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	p_logpipe_output_plugin->pfuncLoadOutputPluginConfig = (funcLoadOutputPluginConfig *)dlsym( p_logpipe_output_plugin->so_handler , "LoadOutputPluginConfig" ) ;
 	if( p_logpipe_output_plugin->pfuncLoadOutputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][InitLogpipeOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncInitOutputPluginContext = (funcInitOutputPluginContext *)dlsym( p_logpipe_output_plugin->so_handler , "InitOutputPluginContext" ) ;
 	if( p_logpipe_output_plugin->pfuncInitOutputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][InitLogpipeOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][InitLogpipeOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -173,7 +173,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	p_logpipe_output_plugin->pfuncOnOutputPluginEvent = (funcOnOutputPluginEvent *)dlsym( p_logpipe_output_plugin->so_handler , "OnOutputPluginEvent" ) ;
 	if( p_logpipe_output_plugin->pfuncOnOutputPluginEvent == NULL )
 	{
-		ERRORLOG( "dlsym[%s][OnOutputPluginEvent] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][OnOutputPluginEvent] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -182,7 +182,7 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	p_logpipe_output_plugin->pfuncWriteOutputPlugin = (funcWriteOutputPlugin *)dlsym( p_logpipe_output_plugin->so_handler , "WriteOutputPlugin" ) ;
 	if( p_logpipe_output_plugin->pfuncWriteOutputPlugin == NULL )
 	{
-		ERRORLOG( "dlsym[%s][WriteOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][WriteOutputPlugin] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -191,14 +191,14 @@ static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOut
 	p_logpipe_output_plugin->pfuncCleanOutputPluginContext = (funcCleanOutputPluginContext *)dlsym( p_logpipe_output_plugin->so_handler , "CleanOutputPluginContext" ) ;
 	if( p_logpipe_output_plugin->pfuncCleanOutputPluginContext == NULL )
 	{
-		ERRORLOG( "dlsym[%s][CleanOutputPluginContext] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][CleanOutputPluginContext] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
 	p_logpipe_output_plugin->pfuncUnloadOutputPluginConfig = (funcUnloadOutputPluginConfig *)dlsym( p_logpipe_output_plugin->so_handler , "UnloadOutputPluginConfig" ) ;
 	if( p_logpipe_output_plugin->pfuncUnloadOutputPluginConfig == NULL )
 	{
-		ERRORLOG( "dlsym[%s][UnloadOutputPluginConfig] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() );
+		ERRORLOGC( "dlsym[%s][UnloadOutputPluginConfig] failed , dlerror[%s]" , p_logpipe_output_plugin->so_path_filename , dlerror() )
 		return -1;
 	}
 	
@@ -271,7 +271,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 			p_env->log_level = ConvLogLevelStr( content , content_len ) ;
 			if( p_env->log_level == -1 )
 			{
-				ERRORLOG( "log_level[%.*s] invalid" , content_len , content );
+				ERRORLOGC( "log_level[%.*s] invalid" , content_len , content )
 				return -1;
 			}
 		}
@@ -280,7 +280,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 			nret = AddPluginConfigItem( & (p_logpipe_input_plugin->plugin_config_items) , node , node_len , content , content_len ) ;
 			if( nret )
 			{
-				ERRORLOG( "AddPluginConfigItem [%.*s][%.*s] failed" , node_len , node , content_len , content );
+				ERRORLOGC( "AddPluginConfigItem [%.*s][%.*s] failed" , node_len , node , content_len , content )
 				return -1;
 			}
 		}
@@ -289,7 +289,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 			nret = AddPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) , node , node_len , content , content_len ) ;
 			if( nret )
 			{
-				ERRORLOG( "AddPluginConfigItem [%.*s][%.*s] failed" , node_len , node , content_len , content );
+				ERRORLOGC( "AddPluginConfigItem [%.*s][%.*s] failed" , node_len , node , content_len , content )
 				return -1;
 			}
 		}
@@ -312,7 +312,7 @@ int LoadConfig( struct LogpipeEnv *p_env )
 	file_content = StrdupEntireFile( p_env->config_path_filename , NULL ) ;
 	if( file_content == NULL )
 	{
-		ERRORLOG( "open file[%s] failed , errno[%d]" , p_env->config_path_filename , errno );
+		ERRORLOGC( "open file[%s] failed , errno[%d]" , p_env->config_path_filename , errno )
 		return -1;
 	}
 	
@@ -322,7 +322,7 @@ int LoadConfig( struct LogpipeEnv *p_env )
 	nret = TravelJsonBuffer( file_content , jpath , sizeof(jpath) , & CallbackOnJsonNode , p_env ) ;
 	if( nret )
 	{
-		ERRORLOG( "parse config[%s] failed[%d]" , p_env->config_path_filename , nret );
+		ERRORLOGC( "parse config[%s] failed[%d]" , p_env->config_path_filename , nret )
 		free( file_content );
 		return -1;
 	}
@@ -337,12 +337,12 @@ int LoadConfig( struct LogpipeEnv *p_env )
 		nret = p_logpipe_output_plugin->pfuncLoadOutputPluginConfig( p_env , p_logpipe_output_plugin , & (p_logpipe_output_plugin->plugin_config_items) , & (p_logpipe_output_plugin->context) ) ;
 		if( nret )
 		{
-			ERRORLOG( "[%s]->pfuncLoadOutputPluginConfig failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno );
+			ERRORLOGC( "[%s]->pfuncLoadOutputPluginConfig failed , errno[%d]" , p_logpipe_output_plugin->so_filename , errno )
 			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "[%s]->pfuncLoadOutputPluginConfig ok" , p_logpipe_output_plugin->so_filename );
+			DEBUGLOGC( "[%s]->pfuncLoadOutputPluginConfig ok" , p_logpipe_output_plugin->so_filename )
 		}
 	}
 	
@@ -354,12 +354,12 @@ int LoadConfig( struct LogpipeEnv *p_env )
 		nret = p_logpipe_input_plugin->pfuncLoadInputPluginConfig( p_env , p_logpipe_input_plugin , & (p_logpipe_input_plugin->plugin_config_items) , & (p_logpipe_input_plugin->context) ) ;
 		if( nret )
 		{
-			ERRORLOG( "[%s]->pfuncLoadInputPluginConfig failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno );
+			ERRORLOGC( "[%s]->pfuncLoadInputPluginConfig failed , errno[%d]" , p_logpipe_input_plugin->so_filename , errno )
 			return -1;
 		}
 		else
 		{
-			DEBUGLOG( "[%s]->pfuncLoadInputPluginConfig ok" , p_logpipe_input_plugin->so_filename );
+			DEBUGLOGC( "[%s]->pfuncLoadInputPluginConfig ok" , p_logpipe_input_plugin->so_filename )
 		}
 	}
 	
