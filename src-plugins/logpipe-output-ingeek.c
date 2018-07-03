@@ -404,7 +404,7 @@ _GOTO_WRITEN_LOG :
 	}
 	else
 	{
-		INFOLOGC( "send log data to socket ok , [%d]bytes" , line_len )
+		DEBUGLOGC( "send log data to socket ok , [%d]bytes" , line_len )
 		DEBUGHEXLOGC( p_plugin_ctx->parse_buffer , line_len , NULL )
 	}
 	
@@ -427,7 +427,7 @@ _GOTO_WRITEN_TAIL :
 	}
 	else
 	{
-		INFOLOGC( "send tail data to socket ok , [%d]bytes" , tail_buffer_len )
+		DEBUGLOGC( "send tail data to socket ok , [%d]bytes" , tail_buffer_len )
 		DEBUGHEXLOGC( tail_buffer , tail_buffer_len , NULL )
 	}
 	
@@ -437,6 +437,8 @@ _GOTO_WRITEN_TAIL :
 	
 	return 0;
 }
+
+#define MAX_LOG_BUFFER		4096
 
 /* 数据块合并到解析缓冲区 */
 static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint64_t block_len )
@@ -448,8 +450,8 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 	
 	int		nret = 0 ;
 	
-	INFOLOGC( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
-	INFOLOGC( "block_buf [%d][%.*s]" , block_len , block_len , block_buf )
+	INFOLOGC( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , (p_plugin_ctx->parse_buflen>MAX_LOG_BUFFER?MAX_LOG_BUFFER:p_plugin_ctx->parse_buflen) , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "block_buf [%d][%.*s]" , block_len , (block_len>MAX_LOG_BUFFER?MAX_LOG_BUFFER:block_len) , block_buf )
 	
 	/* 如果遗留数据+当前数据块放的下解析缓冲区 */
 	if( p_plugin_ctx->parse_buflen + block_len <= sizeof(p_plugin_ctx->parse_buffer)-1 )
@@ -510,7 +512,7 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 		line_add++;
 	}
 	
-	INFOLOGC( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buflen , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , (p_plugin_ctx->parse_buflen>MAX_LOG_BUFFER?MAX_LOG_BUFFER:p_plugin_ctx->parse_buflen) , p_plugin_ctx->parse_buffer )
 	
 	return 0;
 }
