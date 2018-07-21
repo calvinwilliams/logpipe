@@ -309,7 +309,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 		}
 		else
 		{
-			INFOLOGC( "write block data to file[%d][%s] ok , [%d]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_len )
+			INFOLOGC( "write block data to file[%d][%s] ok , [%d]bytes [%.100s...]" , p_trace_file->fd , p_trace_file->path_filename , block_len , block_buf )
 			DEBUGHEXLOGC( block_buf , len , NULL )
 		}
 	}
@@ -347,7 +347,7 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 			}
 			else
 			{
-				INFOLOGC( "write uncompress block data to file[%d][%s] ok , [%"PRIu64"]bytes" , p_trace_file->fd , p_trace_file->path_filename , block_out_len )
+				INFOLOGC( "write uncompress block data to file[%d][%s] ok , [%"PRIu64"]bytes [%.100s...]" , p_trace_file->fd , p_trace_file->path_filename , block_out_len , block_buf )
 				DEBUGHEXLOGC( block_out_buf , len , NULL )
 			}
 		}
