@@ -1448,7 +1448,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 		if( p_plugin_ctx->min_usleep_interval > 0 && usleep_interval < p_plugin_ctx->min_usleep_interval )
 			usleep_interval = p_plugin_ctx->min_usleep_interval ;
 		
-		INFOLOGC( "inotify_read_buflen_array[%d][%d] - inotify_read_buflen_max[%d] - usleep(%"PRIu64")" , inotify_read_buflen_index , inotify_read_buflen_array[inotify_read_buflen_index] , inotify_read_buflen_max , usleep_interval )
+		INFOLOGC( "inotify_read_buflen_array[%d][%d] inotify_read_buflen_max[%d] - usleep(%"PRIu64")" , inotify_read_buflen_index , inotify_read_buflen_array[inotify_read_buflen_index] , inotify_read_buflen_max , usleep_interval )
 		if( usleep_interval > 0 )
 		{
 			usleep( usleep_interval );
