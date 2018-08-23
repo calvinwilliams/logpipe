@@ -12,8 +12,8 @@
 ps -f -u $USER | grep "logpipe -f" | awk '{if($3==1)print $2}' | xargs kill
 */
 
-char __LOGPIPE_VERSION_1_0_0[] = "1.0.0" ;
-char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_1_0_0 ;
+char __LOGPIPE_VERSION_1_0_1[] = "1.0.1" ;
+char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_1_0_1 ;
 
 /* 显示版本号 */
 static void version()
@@ -135,11 +135,13 @@ int main( int argc , char *argv[] )
 		ERRORLOGC( "no inputs" )
 		return 1;
 	}
+	/*
 	if( list_empty( & (p_env->logpipe_output_plugins_list.this_node) ) )
 	{
 		ERRORLOGC( "no outputs" )
 		return 1;
 	}
+	*/
 	
 	/* 进入父进程代码 */
 	if( p_env->no_daemon )
