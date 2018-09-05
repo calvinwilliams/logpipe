@@ -20,12 +20,15 @@ struct TraceFile
 	uint64_t		rotate_size ;
 	
 	struct rb_node		inotify_path_filename_rbnode ;
+	unsigned char		inotify_path_filename_rbnode_linked ;
 	
 	int			inotify_file_wd ;
 	struct rb_node		inotify_file_wd_rbnode ;
+	unsigned char		inotify_file_wd_rbnode_linked ;
 	
 	struct timeval		watching_timestamp ;
 	struct rb_node		watch_timestamp_rbnode ;
+	unsigned char		watch_timestamp_rbnode_linked ;
 	int			watch_count ;
 } ;
 
@@ -233,12 +236,21 @@ static int RemoveFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlug
 {
 	int		nret = 0 ;
 	
-	UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
-	UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
+	if( p_trace_file->inotify_path_filename_rbnode_linked )
+	{
+		UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+	}
+	if( p_trace_file->inotify_file_wd_rbnode_linked )
+	{
+		UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
+	}
 	UnlinkTraceFileModifingTimestampTreeNode( p_plugin_ctx , p_trace_file );
 	
-	nret = inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd ) ;
-	INFOLOGC( "inotify_rm_watch return[%d] , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , nret , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+	if( p_trace_file->inotify_file_wd >= 0 )
+	{
+		nret = inotify_rm_watch( p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd ) ;
+		INFOLOGC( "inotify_rm_watch return[%d] , inotify_fd[%d] inotify_wd[%d] path_filename[%s]" , nret , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+	}
 	
 	FreeTraceFile( p_trace_file );
 	
@@ -659,7 +671,8 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 	else
 	{
-		DEBUGLOGC( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		DEBUGLOGC( "LinkTraceFilePathFilenameTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		p_trace_file->inotify_path_filename_rbnode_linked = 1 ;
 	}
 	
 	/* 添加文件变化监视器 */
@@ -689,6 +702,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	else
 	{
 		DEBUGLOGC( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		p_trace_file->inotify_file_wd_rbnode_linked = 1 ;
 	}
 	
 	gettimeofday( & (p_trace_file->watching_timestamp) , NULL );
@@ -1024,37 +1038,42 @@ static int ProcessingMoveToFileEvent( struct LogpipeEnv *p_env , struct LogpipeI
 				if( p_trace_file->inotify_file_wd == -1 )
 				{
 					ERRORLOGC( "inotify_add_watch[%s][%s] failed , errno[%d]" , p_trace_file->filename , p_trace_file->path_filename , errno )
+					RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
 				}
 				else
 				{
 					INFOLOGC( "inotify_add_watch[%s][%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->filename , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , p_trace_file->inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
+					
+					UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
+					p_trace_file->inotify_path_filename_rbnode_linked = 0 ;
+					nret = LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
+					if( nret )
+					{
+						ERRORLOGC( "LinkTraceFilePathFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+						RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
+					}
+					else
+					{
+						DEBUGLOGC( "LinkTraceFilePathFilenameTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+						p_trace_file->inotify_path_filename_rbnode_linked = 1 ;
+						
+						UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
+						p_trace_file->inotify_file_wd_rbnode_linked = 0 ;
+						nret = LinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file ) ;
+						if( nret )
+						{
+							ERRORLOGC( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+							RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
+						}
+						else
+						{
+							DEBUGLOGC( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+							p_trace_file->inotify_file_wd_rbnode_linked = 1 ;
+						}
+						
+						SendCloseWriteEvent( p_trace_file );
+					}
 				}
-				
-				UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
-				nret = LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
-				if( nret )
-				{
-					ERRORLOGC( "LinkTraceFilePathFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-					return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
-				}
-				else
-				{
-					DEBUGLOGC( "LinkTraceFilePathFilenameTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-				}
-				
-				UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
-				nret = LinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file ) ;
-				if( nret )
-				{
-					ERRORLOGC( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-					return RemoveFileWatcher( p_env , p_logpipe_input_plugin , p_plugin_ctx , p_trace_file );
-				}
-				else
-				{
-					DEBUGLOGC( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
-				}
-				
-				SendCloseWriteEvent( p_trace_file );
 			}
 			
 			INFOLOGC( "free list node movefrom_filename[%s]" , p_curr_movefrom_filename->path_filename )
@@ -1372,6 +1391,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 					INFOLOGC( "inotify_add_watch[%s][%s] ok , inotify_fd[%d] inotify_wd[%d] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->filename , p_trace_file->path_filename , p_plugin_ctx->inotify_fd , inotify_file_wd , p_trace_file->trace_offset , p_trace_file->trace_line )
 					
 					UnlinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file );
+					p_trace_file->inotify_file_wd_rbnode_linked = 0 ;
 					p_trace_file->inotify_file_wd = inotify_file_wd ;
 					nret = LinkTraceFileInotifyWdTreeNode( p_plugin_ctx , p_trace_file ) ;
 					if( nret )
@@ -1382,6 +1402,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 					else
 					{
 						DEBUGLOGC( "LinkTraceFileInotifyWdTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+						p_trace_file->inotify_file_wd_rbnode_linked = 1 ;
 					}
 				}
 				
