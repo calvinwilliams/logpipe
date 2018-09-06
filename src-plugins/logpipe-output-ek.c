@@ -6,7 +6,7 @@
 make logpipe-output-ek.so && cp -f logpipe-output-ek.so ~/so/
 */
 
-char	*__LOGPIPE_OUTPUT_EK_VERSION = "0.1.0" ;
+int	__LOGPIPE_OUTPUT_EK_VERSION_0_1_0 = 1 ;
 
 /* 分列信息结构 */
 struct FieldSeparatorInfo

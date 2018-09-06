@@ -1,6 +1,6 @@
 #include "logpipe_api.h"
 
-char	*__LOGPIPE_INPUT_EXEC_VERSION = "0.1.0" ;
+int	__LOGPIPE_INPUT_EXEC_VERSION_0_1_0 = 1 ;
 
 #define CMD_BUFSIZE		1024*1024
 

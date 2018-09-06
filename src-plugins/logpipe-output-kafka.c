@@ -2,7 +2,7 @@
 
 #include "rdkafka.h"
 
-char	*__LOGPIPE_OUTPUT_KAFKA_VERSION = "0.1.0" ;
+int	__LOGPIPE_OUTPUT_KAFKA_VERSION_0_1_0 = 1 ;
 
 /*
 列表所有主题
