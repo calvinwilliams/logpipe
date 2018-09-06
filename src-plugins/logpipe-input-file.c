@@ -4,7 +4,7 @@
 logpipe -f logpipe_case1_collector.conf --start-once-for-env "start_once_for_full_dose 1"
 */
 
-char	*__LOGPIPE_INPUT_FILE_VERSION = "0.3.6" ;
+int	__LOGPIPE_INPUT_FILE_VERSION_0_3_7 = 1 ;
 
 /* 跟踪文件信息结构 */
 struct TraceFile
@@ -74,9 +74,19 @@ struct InputPluginContext
 	char			*files ;
 	char			*files2 ;
 	char			*files3 ;
+	char			*files4 ;
+	char			*files5 ;
+	char			*files6 ;
+	char			*files7 ;
+	char			*files8 ;
 	char			*exclude_files ;
 	char			*exclude_files2 ;
 	char			*exclude_files3 ;
+	char			*exclude_files4 ;
+	char			*exclude_files5 ;
+	char			*exclude_files6 ;
+	char			*exclude_files7 ;
+	char			*exclude_files8 ;
 	char			exec_before_rotating_buffer[ PATH_MAX * 3 ] ;
 	char			*exec_before_rotating ;
 	uint64_t		rotate_size ;
@@ -559,6 +569,51 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 	}
 	
+	if( p_plugin_ctx->files4 && p_plugin_ctx->files4[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->files4 , filename , '*' , '?' ) != 0 )
+		{
+			DEBUGLOGC( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files4 )
+			survive_flag = 0 ;
+		}
+	}
+	
+	if( p_plugin_ctx->files5 && p_plugin_ctx->files5[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->files5 , filename , '*' , '?' ) != 0 )
+		{
+			DEBUGLOGC( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files5 )
+			survive_flag = 0 ;
+		}
+	}
+	
+	if( p_plugin_ctx->files6 && p_plugin_ctx->files6[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->files6 , filename , '*' , '?' ) != 0 )
+		{
+			DEBUGLOGC( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files6 )
+			survive_flag = 0 ;
+		}
+	}
+	
+	if( p_plugin_ctx->files7 && p_plugin_ctx->files7[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->files7 , filename , '*' , '?' ) != 0 )
+		{
+			DEBUGLOGC( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files7 )
+			survive_flag = 0 ;
+		}
+	}
+	
+	if( p_plugin_ctx->files8 && p_plugin_ctx->files8[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->files8 , filename , '*' , '?' ) != 0 )
+		{
+			DEBUGLOGC( "filename[%s] not match files[%s]" , filename , p_plugin_ctx->files8 )
+			survive_flag = 0 ;
+		}
+	}
+	
 	if( survive_flag == 0 )
 		return 0;
 	
@@ -590,6 +645,51 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 	}
 	
+	if( p_plugin_ctx->exclude_files4 && p_plugin_ctx->exclude_files4[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->exclude_files4 , filename , '*' , '?' ) == 0 )
+		{
+			DEBUGLOGC( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files4 )
+			return 0;
+		}
+	}
+	
+	if( p_plugin_ctx->exclude_files5 && p_plugin_ctx->exclude_files5[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->exclude_files5 , filename , '*' , '?' ) == 0 )
+		{
+			DEBUGLOGC( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files5 )
+			return 0;
+		}
+	}
+	
+	if( p_plugin_ctx->exclude_files6 && p_plugin_ctx->exclude_files6[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->exclude_files6 , filename , '*' , '?' ) == 0 )
+		{
+			DEBUGLOGC( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files6 )
+			return 0;
+		}
+	}
+	
+	if( p_plugin_ctx->exclude_files7 && p_plugin_ctx->exclude_files7[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->exclude_files7 , filename , '*' , '?' ) == 0 )
+		{
+			DEBUGLOGC( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files7 )
+			return 0;
+		}
+	}
+	
+	if( p_plugin_ctx->exclude_files8 && p_plugin_ctx->exclude_files8[0] )
+	{
+		if( IsMatchString( p_plugin_ctx->exclude_files8 , filename , '*' , '?' ) == 0 )
+		{
+			DEBUGLOGC( "filename[%s] match exclude_files[%s]" , filename , p_plugin_ctx->exclude_files8 )
+			return 0;
+		}
+	}
+	
 	/* 分配内存以构建文件跟踪结构 */
 	p_trace_file = (struct TraceFile *)malloc( sizeof(struct TraceFile) ) ;
 	if( p_trace_file == NULL )
@@ -607,14 +707,14 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		ERRORLOGC( "snprintf[%s] overflow" , filename )
 		FreeTraceFile( p_trace_file );
-		return -1;
+		return 0;
 	}
 	p_trace_file->path_filename_len = snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%s" , p_plugin_ctx->path , filename ) ;
 	if( SNPRINTF_OVERFLOW( p_trace_file->filename_len , sizeof(p_trace_file->filename) ) )
 	{
 		ERRORLOGC( "snprintf[%s] overflow" , filename )
 		FreeTraceFile( p_trace_file );
-		return -1;
+		return 0;
 	}
 	
 	p_trace_file->fd = open( p_trace_file->path_filename , O_RDONLY ) ;
@@ -622,7 +722,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		ERRORLOGC( "open[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
 		FreeTraceFile( p_trace_file );
-		return -1;
+		return 0;
 	}
 	else
 	{
@@ -797,6 +897,21 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	p_plugin_ctx->files3 = QueryPluginConfigItem( p_plugin_config_items , "files3" ) ;
 	INFOLOGC( "files3[%s]" , p_plugin_ctx->files3 )
 	
+	p_plugin_ctx->files4 = QueryPluginConfigItem( p_plugin_config_items , "files4" ) ;
+	INFOLOGC( "files4[%s]" , p_plugin_ctx->files4 )
+	
+	p_plugin_ctx->files5 = QueryPluginConfigItem( p_plugin_config_items , "files5" ) ;
+	INFOLOGC( "files5[%s]" , p_plugin_ctx->files5 )
+	
+	p_plugin_ctx->files6 = QueryPluginConfigItem( p_plugin_config_items , "files6" ) ;
+	INFOLOGC( "files6[%s]" , p_plugin_ctx->files6 )
+	
+	p_plugin_ctx->files7 = QueryPluginConfigItem( p_plugin_config_items , "files7" ) ;
+	INFOLOGC( "files7[%s]" , p_plugin_ctx->files7 )
+	
+	p_plugin_ctx->files8 = QueryPluginConfigItem( p_plugin_config_items , "files8" ) ;
+	INFOLOGC( "files8[%s]" , p_plugin_ctx->files8 )
+	
 	p_plugin_ctx->exclude_files = QueryPluginConfigItem( p_plugin_config_items , "exclude_files" ) ;
 	INFOLOGC( "exclude_files[%s]" , p_plugin_ctx->exclude_files )
 	
@@ -805,6 +920,21 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	p_plugin_ctx->exclude_files3 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files3" ) ;
 	INFOLOGC( "exclude_files3[%s]" , p_plugin_ctx->exclude_files3 )
+	
+	p_plugin_ctx->exclude_files4 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files4" ) ;
+	INFOLOGC( "exclude_files4[%s]" , p_plugin_ctx->exclude_files4 )
+	
+	p_plugin_ctx->exclude_files5 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files5" ) ;
+	INFOLOGC( "exclude_files5[%s]" , p_plugin_ctx->exclude_files5 )
+	
+	p_plugin_ctx->exclude_files6 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files6" ) ;
+	INFOLOGC( "exclude_files6[%s]" , p_plugin_ctx->exclude_files6 )
+	
+	p_plugin_ctx->exclude_files7 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files7" ) ;
+	INFOLOGC( "exclude_files7[%s]" , p_plugin_ctx->exclude_files7 )
+	
+	p_plugin_ctx->exclude_files8 = QueryPluginConfigItem( p_plugin_config_items , "exclude_files8" ) ;
+	INFOLOGC( "exclude_files8[%s]" , p_plugin_ctx->exclude_files8 )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "exec_before_rotating" ) ;
 	if( p )

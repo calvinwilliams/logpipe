@@ -22,7 +22,7 @@ export LD_LIBRARY_PATH=$JAVA_HOME/jre/lib/amd64/server:$LD_LIBRARY_PATH
 * 午夜零时 创建并写入 "配置目录/YYYYMMDD/"
 */
 
-char	*__LOGPIPE_OUTPUT_HDFS_VERSION = "0.1.0" ;
+int	__LOGPIPE_OUTPUT_HDFS_VERSION_0_1_0 = 1 ;
 
 /* 跟踪文件信息结构 */
 struct TraceFile

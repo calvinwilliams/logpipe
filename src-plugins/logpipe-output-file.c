@@ -1,6 +1,6 @@
 #include "logpipe_api.h"
 
-char	*__LOGPIPE_OUTPUT_FILE_VERSION = "0.2.0" ;
+int	__LOGPIPE_OUTPUT_FILE_VERSION_0_2_0 = 1 ;
 
 /* 跟踪文件信息结构 */
 struct TraceFile

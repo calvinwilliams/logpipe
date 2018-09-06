@@ -4,7 +4,7 @@
 	|'@'(1byte)|filename_len(2bytes)|file_name|file_block_len(2bytes)|file_block_data|...(other file blocks)...|\0\0\0\0|
 */
 
-char	*__LOGPIPE_INPUT_TCP_VERSION = "0.1.0" ;
+int	__LOGPIPE_INPUT_TCP_VERSION_0_1_0 = 1 ;
 
 funcOnInputPluginEvent OnInputPluginEvent_accepted_session ;
 funcReadInputPlugin ReadInputPlugin_accepted_session ;
