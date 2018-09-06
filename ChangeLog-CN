@@ -1,3 +1,6 @@
+1.0.4		2018-09-06	calvin
+		* 优化logpipe-output-ingeek
+
 1.0.3		2018-09-06	calvin
 		* 调整了logpipe-input-file一些return值，不轻易返回-1导致退出
 		* logpipe-input-file配置参数files和exclude_files增加到8个

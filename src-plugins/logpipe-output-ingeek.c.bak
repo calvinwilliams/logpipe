@@ -25,9 +25,10 @@ struct ForwardSession
 #define DISABLE_TIMEOUT		60
 
 #define PARSE_BUFFER_SIZE	LOGPIPE_BLOCK_BUFSIZE*2
+#define COMM_BUFFER_SIZE	LOGPIPE_BLOCK_BUFSIZE*2
 
-#define MAX_OUTPUT_BUF		256
-#define MAX_TAIL_BUF		256
+#define MAX_LOG_BLOCK		1024
+#define MAX_LOG_LINE		256
 
 struct OutputPluginContext
 {
@@ -46,6 +47,9 @@ struct OutputPluginContext
 	
 	char			parse_buffer[ PARSE_BUFFER_SIZE + 1 ] ; /* 解析缓冲区 */
 	int			parse_buflen ;
+	char			comm_buffer[ COMM_BUFFER_SIZE + 1 ] ; /* 通讯缓冲区 */
+	int			comm_buflen ;
+	int			comm_short_buflen ;
 } ;
 
 funcLoadOutputPluginConfig LoadOutputPluginConfig ;
@@ -346,24 +350,31 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 /* 分列解析缓冲区 */
-static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *line , uint64_t line_len , uint64_t line_add )
+static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *line , uint64_t line_len , uint64_t line_add , unsigned char no_cache )
 {
 	char		mainfilename[ PATH_MAX + 1 ] ;
 	char		*p = NULL ;
+	/*
 	int		line_short_len ;
-	char		tail[ MAX_TAIL_BUF + 1 ] ;
+	*/
+	char		tail[ MAX_LOG_LINE + 1 ] ;
 	uint64_t	tail_len ;
+	/*
 	struct timeval	tv_begin_send_log ;
 	struct timeval	tv_end_send_log ;
 	struct timeval	tv_diff_send_log ;
 	struct timeval	tv_begin_send_tail ;
 	struct timeval	tv_end_send_tail ;
 	struct timeval	tv_diff_send_tail ;
+	*/
+	struct timeval	tv_begin_send ;
+	struct timeval	tv_end_send ;
+	struct timeval	tv_diff_send ;
 	int		len ;
 	
 	int		nret = 0 ;
 	
-	DEBUGLOGC( "send [%d][%.*s]" , line_len , line_len , line )
+	DEBUGLOGC( "line [%d][%.*s]" , line_len , MIN(line_len,256) , line )
 	
 	/* 填充尾巴 */
 	memset( tail , 0x00 , sizeof(tail) );
@@ -388,12 +399,15 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 		tail_len = snprintf( tail , sizeof(tail)-1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	
-	if( line_len > MAX_OUTPUT_BUF )
-		line_short_len = MAX_OUTPUT_BUF ;
+	/*
+	if( line_len > MAX_LOG_LINE )
+		line_short_len = MAX_LOG_LINE ;
 	else
 		line_short_len = line_len ;
+	*/
 	
 	/* 发送数据块到TCP */
+#if 0
 _GOTO_WRITEN_LOG :
 	gettimeofday( & tv_begin_send_log , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , line , line_len ) ;
@@ -446,6 +460,46 @@ _GOTO_WRITEN_TAIL :
 		, tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec
 		, tail_len , tail_len-1 , tail
 		, line_len , line_short_len , line )
+#endif
+
+	if( p_plugin_ctx->comm_buflen + tail_len+line_len >= COMM_BUFFER_SIZE )
+	{
+_GOTO_SEND :
+		gettimeofday( & tv_begin_send , NULL );
+		len = writen( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->comm_buffer , p_plugin_ctx->comm_buflen ) ;
+		gettimeofday( & tv_end_send , NULL );
+		if( len == -1 )
+		{
+			ERRORLOGC( "TRASNFER [%d][%.*s] to socket failed , errno[%d]" , p_plugin_ctx->comm_buflen , p_plugin_ctx->comm_short_buflen , p_plugin_ctx->comm_buffer , errno )
+			close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
+			nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+			if( nret )
+			{
+				ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
+				return nret;
+			}
+			goto _GOTO_SEND;
+		}
+		
+		DiffTimeval( & tv_begin_send , & tv_end_send , & tv_diff_send );
+		INFOLOGC( "TRANSFER TTV[%ld.%06ld] BUF[%d][%.*s]" , tv_diff_send.tv_sec , tv_diff_send.tv_usec , p_plugin_ctx->comm_buflen , MIN(p_plugin_ctx->comm_buflen,256) , p_plugin_ctx->comm_buffer )
+		
+		p_plugin_ctx->comm_buflen = 0 ;
+	}
+	
+	if( p_plugin_ctx->comm_buflen + tail_len+line_len < COMM_BUFFER_SIZE )
+	{
+		memcpy( p_plugin_ctx->comm_buffer+p_plugin_ctx->comm_buflen , line , line_len );
+		p_plugin_ctx->comm_buflen += line_len ;
+		memcpy( p_plugin_ctx->comm_buffer+p_plugin_ctx->comm_buflen , tail , tail_len );
+		p_plugin_ctx->comm_buflen += tail_len ;
+	}
+	
+	if( no_cache )
+	{
+		no_cache = 0 ;
+		goto _GOTO_SEND;
+	}
 	
 	return 0;
 }
@@ -453,27 +507,28 @@ _GOTO_WRITEN_TAIL :
 /* 数据块合并到解析缓冲区 */
 static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *block_buf , uint64_t block_len )
 {
+	uint64_t	line_add ;
 	char		*p_line = NULL ;
 	char		*p_newline = NULL ;
+	char		*p_next_newline = NULL ;
 	uint64_t	line_len ;
 	uint64_t	remain_len ;
-	uint64_t	line_add ;
 	
 	int		nret = 0 ;
 	
-	INFOLOGC( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , MIN(p_plugin_ctx->parse_buflen,MAX_OUTPUT_BUF) , p_plugin_ctx->parse_buffer )
-	INFOLOGC( "block_buf [%d][%.*s]" , block_len , MIN(block_len,MAX_OUTPUT_BUF) , block_buf )
+	INFOLOGC( "before combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , MIN(p_plugin_ctx->parse_buflen,256) , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "block_buf [%d][%.*s]" , block_len , MIN(block_len,256) , block_buf )
 	
 	/* 如果遗留数据+当前数据块放的下解析缓冲区 */
 	if( p_plugin_ctx->parse_buflen + block_len <= sizeof(p_plugin_ctx->parse_buffer)-1 )
 	{
-		memcpy( p_plugin_ctx->parse_buffer+p_plugin_ctx->parse_buflen , block_buf , block_len );
+		strncpy( p_plugin_ctx->parse_buffer+p_plugin_ctx->parse_buflen , block_buf , block_len );
 		p_plugin_ctx->parse_buflen += block_len ;
 	}
 	else
 	{
 		/* 先强制把遗留数据都处理掉 */
-		nret = SendLineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_plugin_ctx->parse_buffer , p_plugin_ctx->parse_buflen , 0 ) ;
+		nret = SendLineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_plugin_ctx->parse_buffer , p_plugin_ctx->parse_buflen , 0 , 1 ) ;
 		if( nret < 0 )
 		{
 			ERRORLOGC( "SendLineBuffer failed[%d]" , nret )
@@ -488,22 +543,23 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 			DEBUGLOGC( "SendLineBuffer ok" )
 		}
 		
-		memcpy( p_plugin_ctx->parse_buffer , block_buf , block_len );
+		strncpy( p_plugin_ctx->parse_buffer , block_buf , block_len );
 		p_plugin_ctx->parse_buflen = block_len ;
 	}
 	
 	/* 把解析缓冲区中有效行都处理掉 */
-	line_add = 0 ;
-	
 	remain_len = p_plugin_ctx->parse_buflen ;
+	
 	p_line = p_plugin_ctx->parse_buffer ;
 	p_newline = memchr( p_line , '\n' , remain_len ) ;
+	line_add = 0 ;
 	while( p_newline )
 	{
 		line_len = p_newline - p_line ;
 		remain_len -= line_len+1 ;
 		(*p_newline) = '\0' ;
-		nret = SendLineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_line , line_len , line_add ) ;
+		p_next_newline = memchr( p_newline+1 , '\n' , remain_len ) ;
+		nret = SendLineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_line , line_len , line_add , (p_next_newline?0:1) ) ;
 		if( nret < 0 )
 		{
 			ERRORLOGC( "SendLineBuffer failed[%d]" , nret )
@@ -519,17 +575,18 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 		}
 		
 		line_add++;
-		
 		p_line = p_newline+1 ;
-		p_newline = memchr( p_line , '\n' , remain_len ) ;
+		if( p_next_newline == NULL )
+			break;
+		p_newline = p_next_newline ;
 	}
-	if( line_add )
+	if( p_newline )
 	{
 		memmove( p_plugin_ctx->parse_buffer , p_line , remain_len );
 		p_plugin_ctx->parse_buflen = remain_len ;
 	}
 	
-	INFOLOGC( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , MIN(p_plugin_ctx->parse_buflen,MAX_OUTPUT_BUF) , p_plugin_ctx->parse_buffer )
+	INFOLOGC( "after combine , [%d][%.*s]" , p_plugin_ctx->parse_buflen , MIN(p_plugin_ctx->parse_buflen,256) , p_plugin_ctx->parse_buffer )
 	
 	return 0;
 }
