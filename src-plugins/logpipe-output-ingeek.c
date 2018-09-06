@@ -443,7 +443,7 @@ _GOTO_WRITEN_TAIL :
 	
 	INFOLOGC( "send [%ld.%06ld] [%d][%.*s] [%ld.%06ld] [%d][%.*s]"
 		, tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec
-		, tail_buffer_len , tail_buffer_len , tail_buffer
+		, tail_buffer_len , tail_buffer_len-1 , tail_buffer
 		, tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec
 		, line_len , line_short_len , p_plugin_ctx->parse_buffer )
 	
