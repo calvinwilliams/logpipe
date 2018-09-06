@@ -441,10 +441,10 @@ _GOTO_WRITEN_TAIL :
 	DiffTimeval( & tv_begin_send_log , & tv_end_send_log , & tv_diff_send_log );
 	DiffTimeval( & tv_begin_send_tail , & tv_end_send_tail , & tv_diff_send_tail );
 	
-	INFOLOGC( "send [%ld.%06ld] [%d][%.*s] [%ld.%06ld] [%d][%.*s]"
+	INFOLOGC( "TRANSFER TAIL-TTV[%ld.%06ld] LOG-TTV[%ld.%06ld] TAIL-BUF[%d][%.*s] LOG-BUF[%d][%.*s]"
 		, tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec
-		, tail_buffer_len , tail_buffer_len-1 , tail_buffer
 		, tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec
+		, tail_buffer_len , tail_buffer_len-1 , tail_buffer
 		, line_len , line_short_len , p_plugin_ctx->parse_buffer )
 	
 	return 0;
