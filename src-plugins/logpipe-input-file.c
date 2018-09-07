@@ -117,8 +117,6 @@ struct InputPluginContext
 	uint64_t		remain_len ;
 	uint64_t		read_len ;
 	uint64_t		read_line ;
-	uint64_t		add_len ;
-	uint64_t		add_line ;
 } ;
 
 LINK_RBTREENODE_STRING( LinkTraceFilePathFilenameTreeNode , struct InputPluginContext , inotify_path_filename_rbtree , struct TraceFile , inotify_path_filename_rbnode , path_filename )
@@ -749,12 +747,12 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	if( read_full_file_flag == READ_FULL_FILE_FLAG )
 	{
 		p_trace_file->trace_offset = 0 ;
-		p_trace_file->trace_line = 1 ;
+		p_trace_file->trace_line = 0 ;
 	}
 	else
 	{
 		p_trace_file->trace_offset = file_stat.st_size ;
-		p_trace_file->trace_line = 1 + stat_filechr( p_trace_file->path_filename , file_stat.st_size , '\n' ) ;
+		p_trace_file->trace_line = 0 + stat_filechr( p_trace_file->path_filename , file_stat.st_size , '\n' ) ;
 	}
 	INFOLOGC( "set path_filename[%s] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_trace_file->trace_offset , p_trace_file->trace_line )
 	
@@ -1620,8 +1618,9 @@ int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	(*p_file_offset) = p_trace_file->trace_offset ;
 	(*p_file_line) = p_trace_file->trace_line ;
 	INFOLOGC( "BeforeReadInputPlugin[%s] file_offset[%"PRIu64"] file_line[%"PRIu64"]" , p_trace_file->path_filename , (*p_file_offset) , (*p_file_line) )
-	p_plugin_ctx->add_len = 0 ;
-	p_plugin_ctx->add_line = 0 ;
+	
+	p_plugin_ctx->read_len = 0 ;
+	p_plugin_ctx->read_line = 0 ;
 	
 	return 0;
 }
@@ -1631,6 +1630,9 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
+	struct timeval			tv_begin_read ;
+	struct timeval			tv_end_read ;
+	struct timeval			tv_diff_read ;
 	
 	uint64_t			read_len = 0 ;
 	
@@ -1638,6 +1640,21 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	
 	if( p_plugin_ctx->remain_len == 0 )
 		return LOGPIPE_READ_END_OF_INPUT;
+	
+	if( p_plugin_ctx->read_len > 0 || p_plugin_ctx->read_line > 0 )
+	{
+		INFOLOGC( "ReadInputPlugin[%s] - trace_offset[%"PRIu64"]=[%"PRIu64"]+[%"PRIu64"] trace_line[%"PRIu64"]=[%"PRIu64"]+[%"PRIu64"]"
+			, p_trace_file->path_filename
+			, p_plugin_ctx->p_trace_file->trace_offset+p_plugin_ctx->read_len , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->read_len
+			, p_trace_file->trace_line+p_plugin_ctx->read_line , p_trace_file->trace_line , p_plugin_ctx->read_line )
+		p_trace_file->trace_offset += p_plugin_ctx->read_len ;
+		p_trace_file->trace_line += p_plugin_ctx->read_line ;
+		p_plugin_ctx->read_len = 0 ;
+		p_plugin_ctx->read_line = 0 ;
+		
+		(*p_file_offset) = p_trace_file->trace_offset ;
+		(*p_file_line) = p_trace_file->trace_line ;
+	}
 	
 	/* Èç¹ûÎ´ÆôÓÃÑ¹Ëõ */
 	if( p_plugin_ctx->compress_algorithm == NULL )
@@ -1647,7 +1664,10 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		else
 			read_len = p_plugin_ctx->remain_len ;
 		memset( block_buf , 0x00 , read_len+1 );
+		gettimeofday( & tv_begin_read , NULL );
 		p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_buf , read_len ) ;
+		gettimeofday( & tv_end_read , NULL );
+		DiffTimeval( & tv_begin_read , & tv_end_read , & tv_diff_read );
 		if( p_plugin_ctx->read_len == -1 )
 		{
 			ERRORLOGC( "read file[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
@@ -1660,7 +1680,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else
 		{
-			INFOLOGC( "read file[%s] ok , [%"PRIu64"]bytes [%.100s...]" , p_trace_file->path_filename , p_plugin_ctx->read_len , block_buf )
+			INFOLOGC( "read file[%s] ok , DTV[%ld.%06ld] [%"PRIu64"]bytes[%.100s...]" , p_trace_file->path_filename , tv_diff_read.tv_sec,tv_diff_read.tv_usec , p_plugin_ctx->read_len , block_buf )
 			DEBUGHEXLOGC( block_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
@@ -1680,7 +1700,10 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			block_in_len = p_plugin_ctx->remain_len ;
 		
 		memset( block_in_buf , 0x00 , block_in_len+1 );
+		gettimeofday( & tv_begin_read , NULL );
 		p_plugin_ctx->read_len = read( p_plugin_ctx->fd , block_in_buf , block_in_len ) ;
+		gettimeofday( & tv_end_read , NULL );
+		DiffTimeval( & tv_begin_read , & tv_end_read , & tv_diff_read );
 		if( p_plugin_ctx->read_len == -1 )
 		{
 			ERRORLOGC( "read file[%s] failed , errno[%d]" , p_trace_file->path_filename , errno )
@@ -1693,7 +1716,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else
 		{
-			INFOLOGC( "read file[%s] ok , [%"PRIu64"]bytes [%.100s...]" , p_trace_file->path_filename , p_plugin_ctx->read_len , block_in_buf )
+			INFOLOGC( "read file[%s] ok , DTV[%ld.%06ld] [%"PRIu64"]bytes[%.100s...]" , p_trace_file->path_filename , tv_diff_read.tv_sec,tv_diff_read.tv_usec , p_plugin_ctx->read_len , block_in_buf )
 			DEBUGHEXLOGC( block_in_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
@@ -1712,13 +1735,17 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 	}
 	
-	p_plugin_ctx->remain_len -= p_plugin_ctx->read_len ;
-	
+	/*
 	(*p_file_offset) += p_plugin_ctx->read_len ;
 	(*p_file_line) += p_plugin_ctx->read_line ;
-	INFOLOGC( "ReadInputPlugin[%s] - file_offset[%"PRIu64"]+=[%"PRIu64"] file_line[%"PRIu64"]+=[%"PRIu64"] remain_len[%"PRIu64"]-=[%"PRIu64"]" , p_trace_file->path_filename , (*p_file_offset) , p_plugin_ctx->read_len , (*p_file_line) , p_plugin_ctx->read_line , p_plugin_ctx->remain_len , read_len )
-	p_plugin_ctx->add_len += p_plugin_ctx->read_len ;
-	p_plugin_ctx->add_line += p_plugin_ctx->read_line ;
+	*/
+	INFOLOGC( "ReadInputPlugin[%s] - read_len[%"PRIu64"] read_line[%"PRIu64"] remain_len[%"PRIu64"]=[%"PRIu64"]-[%"PRIu64"]"
+		, p_trace_file->path_filename
+		, p_plugin_ctx->read_len
+		, p_plugin_ctx->read_line
+		, p_plugin_ctx->remain_len-read_len , p_plugin_ctx->remain_len , p_plugin_ctx->read_len )
+	
+	p_plugin_ctx->remain_len -= p_plugin_ctx->read_len ;
 	
 	return 0;
 }
@@ -1729,9 +1756,17 @@ int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
 	
-	p_trace_file->trace_offset = (*p_file_offset) ;
-	p_trace_file->trace_line = (*p_file_line) ;
-	INFOLOGC( "AfterReadInputPlugin[%s] - trace_offset[%"PRIu64"]+=[%"PRIu64"] trace_line[%"PRIu64"]+=[%"PRIu64"]" , p_trace_file->path_filename , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->add_len , p_trace_file->trace_line , p_plugin_ctx->add_line )
+	INFOLOGC( "AfterReadInputPlugin[%s] - trace_offset[%"PRIu64"]=[%"PRIu64"]+[%"PRIu64"] trace_line[%"PRIu64"]=[%"PRIu64"]+[%"PRIu64"]"
+		, p_trace_file->path_filename
+		, p_plugin_ctx->p_trace_file->trace_offset+p_plugin_ctx->read_len , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->read_len
+		, p_trace_file->trace_line+p_plugin_ctx->read_line , p_trace_file->trace_line , p_plugin_ctx->read_line )
+	p_trace_file->trace_offset += p_plugin_ctx->read_len ;
+	p_trace_file->trace_line += p_plugin_ctx->read_line ;
+	p_plugin_ctx->read_len = 0 ;
+	p_plugin_ctx->read_line = 0 ;
+	
+	(*p_file_offset) = p_trace_file->trace_offset ;
+	(*p_file_line) = p_trace_file->trace_line ;
 	
 	return 0;
 }

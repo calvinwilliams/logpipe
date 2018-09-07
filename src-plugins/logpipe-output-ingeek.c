@@ -1,5 +1,9 @@
 #include "logpipe_api.h"
 
+#include <sys/uio.h>
+#define __need_IOV_MAX
+#include <bits/stdio_lim.h>
+
 /* communication protocol :
 	|(log)|key=(key)|file=(pathfile)|byteoffset=(byteoffset)|
 */
@@ -20,14 +24,16 @@ struct ForwardSession
 } ;
 
 /* 插件环境结构 */
-#define IP_PORT_MAXCNT		8
+#define IP_PORT_MAXCNT			8
 
-#define DISABLE_TIMEOUT		60
+#define DISABLE_TIMEOUT			10
 
-#define PARSE_BUFFER_SIZE	LOGPIPE_BLOCK_BUFSIZE*2
+#define PARSE_BUFFER_SIZE		LOGPIPE_BLOCK_BUFSIZE*2
 
-#define MAX_OUTPUT_BUF		256
-#define MAX_TAIL_BUF		256
+#define MAX_OUTPUT_BUF			256
+#define MAX_TAIL_BUF			256
+
+#define IOV_SEND_COUNT_DEFAULT		IOV_MAX
 
 struct OutputPluginContext
 {
@@ -38,6 +44,7 @@ struct OutputPluginContext
 	struct ForwardSession	*p_forward_session ;
 	int			forward_session_index ;
 	int			disable_timeout ;
+	int			iov_send_count ;
 	
 	char			*filename ;
 	uint64_t		file_line ;
@@ -46,6 +53,14 @@ struct OutputPluginContext
 	
 	char			parse_buffer[ PARSE_BUFFER_SIZE + 1 ] ; /* 解析缓冲区 */
 	int			parse_buflen ;
+	
+	char			tail_array[ IOV_SEND_COUNT_DEFAULT ][ MAX_TAIL_BUF + 1 ] ;
+	int			tail_len[ IOV_SEND_COUNT_DEFAULT ] ;
+	
+	struct iovec		iov_array[ IOV_SEND_COUNT_DEFAULT ] ;
+	int			iov_array_count ;
+	int			iov_total_line_len ;
+	int			iov_total_tail_len ;
 } ;
 
 funcLoadOutputPluginConfig LoadOutputPluginConfig ;
@@ -133,6 +148,22 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	{
 		p_plugin_ctx->disable_timeout = DISABLE_TIMEOUT ;
 	}
+	INFOLOGC( "disable_timeout[%d]" , p_plugin_ctx->disable_timeout )
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "iov_send_count" ) ;
+	if( p )
+	{
+		p_plugin_ctx->iov_send_count = atoi(p) ;
+		if( p_plugin_ctx->iov_send_count <= 0 )
+			p_plugin_ctx->iov_send_count = 1 ;
+		if( p_plugin_ctx->iov_send_count > IOV_SEND_COUNT_DEFAULT )
+			p_plugin_ctx->iov_send_count = IOV_SEND_COUNT_DEFAULT ;
+	}
+	else
+	{
+		p_plugin_ctx->iov_send_count = IOV_SEND_COUNT_DEFAULT ;
+	}
+	INFOLOGC( "iov_send_count[%d]" , p_plugin_ctx->iov_send_count )
 	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
@@ -346,11 +377,11 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 /* 分列解析缓冲区 */
-static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *line , uint64_t line_len , uint64_t line_add )
+static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct OutputPluginContext *p_plugin_ctx , char *line , uint64_t line_len , uint64_t line_add , unsigned char flush_send_buffer )
 {
 	char		mainfilename[ PATH_MAX + 1 ] ;
 	char		*p = NULL ;
-	int		line_short_len ;
+	/*
 	char		tail[ MAX_TAIL_BUF + 1 ] ;
 	uint64_t	tail_len ;
 	struct timeval	tv_begin_send_log ;
@@ -359,6 +390,12 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 	struct timeval	tv_begin_send_tail ;
 	struct timeval	tv_end_send_tail ;
 	struct timeval	tv_diff_send_tail ;
+	*/
+	char		(*p_tail_array)[ MAX_TAIL_BUF + 1 ] = NULL ;
+	int		*p_tail_len = NULL ;
+	struct timeval	tv_begin_send ;
+	struct timeval	tv_end_send ;
+	struct timeval	tv_diff_send ;
 	int		len ;
 	
 	int		nret = 0 ;
@@ -366,10 +403,11 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 	DEBUGLOGC( "send [%d][%.*s]" , line_len , line_len , line )
 	
 	/* 填充尾巴 */
-	memset( tail , 0x00 , sizeof(tail) );
+	p_tail_array = p_plugin_ctx->tail_array + p_plugin_ctx->iov_array_count  ;
+	p_tail_len = p_plugin_ctx->tail_len + p_plugin_ctx->iov_array_count ;
 	if( p_plugin_ctx->key )
 	{
-		tail_len = snprintf( tail , sizeof(tail)-1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , p_plugin_ctx->key , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+		(*p_tail_len) = snprintf( (*p_tail_array) , MAX_TAIL_BUF+1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , p_plugin_ctx->key , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	else
 	{
@@ -385,22 +423,18 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 			if( p )
 				(*p) = '\0' ;
 		}
-		tail_len = snprintf( tail , sizeof(tail)-1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+		(*p_tail_len) = snprintf( (*p_tail_array) , MAX_TAIL_BUF+1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	
-	if( line_len > MAX_OUTPUT_BUF )
-		line_short_len = MAX_OUTPUT_BUF ;
-	else
-		line_short_len = line_len ;
-	
 	/* 发送数据块到TCP */
+#if 0
 _GOTO_WRITEN_LOG :
 	gettimeofday( & tv_begin_send_log , NULL );
 	len = writen( p_plugin_ctx->p_forward_session->sock , line , line_len ) ;
 	gettimeofday( & tv_end_send_log , NULL );
 	if( len == -1 )
 	{
-		ERRORLOGC( "send-log [%d][%.*s] to socket failed , errno[%d]" , line_len , line_short_len , line , errno )
+		ERRORLOGC( "send-log [%d][%.*s] to socket failed , errno[%d]" , line_len , MIN(line_len,MAX_OUTPUT_BUF) , line , errno )
 		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
 		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 		if( nret )
@@ -445,7 +479,50 @@ _GOTO_WRITEN_TAIL :
 		, tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec
 		, tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec
 		, tail_len , tail_len-1 , tail
-		, line_len , line_short_len , line )
+		, line_len , MIN(line_len,MAX_OUTPUT_BUF) , line )
+#endif
+	INFOLOGC( "IOV-BUF LOG[%d][%.*s] TAIL[%d][%.*s]" , line_len , MIN(line_len,MAX_OUTPUT_BUF) , line , (*p_tail_len) , (*p_tail_len)-1 , (*p_tail_array) )
+	DEBUGHEXLOGC( line , line_len , NULL )
+	DEBUGHEXLOGC( (*p_tail_array) , (*p_tail_len) , NULL )
+	
+	p_plugin_ctx->iov_array[p_plugin_ctx->iov_array_count].iov_base = line ;
+	p_plugin_ctx->iov_array[p_plugin_ctx->iov_array_count].iov_len = line_len ;
+	p_plugin_ctx->iov_total_line_len += line_len ;
+	
+	p_plugin_ctx->iov_array[p_plugin_ctx->iov_array_count].iov_base = (*p_tail_array) ;
+	p_plugin_ctx->iov_array[p_plugin_ctx->iov_array_count].iov_len = (*p_tail_len) ;
+	p_plugin_ctx->iov_total_tail_len += (*p_tail_len) ;
+	
+	p_plugin_ctx->iov_array_count++;
+	
+	if( p_plugin_ctx->iov_array_count >= p_plugin_ctx->iov_send_count || flush_send_buffer )
+	{
+_GOTO_WRITEV :
+		gettimeofday( & tv_begin_send , NULL );
+		len = writev( p_plugin_ctx->p_forward_session->sock , p_plugin_ctx->iov_array , p_plugin_ctx->iov_array_count ) ;
+		gettimeofday( & tv_end_send , NULL );
+		DiffTimeval( & tv_begin_send , & tv_end_send , & tv_diff_send );
+		if( len == -1 )
+		{
+			ERRORLOGC( "IOV-SEND [%d]lines [%d]line-bytes [%d]tail-bytes to socket failed , errno[%d]" , p_plugin_ctx->iov_array_count , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len , errno )
+			close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
+			nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+			if( nret )
+			{
+				ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
+				return nret;
+			}
+			goto _GOTO_WRITEV;
+		}
+		else
+		{
+			INFOLOGC( "IOV-SEND [%d]lines [%d]line-bytes [%d]tail-bytes to socket ok , DTV[%ld.%06ld]" , p_plugin_ctx->iov_array_count , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len , tv_diff_send.tv_sec , tv_diff_send.tv_usec )
+		}
+		
+		p_plugin_ctx->iov_array_count = 0 ;
+		p_plugin_ctx->iov_total_line_len = 0 ;
+		p_plugin_ctx->iov_total_tail_len = 0 ;
+	}
 	
 	return 0;
 }
@@ -455,6 +532,7 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 {
 	char		*p_line = NULL ;
 	char		*p_newline = NULL ;
+	char		*p_next_newline = NULL ;
 	uint64_t	line_len ;
 	uint64_t	remain_len ;
 	uint64_t	line_add ;
@@ -473,7 +551,7 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 	else
 	{
 		/* 先强制把遗留数据都处理掉 */
-		nret = SendLineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_plugin_ctx->parse_buffer , p_plugin_ctx->parse_buflen , 0 ) ;
+		nret = SendLineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_plugin_ctx->parse_buffer , p_plugin_ctx->parse_buflen , 0 , 1 ) ;
 		if( nret < 0 )
 		{
 			ERRORLOGC( "SendLineBuffer failed[%d]" , nret )
@@ -493,17 +571,20 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 	}
 	
 	/* 把解析缓冲区中有效行都处理掉 */
+	remain_len = p_plugin_ctx->parse_buflen ;
 	line_add = 0 ;
 	
-	remain_len = p_plugin_ctx->parse_buflen ;
 	p_line = p_plugin_ctx->parse_buffer ;
 	p_newline = memchr( p_line , '\n' , remain_len ) ;
 	while( p_newline )
 	{
+		line_add++;
+		
 		line_len = p_newline - p_line ;
 		remain_len -= line_len+1 ;
 		(*p_newline) = '\0' ;
-		nret = SendLineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_line , line_len , line_add ) ;
+		p_next_newline = memchr( p_newline+1 , '\n' , remain_len ) ;
+		nret = SendLineBuffer( p_env , p_logpipe_output_plugin , p_plugin_ctx , p_line , line_len , line_add , p_next_newline?0:1 ) ;
 		if( nret < 0 )
 		{
 			ERRORLOGC( "SendLineBuffer failed[%d]" , nret )
@@ -518,10 +599,8 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 			DEBUGLOGC( "SendLineBuffer ok" )
 		}
 		
-		line_add++;
-		
 		p_line = p_newline+1 ;
-		p_newline = memchr( p_line , '\n' , remain_len ) ;
+		p_newline = p_next_newline ;
 	}
 	if( line_add )
 	{
