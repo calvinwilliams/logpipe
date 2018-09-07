@@ -10,18 +10,21 @@
 c_FILE		=	\
 			press_logpipe.c \
 			test_logpipe.c \
+			press_LOGC.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
-BIN		=	press_logpipe test_logpipe
+BIN		=	press_logpipe test_logpipe press_LOGC
 BININST		=	$(_BININST)
 
 ###### 编译选项
 CFLAGS		=	$(_CFLAGS) \
+			-std=gnu99 \
 			-I$(HOME)/include/logpipe \
 
 ###### 链接选项
 LFLAGS		=	$(_LFLAGS) \
+			-llogpipe_api \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=
@@ -45,4 +48,7 @@ press_logpipe	:	press_logpipe.o
 
 test_logpipe	:	test_logpipe.o
 	$(CC) -o $@ test_logpipe.o $(LFLAGS)
+
+press_LOGC	:	press_LOGC.o
+	$(CC) -o $@ press_LOGC.o $(LFLAGS)
 
