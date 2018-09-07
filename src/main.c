@@ -12,8 +12,8 @@
 ps -f -u $USER | grep "logpipe -f" | awk '{if($3==1)print $2}' | xargs kill
 */
 
-char __LOGPIPE_VERSION_1_0_4[] = "1.0.4" ;
-char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_1_0_4 ;
+char __LOGPIPE_VERSION_1_0_5[] = "1.0.5" ;
+char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_1_0_5 ;
 
 /* œ‘ æ∞Ê±æ∫≈ */
 static void version()
