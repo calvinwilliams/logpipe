@@ -12,7 +12,7 @@
 make logpipe-output-ingeek.so && cp logpipe-output-ingeek.so ~/so/
 */
 
-int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_1_0 = 1 ;
+int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_0 = 1 ;
 
 struct ForwardSession
 {

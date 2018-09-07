@@ -4,7 +4,7 @@
 logpipe -f logpipe_case1_collector.conf --start-once-for-env "start_once_for_full_dose 1"
 */
 
-int	__LOGPIPE_INPUT_FILE_VERSION_0_3_7 = 1 ;
+int	__LOGPIPE_INPUT_FILE_VERSION_0_3_8 = 1 ;
 
 /* 跟踪文件信息结构 */
 struct TraceFile
