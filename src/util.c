@@ -218,6 +218,87 @@ ssize_t writen(int fd, const void *vptr, size_t n)
     return n;
 }
 
+ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , struct timeval *p_timeout , struct timeval *p_elapse )
+{
+	struct timeval		timestamp1 ;
+	struct timeval		timestamp2 ;
+	struct timeval		timestamp3 ;
+	struct timeval		diff_time ;
+	fd_set			write_fds ;
+	ssize_t			len ;
+	ssize_t			total_len ;
+	
+	int			nret = 0 ;
+	
+	if( p_elapse )
+	{
+		(*p_elapse).tv_sec = 0 ;
+		(*p_elapse).tv_usec = 0 ;
+	}
+	
+	total_len = 0 ;
+	while(1)
+	{
+		if( (*p_timeout).tv_sec < 0 )
+			(*p_timeout).tv_sec = 0 ;
+		if( (*p_timeout).tv_usec < 0 )
+			(*p_timeout).tv_usec = 0 ;
+		
+		FD_ZERO( & write_fds );
+		FD_SET( fd , & write_fds );
+		gettimeofday( & timestamp1 , NULL );
+		nret = select( fd+1 , NULL , & write_fds , NULL , p_timeout ) ;
+		if( nret == -1 )
+		{
+			return -2;
+		}
+		else if( nret == 0 )
+		{
+			return 0;
+		}
+		
+		gettimeofday( & timestamp2 , NULL );
+		DIFF_TIMEVAL( diff_time , timestamp1 , timestamp2 )
+		DECREASE_TIMEVAL( (*p_timeout) , diff_time )
+		INCREASE_TIMEVAL( (*p_elapse) , diff_time )
+		
+		len = writev( fd , *pp_iov , *p_iovcnt ) ;
+		if( len == -1 )
+		{
+			return -1;
+		}
+		total_len += len ;
+		
+		while( len > 0 )
+		{
+			if( len >= (*pp_iov)->iov_len )
+			{
+				len -= (*pp_iov)->iov_len ;
+				(*pp_iov)++;
+				(*p_iovcnt)--;
+			}
+			else
+			{
+				(*pp_iov)->iov_base += len ;
+				(*pp_iov)->iov_len -= len ;
+				len = 0 ;
+			}
+			
+		}
+		
+		gettimeofday( & timestamp3 , NULL );
+		DIFF_TIMEVAL( diff_time , timestamp2 , timestamp3 )
+		DECREASE_TIMEVAL( (*p_timeout) , diff_time )
+		INCREASE_TIMEVAL( (*p_elapse) , diff_time )
+		
+		if( (*p_iovcnt) == 0 )
+		{
+			(*pp_iov) = NULL ;
+			return total_len;
+		}
+	}
+}
+
 /* 从描述字读取定长字节块 */
 ssize_t readn(int fd, void *vptr, size_t n)
 {

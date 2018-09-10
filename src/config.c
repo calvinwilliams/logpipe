@@ -22,6 +22,8 @@ static int ConvLogLevelStr( char *log_level_str , int log_level_str_len )
 		return LOGCLEVEL_DEBUG;
 	else if( log_level_str_len == 4 && STRNCMP( log_level_str , == , "INFO" , log_level_str_len ) )
 		return LOGCLEVEL_INFO ;
+	else if( log_level_str_len == 6 && STRNCMP( log_level_str , == , "NOTICE" , log_level_str_len ) )
+		return LOGCLEVEL_NOTICE ;
 	else if( log_level_str_len == 4 && STRNCMP( log_level_str , == , "WARN" , log_level_str_len ) )
 		return LOGCLEVEL_WARN ;
 	else if( log_level_str_len == 5 && STRNCMP( log_level_str , == , "ERROR" , log_level_str_len ) )

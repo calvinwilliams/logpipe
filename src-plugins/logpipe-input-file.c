@@ -1680,7 +1680,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else
 		{
-			INFOLOGC( "read file[%s] ok , DTV[%ld.%06ld] [%"PRIu64"]bytes[%.100s...]" , p_trace_file->path_filename , tv_diff_read.tv_sec,tv_diff_read.tv_usec , p_plugin_ctx->read_len , block_buf )
+			NOTICELOGC( "read file[%s] ok , DTV[%ld.%06ld] [%"PRIu64"]bytes[%.100s...]" , p_trace_file->path_filename , tv_diff_read.tv_sec,tv_diff_read.tv_usec , p_plugin_ctx->read_len , block_buf )
 			DEBUGHEXLOGC( block_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
@@ -1716,7 +1716,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else
 		{
-			INFOLOGC( "read file[%s] ok , DTV[%ld.%06ld] [%"PRIu64"]bytes[%.100s...]" , p_trace_file->path_filename , tv_diff_read.tv_sec,tv_diff_read.tv_usec , p_plugin_ctx->read_len , block_in_buf )
+			NOTICELOGC( "read file[%s] ok , DTV[%ld.%06ld] [%"PRIu64"]bytes[%.100s...]" , p_trace_file->path_filename , tv_diff_read.tv_sec,tv_diff_read.tv_usec , p_plugin_ctx->read_len , block_in_buf )
 			DEBUGHEXLOGC( block_in_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
