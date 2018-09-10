@@ -63,7 +63,45 @@ int asprintf(char **strp, const char *fmt, ...);
 #define SNPRINTF_OVERFLOW(_ret_,_sizeof_)		( (_ret_) == -1 || (_ret_) >= (_sizeof_) )
 #endif
 
+#define VAL_TIMEVAL(_timeval_,_tv_sec_,_tv_usec_) \
+	{ \
+		(_timeval_).tv_sec = (_tv_sec_) ; \
+		(_timeval_).tv_usec = (_tv_usec_) ; \
+	} \
+
+#define DIFF_TIMEVAL(_tv_diff_,_tv1_,_tv2_) \
+	(_tv_diff_).tv_sec = (_tv2_).tv_sec - (_tv1_).tv_sec ; \
+	(_tv_diff_).tv_usec = (_tv2_).tv_usec - (_tv1_).tv_usec ; \
+	while( (_tv_diff_).tv_usec < 0 ) \
+	{ \
+		(_tv_diff_).tv_usec += 1000000 ; \
+		(_tv_diff_).tv_sec--; \
+	} \
+
+#define INCREASE_TIMEVAL(_timeval1_,_timeval2_) \
+	{ \
+		(_timeval1_).tv_sec += (_timeval2_).tv_sec ; \
+		(_timeval1_).tv_usec += (_timeval2_).tv_usec ; \
+		while( (_timeval1_).tv_usec > 1000000 ) \
+		{ \
+			(_timeval1_).tv_usec -= 1000000 ; \
+			(_timeval1_).tv_sec++; \
+		} \
+	} \
+
+#define DECREASE_TIMEVAL(_timeval1_,_timeval2_) \
+	{ \
+		(_timeval1_).tv_sec -= (_timeval2_).tv_sec ; \
+		(_timeval1_).tv_usec -= (_timeval2_).tv_usec ; \
+		while( (_timeval1_).tv_usec < 0 ) \
+		{ \
+			(_timeval1_).tv_usec += 1000000 ; \
+			(_timeval1_).tv_sec--; \
+		} \
+	} \
+
 ssize_t writen(int fd, const void *vptr, size_t n);
+ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , struct timeval *p_timeout , struct timeval *p_elapse );
 ssize_t readn(int fd, void *vptr, size_t n);
 char *ConvertContentEncodingEx( char *encFrom , char *encTo , char *inptr , int *inptrlen , char *outptr , int *outptrlen );
 char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr );

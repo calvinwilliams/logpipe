@@ -40,7 +40,7 @@ TLS char	_g_logc_cust_label3[ LOGC_MAXLEN_CUST_LABEL + 1 ] = "" ;
 TLS char	_g_logc_cust_label4[ LOGC_MAXLEN_CUST_LABEL + 1 ] = "" ;
 TLS char	_g_logc_cust_label5[ LOGC_MAXLEN_CUST_LABEL + 1 ] = "" ;
 
-static const char _logc_level_itoa[][6] = { "DEBUG" , "INFO" , "NOTICE" , "WARN" , "ERROR" , "FATAL" , "NOLOG" } ;
+static const char _logc_level_itoa[][7] = { "DEBUG" , "INFO" , "NOTICE" , "WARN" , "ERROR" , "FATAL" , "NOLOG" } ;
 
 /* 设置日志文件名 */
 void SetLogcFile( char *format , ... )
@@ -170,7 +170,7 @@ int WriteLogcBaseV( int log_level , char *c_filename , long c_fileline , char *f
 	log_buflen = 0 ;
 	log_buf_remain_len = sizeof(log_buffer) - 1 - sizeof(NEWLINE) ;
 	
-	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s.%06ld | %-5s | " , last_time_buf , (long)(tv.tv_usec) , _logc_level_itoa[log_level] ) ;
+	len = SNPRINTF( log_bufptr , log_buf_remain_len , "%s.%06ld | %-6s | " , last_time_buf , (long)(tv.tv_usec) , _logc_level_itoa[log_level] ) ;
 	OFFSET_BUFPTR( log_buffer , log_bufptr , len , log_buflen , log_buf_remain_len );
 	if( _g_logc_cust_label1[0] )
 	{
