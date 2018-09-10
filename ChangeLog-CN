@@ -1,3 +1,8 @@
+1.0.6		2018-09-10	calvin
+		* 插件logpipe-input-file.so和logpipe-output-ingeek.so新增NOTICE等级日志
+		* 插件logpipe-output-ingeek.so新增参数iov_send_timeout
+		* 新增公函writev3，首先用于插件logpipe-output-ingeek.so
+
 1.0.5		2018-09-07	calvin
 		* 优化logpipe-output-ingeek分割行和合并通讯发送性能
 		* 新增测试程序press_LOGC
