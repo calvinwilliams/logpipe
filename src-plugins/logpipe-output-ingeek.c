@@ -33,6 +33,7 @@ struct ForwardSession
 #define MAX_OUTPUT_BUF			256
 #define MAX_TAIL_BUF			256
 
+#define IOV_CONNECT_INTERVAL_DEFAULT	1
 #define IOV_SEND_COUNT_DEFAULT		IOV_MAX
 #define IOV_SEND_TIMEOUT_DEFAULT	20
 
@@ -44,6 +45,7 @@ struct OutputPluginContext
 	int			forward_session_count ;
 	struct ForwardSession	*p_forward_session ;
 	int			forward_session_index ;
+	int			iov_connect_interval ;
 	int			disable_timeout ;
 	int			iov_send_count ;
 	int			iov_send_timeout ;
@@ -140,6 +142,17 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		ERRORLOGC( "expect config for 'ip'" )
 		return -1;
 	}
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "iov_connect_interval" ) ;
+	if( p )
+	{
+		p_plugin_ctx->iov_connect_interval = atoi(p) ;
+	}
+	else
+	{
+		p_plugin_ctx->iov_connect_interval = IOV_CONNECT_INTERVAL_DEFAULT ;
+	}
+	INFOLOGC( "iov_connect_interval[%d]" , p_plugin_ctx->iov_connect_interval )
 	
 	p = QueryPluginConfigItem( p_plugin_config_items , "disable_timeout" ) ;
 	if( p )
@@ -274,7 +287,7 @@ static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct Logpi
 			}
 		}
 		
-		sleep(1);
+		sleep(p_plugin_ctx->iov_connect_interval);
 	}
 }
 
