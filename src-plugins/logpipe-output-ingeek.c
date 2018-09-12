@@ -12,7 +12,7 @@
 make logpipe-output-ingeek.so && cp logpipe-output-ingeek.so ~/so/
 */
 
-int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_0 = 1 ;
+int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_1 = 1 ;
 
 struct ForwardSession
 {
@@ -598,10 +598,10 @@ _GOTO_WRITEV :
 		}
 		else
 		{
-			NOTICELOGC( "IOV-SEND [%d]l[%d]lB[%d]tB ok,DTV[%ld.%06ld],ll[%d]B[%.100s] lt[%d]B[%.*s]"
+			NOTICELOGC( "IOV-SEND [%d]l[%d]lB[%d]tB ok,DTV[%ld.%06ld],ll[%d]B[%.*s] lt[%d]B[%.*s]"
 				, iov_count_bak/2 , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len
 				, send_elapse.tv_sec , send_elapse.tv_usec
-				, last_log_len_bak , last_log_base_bak
+				, last_log_len_bak , last_log_len_bak , last_log_base_bak
 				, last_tail_len_bak , last_tail_len_bak-1 , last_tail_base_bak )
 			p_plugin_ctx->iov_count = 0 ;
 			p_plugin_ctx->iov_total_line_len = 0 ;
