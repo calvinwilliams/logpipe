@@ -12,7 +12,7 @@
 make logpipe-output-ingeek.so && cp logpipe-output-ingeek.so ~/so/
 */
 
-int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_1 = 1 ;
+int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_2 = 1 ;
 
 struct ForwardSession
 {
@@ -251,13 +251,6 @@ static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct Logpi
 			}
 			
 			/* 设置套接字选项 */
-			/*
-			{
-				int	onoff = 1 ;
-				setsockopt( p_forward_session->sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
-			}
-			*/
-			
 			{
 				int	onoff = 1 ;
 				setsockopt( p_forward_session->sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
@@ -401,15 +394,19 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
+	/*
 	int				nret = 0 ;
+	*/
 	
 	/* 检查连接，如果连接失效则重连 */
+	/*
 	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 	if( nret )
 	{
 		ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
 		return nret;
 	}
+	*/
 	
 	/* 保存文件名指针 */
 	p_plugin_ctx->filename = filename ;
@@ -426,8 +423,8 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 	int		*p_tail_len = NULL ;
 	struct iovec	*p_iov_array = NULL ;
 	int		*p_iov_count = NULL ;
-	struct timeval	send_timeout ;
-	struct timeval	send_elapse ;
+	int		send_timeout = 0 ;
+	int		send_elapse = 0 ;
 	int		len ;
 	
 	int		nret = 0 ;
@@ -489,16 +486,27 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 		char	*last_tail_base_bak = p_plugin_ctx->iov_array[p_plugin_ctx->iov_count-1].iov_base ;
 		int	last_tail_len_bak = p_plugin_ctx->iov_array[p_plugin_ctx->iov_count-1].iov_len ;
 		int	iov_count_bak = p_plugin_ctx->iov_count ;
-
-		VAL_TIMEVAL( send_timeout , p_plugin_ctx->iov_send_timeout , 0 );
+		
+		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+		if( nret )
+		{
+			ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
+			p_plugin_ctx->iov_count = 0 ;
+			p_plugin_ctx->iov_total_line_len = 0 ;
+			p_plugin_ctx->iov_total_tail_len = 0 ;
+			return nret;
+		}
+		
 		p_iov_array = p_plugin_ctx->iov_array ;
 		p_iov_count = & (p_plugin_ctx->iov_count) ;
+		send_timeout = p_plugin_ctx->iov_send_timeout*1000000 ;
+		send_elapse = 0 ;
 		len = writev3( p_plugin_ctx->p_forward_session->sock , & p_iov_array , p_iov_count , p_plugin_ctx->iov_total_line_len+p_plugin_ctx->iov_total_tail_len , & send_timeout , & send_elapse ) ;
 		if( len < 0 || p_iov_array || (*p_iov_count) > 0 )
 		{
 			if( p_iov_array || (*p_iov_count) > 0 )
 			{
-				ERRORLOGC( "IOV-SEND[%s:%d#%d] [%d]l[%d]lB[%d]tB timeout,errno[%d],ll[%d]B[%.100s] lt[%d]B[%.*s]"
+				ERRORLOGC( "IOV-SEND[%s:%d][%d] [%d]l[%d]lB[%d]tB timeout , errno[%d] , ll[%d]B[%.100s] lt[%d]B[%.*s]"
 					, p_plugin_ctx->p_forward_session->ip , p_plugin_ctx->p_forward_session->port , p_plugin_ctx->p_forward_session->sock
 					, iov_count_bak/2 , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len
 					, errno
@@ -507,7 +515,7 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 			}
 			else
 			{
-				ERRORLOGC( "IOV-SEND[%s:%d#%d] [%d]l[%d]lB[%d]tB failed[%d],errno[%d],ll[%d]B[%.100s] lt[%d]B[%.*s]"
+				ERRORLOGC( "IOV-SEND[%s:%d][%d] [%d]l[%d]lB[%d]tB failed[%d] , errno[%d] , ll[%d]B[%.100s] lt[%d]B[%.*s]"
 					, p_plugin_ctx->p_forward_session->ip , p_plugin_ctx->p_forward_session->port , p_plugin_ctx->p_forward_session->sock
 					, iov_count_bak/2 , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len
 					, len , errno
@@ -515,15 +523,6 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 					, last_tail_len_bak , last_tail_len_bak-1 , last_tail_base_bak )
 			}
 			close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-			nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
-			if( nret )
-			{
-				ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
-				p_plugin_ctx->iov_count = 0 ;
-				p_plugin_ctx->iov_total_line_len = 0 ;
-				p_plugin_ctx->iov_total_tail_len = 0 ;
-				return nret;
-			}
 			
 			p_plugin_ctx->iov_count = 0 ;
 			p_plugin_ctx->iov_total_line_len = 0 ;
@@ -532,10 +531,10 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 		}
 		else
 		{
-			NOTICELOGC( "IOV-SEND[%s:%d#%d] [%d]l[%d]lB[%d]tB ok,DTV[%ld.%06ld],ll[%d]B[%.*s] lt[%d]B[%.*s]"
+			NOTICELOGC( "IOV-SEND[%s:%d][%d] [%d]l[%d]lB[%d]tB ok , DTV[%d.%06d] ll[%d]B[%.*s] lt[%d]B[%.*s]"
 				, p_plugin_ctx->p_forward_session->ip , p_plugin_ctx->p_forward_session->port , p_plugin_ctx->p_forward_session->sock
 				, iov_count_bak/2 , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len
-				, send_elapse.tv_sec , send_elapse.tv_usec
+				, send_elapse/1000000 , send_elapse%1000000
 				, last_log_len_bak , last_log_len_bak , last_log_base_bak
 				, last_tail_len_bak , last_tail_len_bak-1 , last_tail_base_bak )
 			p_plugin_ctx->iov_count = 0 ;

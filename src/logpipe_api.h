@@ -39,6 +39,7 @@ extern "C" {
 #include <sys/stat.h>
 #include <math.h>
 #include <inttypes.h>
+#include <poll.h>
 
 char *strndup(const char *s, size_t n);
 int asprintf(char **strp, const char *fmt, ...);
@@ -101,7 +102,7 @@ int asprintf(char **strp, const char *fmt, ...);
 	} \
 
 ssize_t writen(int fd, const void *vptr, size_t n);
-ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , int iov_total_len , struct timeval *p_timeout , struct timeval *p_elapse );
+ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , int iov_total_len , int *p_timeout , int *p_elapse );
 ssize_t readn(int fd, void *vptr, size_t n);
 char *ConvertContentEncodingEx( char *encFrom , char *encTo , char *inptr , int *inptrlen , char *outptr , int *outptrlen );
 char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr );

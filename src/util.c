@@ -218,36 +218,37 @@ ssize_t writen(int fd, const void *vptr, size_t n)
     return n;
 }
 
-ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , int iov_total_len , struct timeval *p_timeout , struct timeval *p_elapse )
+ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , int iov_total_len , int *p_timeout , int *p_elapse )
 {
 	struct timeval		timestamp1 ;
 	struct timeval		timestamp2 ;
 	struct timeval		timestamp3 ;
 	struct timeval		diff_time ;
-	fd_set			write_fds ;
+	struct pollfd		fds ;
 	ssize_t			len ;
 	ssize_t			total_len ;
 	
 	int			nret = 0 ;
 	
 	if( p_elapse )
-	{
-		(*p_elapse).tv_sec = 0 ;
-		(*p_elapse).tv_usec = 0 ;
-	}
+		(*p_elapse) = 0 ;
 	
 	total_len = 0 ;
 	while( (*p_iovcnt) > 0 )
 	{
-		if( (*p_timeout).tv_sec < 0 )
-			(*p_timeout).tv_sec = 0 ;
-		if( (*p_timeout).tv_usec < 0 )
-			(*p_timeout).tv_usec = 0 ;
+		if( p_timeout )
+			if( (*p_timeout) < 0 )
+				(*p_timeout) = 0 ;
 		
-		FD_ZERO( & write_fds );
-		FD_SET( fd , & write_fds );
 		gettimeofday( & timestamp1 , NULL );
-		nret = select( fd+1 , NULL , & write_fds , NULL , p_timeout ) ;
+		
+		fds.fd = fd ;
+		fds.events = POLLOUT ;
+		fds.revents = 0 ;
+		if( p_timeout )
+			nret = poll( & fds , 1 , (*p_timeout)/1000 ) ;
+		else
+			nret = poll( & fds , 1 , -1 ) ;
 		if( nret == -1 )
 		{
 			return -2;
@@ -259,8 +260,10 @@ ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , int iov_total_l
 		
 		gettimeofday( & timestamp2 , NULL );
 		DIFF_TIMEVAL( diff_time , timestamp1 , timestamp2 )
-		DECREASE_TIMEVAL( (*p_timeout) , diff_time )
-		INCREASE_TIMEVAL( (*p_elapse) , diff_time )
+		if( p_timeout )
+			(*p_timeout) -= diff_time.tv_sec*1000000 + diff_time.tv_usec ;
+		if( p_elapse )
+			(*p_elapse) += diff_time.tv_sec*1000000 + diff_time.tv_usec ;
 		
 		len = writev( fd , *pp_iov , *p_iovcnt ) ;
 		if( len == -1 )
@@ -301,8 +304,10 @@ ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , int iov_total_l
 		
 		gettimeofday( & timestamp3 , NULL );
 		DIFF_TIMEVAL( diff_time , timestamp2 , timestamp3 )
-		DECREASE_TIMEVAL( (*p_timeout) , diff_time )
-		INCREASE_TIMEVAL( (*p_elapse) , diff_time )
+		if( p_timeout )
+			(*p_timeout) -= diff_time.tv_sec*1000000 + diff_time.tv_usec ;
+		if( p_elapse )
+			(*p_elapse) += diff_time.tv_sec*1000000 + diff_time.tv_usec ;
 	}
 	
 	return total_len;

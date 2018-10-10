@@ -1,3 +1,7 @@
+1.0.7		2018-10-10	calvin
+		* 解决了logpipe-output-ingeek.so使用select描述字大于1024而导致的异常，改用poll
+		* 按读文件内容块轮训上游服务端改成按日志行块
+
 1.0.6		2018-09-10	calvin
 		* 插件logpipe-input-file.so和logpipe-output-ingeek.so新增NOTICE等级日志
 		* 插件logpipe-output-ingeek.so新增参数iov_send_timeout,iov_connect_interval
