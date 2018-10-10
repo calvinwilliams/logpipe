@@ -5,14 +5,14 @@
 #include <bits/stdio_lim.h>
 
 /* communication protocol :
-	|(log)|key=(key)|file=(pathfile)|byteoffset=(byteoffset)|
+	|(log)|[key=(key)]|[file=(pathfile)]|[byteoffset=(byteoffset)]|\n|
 */
 
 /* compile and install command
 make logpipe-output-ingeek.so && cp logpipe-output-ingeek.so ~/so/
 */
 
-int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_1 = 1 ;
+int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_2 = 1 ;
 
 struct ForwardSession
 {
@@ -253,11 +253,6 @@ static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct Logpi
 			/* 设置套接字选项 */
 			{
 				int	onoff = 1 ;
-				setsockopt( p_forward_session->sock , SOL_SOCKET , SO_REUSEADDR , (void *) & onoff , sizeof(int) );
-			}
-			
-			{
-				int	onoff = 1 ;
 				setsockopt( p_forward_session->sock , IPPROTO_TCP , TCP_NODELAY , (void*) & onoff , sizeof(int) );
 			}
 			
@@ -276,6 +271,7 @@ static int CheckAndConnectForwardSocket( struct LogpipeEnv *p_env , struct Logpi
 				/* 设置输入描述字 */
 				AddOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
 				
+				/* 设置非堵塞模式 */
 				{
 					int	opts ;
 					opts = fcntl( p_forward_session->sock , F_GETFL );
@@ -398,15 +394,19 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
+	/*
 	int				nret = 0 ;
+	*/
 	
 	/* 检查连接，如果连接失效则重连 */
+	/*
 	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
 	if( nret )
 	{
 		ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
 		return nret;
 	}
+	*/
 	
 	/* 保存文件名指针 */
 	p_plugin_ctx->filename = filename ;
@@ -419,27 +419,12 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 {
 	char		mainfilename[ PATH_MAX + 1 ] ;
 	char		*p = NULL ;
-	/*
-	char		tail[ MAX_TAIL_BUF + 1 ] ;
-	uint64_t	tail_len ;
-	struct timeval	tv_begin_send_log ;
-	struct timeval	tv_end_send_log ;
-	struct timeval	tv_diff_send_log ;
-	struct timeval	tv_begin_send_tail ;
-	struct timeval	tv_end_send_tail ;
-	struct timeval	tv_diff_send_tail ;
-	*/
 	char		(*p_tail_array)[ MAX_TAIL_BUF + 1 ] = NULL ;
 	int		*p_tail_len = NULL ;
-	/*
-	struct timeval	tv_begin_send ;
-	struct timeval	tv_end_send ;
-	struct timeval	tv_diff_send ;
-	*/
 	struct iovec	*p_iov_array = NULL ;
 	int		*p_iov_count = NULL ;
-	struct timeval	send_timeout ;
-	struct timeval	send_elapse ;
+	int		send_timeout = 0 ;
+	int		send_elapse = 0 ;
 	int		len ;
 	
 	int		nret = 0 ;
@@ -451,7 +436,7 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 	p_tail_len = p_plugin_ctx->tail_len + p_plugin_ctx->iov_count ;
 	if( p_plugin_ctx->key )
 	{
-		(*p_tail_len) = snprintf( (*p_tail_array) , MAX_TAIL_BUF+1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , p_plugin_ctx->key , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+		(*p_tail_len) = snprintf( (*p_tail_array) , MAX_TAIL_BUF , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , p_plugin_ctx->key , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	else
 	{
@@ -467,64 +452,10 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 			if( p )
 				(*p) = '\0' ;
 		}
-		(*p_tail_len) = snprintf( (*p_tail_array) , MAX_TAIL_BUF+1 , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
+		(*p_tail_len) = snprintf( (*p_tail_array) , MAX_TAIL_BUF , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	
 	/* 发送数据块到TCP */
-#if 0
-_GOTO_WRITEN_LOG :
-	gettimeofday( & tv_begin_send_log , NULL );
-	len = writen( p_plugin_ctx->p_forward_session->sock , line , line_len ) ;
-	gettimeofday( & tv_end_send_log , NULL );
-	if( len == -1 )
-	{
-		ERRORLOGC( "send-log [%d][%.*s] to socket failed , errno[%d]" , line_len , MIN(line_len,MAX_OUTPUT_BUF) , line , errno )
-		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
-		if( nret )
-		{
-			ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
-			return nret;
-		}
-		goto _GOTO_WRITEN_LOG;
-	}
-	else
-	{
-		DEBUGLOGC( "send log data to socket ok , [%d]bytes" , line_len )
-		DEBUGHEXLOGC( line , line_len , NULL )
-	}
-	
-_GOTO_WRITEN_TAIL :
-	gettimeofday( & tv_begin_send_tail , NULL );
-	len = writen( p_plugin_ctx->p_forward_session->sock , tail , tail_len ) ;
-	gettimeofday( & tv_end_send_tail , NULL );
-	if( len == -1 )
-	{
-		ERRORLOGC( "send-tail [%d][%.*s] to socket failed , errno[%d]" , tail_len , tail_len , tail , errno )
-		close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
-		if( nret )
-		{
-			ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
-			return nret;
-		}
-		goto _GOTO_WRITEN_TAIL;
-	}
-	else
-	{
-		DEBUGLOGC( "send tail data to socket ok , [%d]bytes" , tail_len )
-		DEBUGHEXLOGC( tail , tail_len , NULL )
-	}
-	
-	DiffTimeval( & tv_begin_send_log , & tv_end_send_log , & tv_diff_send_log );
-	DiffTimeval( & tv_begin_send_tail , & tv_end_send_tail , & tv_diff_send_tail );
-	
-	INFOLOGC( "TRANSFER TAIL-TTV[%ld.%06ld] LOG-TTV[%ld.%06ld] TAIL-BUF[%d][%.*s] LOG-BUF[%d][%.*s]"
-		, tv_diff_send_tail.tv_sec , tv_diff_send_tail.tv_usec
-		, tv_diff_send_log.tv_sec , tv_diff_send_log.tv_usec
-		, tail_len , tail_len-1 , tail
-		, line_len , MIN(line_len,MAX_OUTPUT_BUF) , line )
-#endif
 	INFOLOGC( "IOV-BUF LOG[%d][%.*s] TAIL[%d][%.*s]" , line_len , MIN(line_len,MAX_OUTPUT_BUF) , line , (*p_tail_len) , (*p_tail_len)-1 , (*p_tail_array) )
 	DEBUGHEXLOGC( line , line_len , NULL )
 	DEBUGHEXLOGC( (*p_tail_array) , (*p_tail_len) , NULL )
@@ -533,6 +464,15 @@ _GOTO_WRITEN_TAIL :
 	p_plugin_ctx->iov_array[p_plugin_ctx->iov_count].iov_len = line_len ;
 	p_plugin_ctx->iov_count++;
 	p_plugin_ctx->iov_total_line_len += line_len ;
+	
+	if( p_plugin_ctx->iov_count >= p_plugin_ctx->iov_send_count )
+	{
+		ERRORLOGC( "p_plugin_ctx->iov_count[%d] invalid at this position" , p_plugin_ctx->iov_count )
+		p_plugin_ctx->iov_count = 0 ;
+		p_plugin_ctx->iov_total_line_len = 0 ;
+		p_plugin_ctx->iov_total_tail_len = 0 ;
+		return 1;
+	}
 	
 	p_plugin_ctx->iov_array[p_plugin_ctx->iov_count].iov_base = (*p_tail_array) ;
 	p_plugin_ctx->iov_array[p_plugin_ctx->iov_count].iov_len = (*p_tail_len) ;
@@ -546,25 +486,28 @@ _GOTO_WRITEN_TAIL :
 		char	*last_tail_base_bak = p_plugin_ctx->iov_array[p_plugin_ctx->iov_count-1].iov_base ;
 		int	last_tail_len_bak = p_plugin_ctx->iov_array[p_plugin_ctx->iov_count-1].iov_len ;
 		int	iov_count_bak = p_plugin_ctx->iov_count ;
-/*
-_GOTO_WRITEV :
-*/
-		/*
-		gettimeofday( & tv_begin_send , NULL );
-		*/
-		VAL_TIMEVAL( send_timeout , p_plugin_ctx->iov_send_timeout , 0 );
+		
+		nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
+		if( nret )
+		{
+			ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
+			p_plugin_ctx->iov_count = 0 ;
+			p_plugin_ctx->iov_total_line_len = 0 ;
+			p_plugin_ctx->iov_total_tail_len = 0 ;
+			return nret;
+		}
+		
 		p_iov_array = p_plugin_ctx->iov_array ;
 		p_iov_count = & (p_plugin_ctx->iov_count) ;
-		len = writev3( p_plugin_ctx->p_forward_session->sock , & p_iov_array , p_iov_count , & send_timeout , & send_elapse ) ;
-		/*
-		gettimeofday( & tv_end_send , NULL );
-		DiffTimeval( & tv_begin_send , & tv_end_send , & tv_diff_send );
-		*/
-		if( len <= 0 )
+		send_timeout = p_plugin_ctx->iov_send_timeout*1000000 ;
+		send_elapse = 0 ;
+		len = writev3( p_plugin_ctx->p_forward_session->sock , & p_iov_array , p_iov_count , p_plugin_ctx->iov_total_line_len+p_plugin_ctx->iov_total_tail_len , & send_timeout , & send_elapse ) ;
+		if( len < 0 || p_iov_array || (*p_iov_count) > 0 )
 		{
-			if( len == 0 )
+			if( p_iov_array || (*p_iov_count) > 0 )
 			{
-				ERRORLOGC( "IOV-SEND [%d]l[%d]lB[%d]tB timeout,errno[%d],ll[%d]B[%.100s] lt[%d]B[%.*s]"
+				ERRORLOGC( "IOV-SEND[%s:%d][%d] [%d]l[%d]lB[%d]tB timeout , errno[%d] , ll[%d]B[%.100s] lt[%d]B[%.*s]"
+					, p_plugin_ctx->p_forward_session->ip , p_plugin_ctx->p_forward_session->port , p_plugin_ctx->p_forward_session->sock
 					, iov_count_bak/2 , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len
 					, errno
 					, last_log_len_bak , last_log_base_bak
@@ -572,25 +515,15 @@ _GOTO_WRITEV :
 			}
 			else
 			{
-				ERRORLOGC( "IOV-SEND [%d]l[%d]lB[%d]tB failed[%d],errno[%d],ll[%d]B[%.100s] lt[%d]B[%.*s]"
+				ERRORLOGC( "IOV-SEND[%s:%d][%d] [%d]l[%d]lB[%d]tB failed[%d] , errno[%d] , ll[%d]B[%.100s] lt[%d]B[%.*s]"
+					, p_plugin_ctx->p_forward_session->ip , p_plugin_ctx->p_forward_session->port , p_plugin_ctx->p_forward_session->sock
 					, iov_count_bak/2 , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len
 					, len , errno
 					, last_log_len_bak , last_log_base_bak
 					, last_tail_len_bak , last_tail_len_bak-1 , last_tail_base_bak )
 			}
 			close( p_plugin_ctx->p_forward_session->sock ); p_plugin_ctx->p_forward_session->sock = -1 ;
-			nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
-			if( nret )
-			{
-				ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
-				p_plugin_ctx->iov_count = 0 ;
-				p_plugin_ctx->iov_total_line_len = 0 ;
-				p_plugin_ctx->iov_total_tail_len = 0 ;
-				return nret;
-			}
-			/*
-			goto _GOTO_WRITEV;
-			*/
+			
 			p_plugin_ctx->iov_count = 0 ;
 			p_plugin_ctx->iov_total_line_len = 0 ;
 			p_plugin_ctx->iov_total_tail_len = 0 ;
@@ -598,9 +531,10 @@ _GOTO_WRITEV :
 		}
 		else
 		{
-			NOTICELOGC( "IOV-SEND [%d]l[%d]lB[%d]tB ok,DTV[%ld.%06ld],ll[%d]B[%.*s] lt[%d]B[%.*s]"
+			NOTICELOGC( "IOV-SEND[%s:%d][%d] [%d]l[%d]lB[%d]tB ok , DTV[%d.%06d] ll[%d]B[%.*s] lt[%d]B[%.*s]"
+				, p_plugin_ctx->p_forward_session->ip , p_plugin_ctx->p_forward_session->port , p_plugin_ctx->p_forward_session->sock
 				, iov_count_bak/2 , p_plugin_ctx->iov_total_line_len , p_plugin_ctx->iov_total_tail_len
-				, send_elapse.tv_sec , send_elapse.tv_usec
+				, send_elapse/1000000 , send_elapse%1000000
 				, last_log_len_bak , last_log_len_bak , last_log_base_bak
 				, last_tail_len_bak , last_tail_len_bak-1 , last_tail_base_bak )
 			p_plugin_ctx->iov_count = 0 ;

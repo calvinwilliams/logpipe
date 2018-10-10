@@ -57,6 +57,10 @@ int monitor( struct LogpipeEnv *p_env )
 	pid_t			pid , pid2 ;
 	int			status ;
 	
+	time_t			tt ;
+	struct tm		stime ;
+	struct tm		old_stime ;
+	
 	int			nret = 0 ;
 	
 	/* 设置信号 */
@@ -76,6 +80,11 @@ int monitor( struct LogpipeEnv *p_env )
 	
 	/* 设置只供给一次的配置参数 */
 	SetStartOnceEnv( & (p_env->start_once_for_plugin_config_items) );
+	
+	/* 保存初始时点 */
+	time( & tt );
+	memset( & old_stime , 0x00 , sizeof(struct tm) );
+	localtime_r( & tt , & old_stime );
 	
 	while( g_QUIT_flag == 0 )
 	{
@@ -113,6 +122,17 @@ _GOTO_WAITPID :
 		/* 堵塞等待工作进程结束 */
 		DEBUGLOGC( "waitpid ..." )
 		pid2 = waitpid( pid , & status , 0 );
+		
+		/* 如果当前时点与上一次不一致，则切换日志文件 */
+		time( & tt );
+		memset( & stime , 0x00 , sizeof(struct tm) );
+		localtime_r( & tt , & stime );
+		if( stime.tm_hour != old_stime.tm_hour )
+		{
+			SetLogcFile( "%s.%d" , p_env->log_file , stime.tm_hour );
+			memcpy( & old_stime , & stime , sizeof(struct tm) );
+		}
+		
 		if( pid2 == -1 )
 		{
 			if( errno == EINTR )
