@@ -98,6 +98,7 @@ int worker( struct LogpipeEnv *p_env )
 	quit_flag = 0 ;
 	while( quit_flag == 0 )
 	{
+		/* 如果当前时点与上一次不一致，则切换日志文件 */
 		time( & tt );
 		memset( & stime , 0x00 , sizeof(struct tm) );
 		localtime_r( & tt , & stime );

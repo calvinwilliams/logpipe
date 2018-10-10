@@ -218,7 +218,7 @@ ssize_t writen(int fd, const void *vptr, size_t n)
     return n;
 }
 
-ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , struct timeval *p_timeout , struct timeval *p_elapse )
+ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , int iov_total_len , struct timeval *p_timeout , struct timeval *p_elapse )
 {
 	struct timeval		timestamp1 ;
 	struct timeval		timestamp2 ;
@@ -237,7 +237,7 @@ ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , struct timeval 
 	}
 	
 	total_len = 0 ;
-	while(1)
+	while( (*p_iovcnt) > 0 )
 	{
 		if( (*p_timeout).tv_sec < 0 )
 			(*p_timeout).tv_sec = 0 ;
@@ -254,7 +254,7 @@ ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , struct timeval 
 		}
 		else if( nret == 0 )
 		{
-			return 0;
+			return total_len;
 		}
 		
 		gettimeofday( & timestamp2 , NULL );
@@ -265,38 +265,47 @@ ssize_t writev3( int fd , struct iovec **pp_iov, int *p_iovcnt , struct timeval 
 		len = writev( fd , *pp_iov , *p_iovcnt ) ;
 		if( len == -1 )
 		{
+			if( errno == EAGAIN || errno == EWOULDBLOCK )
+				continue;
+			
 			return -1;
 		}
 		total_len += len ;
 		
-		while( len > 0 )
+		if( iov_total_len >= 0 && total_len == iov_total_len )
 		{
-			if( len >= (*pp_iov)->iov_len )
+			len = 0 ;
+			(*pp_iov) = NULL ;
+			(*p_iovcnt) = 0 ;
+		}
+		else
+		{
+			while( len > 0 )
 			{
-				len -= (*pp_iov)->iov_len ;
-				(*pp_iov)++;
-				(*p_iovcnt)--;
+				if( len >= (*pp_iov)->iov_len )
+				{
+					len -= (*pp_iov)->iov_len ;
+					(*pp_iov)++;
+					(*p_iovcnt)--;
+					if( (*p_iovcnt) == 0 )
+						(*pp_iov) = NULL ;
+				}
+				else
+				{
+					(*pp_iov)->iov_base += len ;
+					(*pp_iov)->iov_len -= len ;
+					len = 0 ;
+				}
 			}
-			else
-			{
-				(*pp_iov)->iov_base += len ;
-				(*pp_iov)->iov_len -= len ;
-				len = 0 ;
-			}
-			
 		}
 		
 		gettimeofday( & timestamp3 , NULL );
 		DIFF_TIMEVAL( diff_time , timestamp2 , timestamp3 )
 		DECREASE_TIMEVAL( (*p_timeout) , diff_time )
 		INCREASE_TIMEVAL( (*p_elapse) , diff_time )
-		
-		if( (*p_iovcnt) == 0 )
-		{
-			(*pp_iov) = NULL ;
-			return total_len;
-		}
 	}
+	
+	return total_len;
 }
 
 /* 从描述字读取定长字节块 */

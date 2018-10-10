@@ -1680,7 +1680,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		}
 		else
 		{
-			NOTICELOGC( "read file[%s] ok , DTV[%ld.%06ld] [%"PRIu64"]bytes[%.100s...]" , p_trace_file->path_filename , tv_diff_read.tv_sec,tv_diff_read.tv_usec , p_plugin_ctx->read_len , block_buf )
+			NOTICELOGC( "read file[%s] ok , DTV[%ld.%06ld] [%"PRIu64"]bytes[%.100s%s]" , p_trace_file->path_filename , tv_diff_read.tv_sec,tv_diff_read.tv_usec , p_plugin_ctx->read_len , block_buf , (p_plugin_ctx->read_len>100?"...":"") )
 			DEBUGHEXLOGC( block_buf , p_plugin_ctx->read_len , NULL )
 		}
 		
