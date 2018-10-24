@@ -41,6 +41,7 @@ LFLAGS		=	$(_LFLAGS) \
 			-L$(HOME)/lib \
 			-llogpipe_api \
 			-rdynamic \
+			-lm \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=	fasterhttp.o \
