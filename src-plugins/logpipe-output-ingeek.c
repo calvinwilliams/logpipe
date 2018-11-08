@@ -339,49 +339,74 @@ int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
 	int				i ;
+	int				j ;
 	struct ForwardSession		*p_forward_session = NULL ;
-	fd_set				read_fds , except_fds ;
-	int				max_fd ;
-	struct timeval			timeout ;
+	struct pollfd			fds[ IP_PORT_MAXCNT ] ;
+	int				fds_count ;
 	
 	int				nret = 0 ;
 	
 	DEBUGLOGC( "OnOutputPluginEvent" )
 	
-	/* 侦测所有对端logpipe服务器可用 */
-	FD_ZERO( & read_fds );
-	FD_ZERO( & except_fds );
-	max_fd = -1 ;
+	/* 侦测所有对端logpipe服务器读或异常事件 */
+	memset( fds , 0x00 , sizeof(fds) );
+	fds_count = 0 ;
 	for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < p_plugin_ctx->forward_session_count ; i++ , p_forward_session++ )
 	{
 		if( p_forward_session->sock < 0 )
 			continue;
 		
-		FD_SET( p_forward_session->sock , & read_fds );
-		FD_SET( p_forward_session->sock , & except_fds );
-		if( p_forward_session->sock > max_fd )
-			max_fd = p_forward_session->sock ;
-		DEBUGLOGC( "add fd[%d] to select fds" , p_forward_session->sock )
+		fds[fds_count].fd = p_forward_session->sock ;
+		fds[fds_count].events = POLLIN|POLLERR|POLLHUP ;
+		fds[fds_count].revents = 0 ;
+		fds_count++;
+		DEBUGLOGC( "add fd[%d] to poll fds" , p_forward_session->sock )
 	}
 	
-	timeout.tv_sec = 0 ;
-	timeout.tv_usec = 0 ;
-	nret = select( max_fd+1 , & read_fds , NULL , & except_fds , & timeout ) ;
+	nret = poll( fds , fds_count , 0 ) ;
 	if( nret > 0 )
 	{
-		for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < p_plugin_ctx->forward_session_count ; i++ , p_forward_session++ )
+		for( j = 0 ; j < fds_count ; j++ )
 		{
-			if( p_forward_session->sock < 0 )
-				continue;
-			
-			if( FD_ISSET( p_forward_session->sock , & read_fds ) || FD_ISSET( p_forward_session->sock , & except_fds ) )
+			for( i = 0 , p_forward_session = p_plugin_ctx->forward_session_array ; i < p_plugin_ctx->forward_session_count ; i++ , p_forward_session++ )
 			{
-				DEBUGLOGC( "select fd[%d] hited" , p_forward_session->sock )
+				if( p_forward_session->sock < 0 )
+					continue;
 				
-				/* 关闭连接 */
-				DeleteOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
-				ERRORLOGC( "remote socket closed , close forward sock[%d]" , p_forward_session->sock )
-				close( p_forward_session->sock ); p_forward_session->sock = -1 ;
+				if( p_forward_session->sock != fds[j].fd )
+					continue;
+				
+				if( fds[j].revents & POLLIN )
+				{
+					char	buf[ 4096 ] ;
+					int	len ;
+					
+					len = read( p_forward_session->sock , buf , sizeof(buf) ) ;
+					if( len == 0 )
+					{
+						ERRORLOGC( "read forward sock[%d] return[%d]" , p_forward_session->sock , len )
+						fds[j].revents |= POLLHUP ;
+					}
+					else if( len == -1 )
+					{
+						ERRORLOGC( "read forward sock[%d] return[%d]" , p_forward_session->sock , len )
+						fds[j].revents |= POLLERR ;
+					}
+					else
+					{
+						WARNLOGC( "read forward sock[%d] return[%d]" , p_forward_session->sock , len )
+					}
+				}
+				
+				if( ( fds[j].revents & POLLERR ) || ( fds[j].revents & POLLHUP ) )
+				{
+					ERRORLOGC( "POLLERR or POLLHUP on forward sock[%d] hited" , p_forward_session->sock )
+					
+					/* 关闭连接 */
+					DeleteOutputPluginEvent( p_env , p_logpipe_output_plugin , p_forward_session->sock );
+					ERRORLOGC( "remote socket closed , close forward sock[%d]" , p_forward_session->sock )
+					close( p_forward_session->sock ); p_forward_session->sock = -1 ;
+				}
 			}
 		}
 	}
@@ -393,20 +418,6 @@ funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
 int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	
-	/*
-	int				nret = 0 ;
-	*/
-	
-	/* 检查连接，如果连接失效则重连 */
-	/*
-	nret = CheckAndConnectForwardSocket( p_env , p_logpipe_output_plugin , p_plugin_ctx , -1 ) ;
-	if( nret )
-	{
-		ERRORLOGC( "CheckAndConnectForwardSocket failed[%d]" , nret )
-		return nret;
-	}
-	*/
 	
 	/* 保存文件名指针 */
 	p_plugin_ctx->filename = filename ;
