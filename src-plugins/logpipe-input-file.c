@@ -11,9 +11,9 @@ struct TraceFile
 {
 	char			*pathname ;
 	char			filename[ PATH_MAX + 1 ] ;
-	uint16_t		filename_len ;
+	int			filename_len ;
 	char			path_filename[ PATH_MAX + 1 ] ;
-	uint16_t		path_filename_len ;
+	int			path_filename_len ;
 	int			fd ;
 	uint64_t		trace_offset ;
 	uint64_t		trace_line ;
@@ -708,7 +708,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		return 0;
 	}
 	p_trace_file->path_filename_len = snprintf( p_trace_file->path_filename , sizeof(p_trace_file->path_filename)-1 , "%s/%s" , p_plugin_ctx->path , filename ) ;
-	if( SNPRINTF_OVERFLOW( p_trace_file->filename_len , sizeof(p_trace_file->filename) ) )
+	if( SNPRINTF_OVERFLOW( p_trace_file->path_filename_len , sizeof(p_trace_file->path_filename) ) )
 	{
 		ERRORLOGC( "snprintf[%s] overflow" , filename )
 		FreeTraceFile( p_trace_file );
