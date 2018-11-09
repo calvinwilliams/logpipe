@@ -1,6 +1,7 @@
 1.0.8		2018-11-08	calvin
 		* 清理了不少遗留代码
 		* 其它几个遗漏未改select的地方也改用poll了
+		* 新增分解日志行发送插件代码模板logpipe-output-linemode-template.c
 
 1.0.7		2018-10-10	calvin
 		* 解决了logpipe-output-ingeek.so使用select描述字大于1024而导致的异常，改用poll
