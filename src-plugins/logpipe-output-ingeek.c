@@ -8,10 +8,6 @@
 	|(log)|[key=(key)]|[file=(pathfile)]|[byteoffset=(byteoffset)]|\n|
 */
 
-/* compile and install command
-make logpipe-output-ingeek.so && cp logpipe-output-ingeek.so ~/so/
-*/
-
 int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_2 = 1 ;
 
 struct ForwardSession

@@ -17,6 +17,7 @@ c_FILE		=	\
 			logpipe-output-ek.c \
 			logpipe-output-kafka.c \
 			logpipe-output-ingeek.c \
+			logpipe-output-linemode-template.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -28,6 +29,7 @@ LIB		=	\
 			logpipe-input-exec.so \
 			logpipe-output-ek.so \
 			logpipe-output-ingeek.so \
+			logpipe-output-linemode-template.so \
 
 LIBINST		=	$(_LIBINST)
 
@@ -47,7 +49,6 @@ LFLAGS		=	$(_LFLAGS) \
 CLEAN_ADDITION	=	fasterhttp.o \
 			logpipe-output-hdfs.so \
 			logpipe-output-kafka.so \
-			logpipe-output-ingeek.so \
 
 ###### 加载mktpl模板库
 #@ make_all
@@ -102,4 +103,7 @@ logpipe-output-kafka.so		:	logpipe-output-kafka.o
 
 logpipe-output-ingeek.so	:	logpipe-output-ingeek.o
 	$(CC) -o $@ logpipe-output-ingeek.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-output-linemode-template.so	:	logpipe-output-linemode-template.o
+	$(CC) -o $@ logpipe-output-linemode-template.o $(SOFLAGS) $(LFLAGS)
 
