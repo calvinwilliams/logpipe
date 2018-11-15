@@ -1,3 +1,6 @@
+1.0.9		2018-11-15	calvin
+		* 插件logpipe-output-ingeek的服务端主机配置数量扩大到32个
+
 1.0.8		2018-11-08	calvin
 		* 清理了不少遗留代码
 		* 其它几个遗漏未改select的地方也改用poll了
