@@ -20,7 +20,7 @@ struct ForwardSession
 } ;
 
 /* 插件环境结构 */
-#define IP_PORT_MAXCNT			8
+#define IP_PORT_MAXCNT			32
 
 #define DISABLE_TIMEOUT			10
 
