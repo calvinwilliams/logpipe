@@ -8,7 +8,7 @@
 	|(log)|[key=(key)]|[file=(pathfile)]|[byteoffset=(byteoffset)]|\n|
 */
 
-int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_2 = 1 ;
+int	__LOGPIPE_OUTPUT_INGEEK_VERSION_0_2_3 = 1 ;
 
 struct ForwardSession
 {
@@ -33,6 +33,9 @@ struct ForwardSession
 #define IOV_SEND_COUNT_DEFAULT		IOV_MAX
 #define IOV_SEND_TIMEOUT_DEFAULT	20
 
+#define CUT_KEY_SEQCHAR_DEFAULT		"_"
+#define CUT_KEY_WORD_COUNT_DEFAULT	2
+
 struct OutputPluginContext
 {
 	char			*key ;
@@ -45,6 +48,8 @@ struct OutputPluginContext
 	int			disable_timeout ;
 	int			iov_send_count ;
 	int			iov_send_timeout ;
+	char			*cut_key_seqchar ;
+	int			cut_key_word_count ;
 	
 	char			*filename ;
 	uint64_t		file_line ;
@@ -190,6 +195,24 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		p_plugin_ctx->iov_send_timeout = IOV_SEND_TIMEOUT_DEFAULT ;
 	}
 	INFOLOGC( "iov_send_timeout[%d]" , p_plugin_ctx->iov_send_timeout )
+	
+	p_plugin_ctx->cut_key_seqchar = QueryPluginConfigItem( p_plugin_config_items , "cut_key_seqchar" ) ;
+	if( p_plugin_ctx->cut_key_seqchar == NULL )
+		p_plugin_ctx->cut_key_seqchar = CUT_KEY_SEQCHAR_DEFAULT ;
+	INFOLOGC( "cut_key_seqchar[%s]" , p_plugin_ctx->cut_key_seqchar )
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "cut_key_word_count" ) ;
+	if( p )
+	{
+		p_plugin_ctx->cut_key_word_count = atoi(p) ;
+		if( p_plugin_ctx->cut_key_word_count <= 0 )
+			p_plugin_ctx->cut_key_word_count = CUT_KEY_WORD_COUNT_DEFAULT ;
+	}
+	else
+	{
+		p_plugin_ctx->cut_key_word_count = CUT_KEY_WORD_COUNT_DEFAULT ;
+	}
+	INFOLOGC( "cut_key_word_count[%d]" , p_plugin_ctx->cut_key_word_count )
 	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
@@ -433,6 +456,7 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 	int		send_timeout = 0 ;
 	int		send_elapse = 0 ;
 	int		len ;
+	int		i ;
 	
 	int		nret = 0 ;
 	
@@ -452,13 +476,19 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 		p = strrchr( mainfilename , '.' ) ;
 		if( p )
 			(*p) = '\0' ;
-		p = strchr( mainfilename , '_' ) ;
-		if( p )
+		
+		p = mainfilename ;
+		for( i = 0 ; i < p_plugin_ctx->cut_key_word_count ; i++ )
 		{
-			p = strchr( p+1 , '_' ) ;
-			if( p )
-				(*p) = '\0' ;
+			p = strstr( p , p_plugin_ctx->cut_key_seqchar ) ;
+			if( p == NULL )
+				break;
+			
+			p++;
 		}
+		if( i >= p_plugin_ctx->cut_key_word_count )
+			*(p-1) = '\0' ;
+		
 		(*p_tail_len) = snprintf( (*p_tail_array) , MAX_TAIL_BUF , "[key=%s][file=%s/%s][byteoffset=%"PRIu64"]\n" , mainfilename , p_plugin_ctx->path , p_plugin_ctx->filename , p_plugin_ctx->file_line+line_add ) ;
 	}
 	
