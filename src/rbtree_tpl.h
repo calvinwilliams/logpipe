@@ -60,6 +60,35 @@
 		return NULL; \
 	} \
 
+#define LINK_RBTREENODE_STRING_ALLOWDUPLICATE( _this_func_ , _struct_ENV_ , _p_env_member_rbtree_ , _struct_UNIT_ , _p_unit_member_rbnode_ , _p_unit_member_str_ ) \
+	int _this_func_( _struct_ENV_ *_p_env , _struct_UNIT_ *_p_unit ) \
+	{ \
+		struct rb_node		**_pp_add_node = NULL ;	\
+		struct rb_node		*_p_parent = NULL ; \
+		_struct_UNIT_		*_p = NULL ; \
+		int			_result ; \
+		\
+		_pp_add_node = & (_p_env->_p_env_member_rbtree_.rb_node) ; \
+		while( *_pp_add_node ) \
+		{ \
+			_p = container_of( *_pp_add_node , _struct_UNIT_ , _p_unit_member_rbnode_ ) ; \
+			_p_parent = (*_pp_add_node) ; \
+			\
+			_result = strcmp( _p_unit->_p_unit_member_str_ , _p->_p_unit_member_str_ ) ; \
+			if( _result < 0 ) \
+				_pp_add_node = & ((*_pp_add_node)->rb_left) ; \
+			else if( _result > 0 ) \
+				_pp_add_node = & ((*_pp_add_node)->rb_right) ; \
+			else \
+				_pp_add_node = & ((*_pp_add_node)->rb_right) ; \
+		} \
+		\
+		rb_link_node( & (_p_unit->_p_unit_member_rbnode_) , _p_parent , _pp_add_node ); \
+		rb_insert_color( & (_p_unit->_p_unit_member_rbnode_) , & (_p_env->_p_env_member_rbtree_) ); \
+		\
+		return 0; \
+	} \
+
 #define LINK_RBTREENODE_INT( _this_func_ , _struct_ENV_ , _p_env_member_rbtree_ , _struct_UNIT_ , _p_unit_member_rbnode_ , _p_unit_member_str_ ) \
 	int _this_func_( _struct_ENV_ *_p_env , _struct_UNIT_ *_p_unit ) \
 	{ \

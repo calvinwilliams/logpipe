@@ -19,6 +19,9 @@ struct TraceFile
 	uint64_t		trace_line ;
 	uint64_t		rotate_size ;
 	
+	struct rb_node		inotify_filename_rbnode ;
+	unsigned char		inotify_filename_rbnode_linked ;
+	
 	struct rb_node		inotify_path_filename_rbnode ;
 	unsigned char		inotify_path_filename_rbnode_linked ;
 	
@@ -97,11 +100,13 @@ struct InputPluginContext
 	int			max_watch_count ;
 	uint64_t		max_usleep_interval ;
 	uint64_t		min_usleep_interval ;
+	signed char		inheritance_lines_after_rotating ;
 	int			start_once_for_full_dose ;
 	
 	int			inotify_fd ;
 	int			inotify_path_wd ;
 	
+	struct rb_root		inotify_filename_rbtree ;
 	struct rb_root		inotify_path_filename_rbtree ;
 	struct rb_root		inotify_wd_rbtree ;
 	struct rb_root		watch_timestamp_rbtree ;
@@ -118,6 +123,42 @@ struct InputPluginContext
 	uint64_t		read_len ;
 	uint64_t		read_line ;
 } ;
+
+LINK_RBTREENODE_STRING_ALLOWDUPLICATE( LinkTraceFilenameTreeNode , struct InputPluginContext , inotify_filename_rbtree , struct TraceFile , inotify_filename_rbnode , filename )
+QUERY_RBTREENODE_STRING( QueryTraceFilenameTreeNode , struct InputPluginContext , inotify_filename_rbtree , struct TraceFile , inotify_filename_rbnode , filename )
+UNLINK_RBTREENODE( UnlinkTraceFilenameTreeNode , struct InputPluginContext , inotify_filename_rbtree , struct TraceFile , inotify_filename_rbnode )
+static struct TraceFile *QueryLatestTraceFilenameTreeNode( struct InputPluginContext *p_plugin_ctx , char *filename )
+{
+	struct TraceFile	trace_file ;
+	struct TraceFile	*p_trace_file = NULL ;
+	struct TraceFile	*p_next_trace_file = NULL ;
+	struct rb_node		*p_next_rb_node = NULL ;
+	
+	memset( & trace_file , 0x00 , sizeof(struct TraceFile) );
+	strncpy( trace_file.filename , filename , sizeof(trace_file.filename)-1 );
+	p_trace_file = QueryTraceFilenameTreeNode( p_plugin_ctx , & trace_file ) ;
+	if( p_trace_file== NULL )
+		return NULL;
+	
+	p_next_rb_node = rb_next( & (p_trace_file->inotify_filename_rbnode) ) ;
+	if( p_next_rb_node == NULL )
+		return p_trace_file;
+	p_next_trace_file = container_of( p_next_rb_node , struct TraceFile , inotify_filename_rbnode ) ;
+	while( p_next_trace_file )
+	{
+		if( STRCMP( p_next_trace_file->filename , != , filename ) )
+			break;
+		
+		p_trace_file = p_next_trace_file ;
+		
+		p_next_rb_node = rb_next( & (p_trace_file->inotify_filename_rbnode) ) ;
+		if( p_next_rb_node == NULL )
+			break;
+		p_next_trace_file = container_of( p_next_rb_node , struct TraceFile , inotify_filename_rbnode ) ;
+	}
+	
+	return p_trace_file;
+}
 
 LINK_RBTREENODE_STRING( LinkTraceFilePathFilenameTreeNode , struct InputPluginContext , inotify_path_filename_rbtree , struct TraceFile , inotify_path_filename_rbnode , path_filename )
 QUERY_RBTREENODE_STRING( QueryTraceFilePathFilenameTreeNode , struct InputPluginContext , inotify_path_filename_rbtree , struct TraceFile , inotify_path_filename_rbnode , path_filename )
@@ -244,6 +285,10 @@ static int RemoveFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlug
 {
 	int		nret = 0 ;
 	
+	if( p_trace_file->inotify_filename_rbnode_linked )
+	{
+		UnlinkTraceFilenameTreeNode( p_plugin_ctx , p_trace_file );
+	}
 	if( p_trace_file->inotify_path_filename_rbnode_linked )
 	{
 		UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
@@ -527,6 +572,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	struct TraceFile	*p_trace_file = NULL ;
 	struct stat		file_stat ;
 	unsigned char		survive_flag ;
+	struct TraceFile	*p_latest_trace_file = NULL ;
 	
 	int			nret = 0 ;
 	
@@ -744,21 +790,49 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		return 0;
 	}
 	
-	if( read_full_file_flag == READ_FULL_FILE_FLAG )
+	if( p_plugin_ctx->inheritance_lines_after_rotating )
 	{
-		p_trace_file->trace_offset = 0 ;
-		p_trace_file->trace_line = 0 ;
+		p_latest_trace_file = QueryLatestTraceFilenameTreeNode( p_plugin_ctx , p_trace_file->filename ) ;
+		if( p_latest_trace_file )
+		{
+			p_trace_file->trace_offset = 0 ;
+			p_trace_file->trace_line = p_latest_trace_file->trace_line ;
+			INFOLOGC( "inheritance path_filename[%s] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_trace_file->trace_offset , p_trace_file->trace_line )
+		}
 	}
-	else
+	if( p_latest_trace_file == NULL )
 	{
-		p_trace_file->trace_offset = file_stat.st_size ;
-		p_trace_file->trace_line = 0 + stat_filechr( p_trace_file->path_filename , file_stat.st_size , '\n' ) ;
+		if( read_full_file_flag == READ_FULL_FILE_FLAG )
+		{
+			p_trace_file->trace_offset = 0 ;
+			p_trace_file->trace_line = 0 ;
+			INFOLOGC( "reset path_filename[%s] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_trace_file->trace_offset , p_trace_file->trace_line )
+		}
+		else
+		{
+			p_trace_file->trace_offset = file_stat.st_size ;
+			p_trace_file->trace_line = 0 + stat_filechr( p_trace_file->path_filename , file_stat.st_size , '\n' ) ;
+			INFOLOGC( "set path_filename[%s] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_trace_file->trace_offset , p_trace_file->trace_line )
+		}
 	}
-	INFOLOGC( "set path_filename[%s] trace_offset[%"PRIu64"] trace_line[%"PRIu64"]" , p_trace_file->path_filename , p_trace_file->trace_offset , p_trace_file->trace_line )
 	
 	p_trace_file->rotate_size = p_plugin_ctx->rotate_size ;
 	
 	/* 挂树 */
+	nret = LinkTraceFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
+	if( nret )
+	{
+		ERRORLOGC( "LinkTraceFilenameTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		close( p_trace_file->fd );
+		FreeTraceFile( p_trace_file );
+		return -1;
+	}
+	else
+	{
+		DEBUGLOGC( "LinkTraceFilenameTreeNode ok , wd[%d] path_filename[%s]" , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		p_trace_file->inotify_filename_rbnode_linked = 1 ;
+	}
+	
 	nret = LinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file ) ;
 	if( nret )
 	{
@@ -1038,6 +1112,13 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		ERRORLOGC( "max_usleep_interval[%"PRIu64"] invalid" , p_plugin_ctx->min_usleep_interval )
 		return -1;
 	}
+	
+	p = QueryPluginConfigItem( p_plugin_config_items , "inheritance_lines_after_rotating" ) ;
+	if( p )
+		p_plugin_ctx->inheritance_lines_after_rotating = atoi(p) ;
+	else
+		p_plugin_ctx->inheritance_lines_after_rotating = 0 ;
+	INFOLOGC( "inheritance_lines_after_rotating[%d]" , p_plugin_ctx->inheritance_lines_after_rotating )
 	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;

@@ -1,3 +1,7 @@
+1.0.11		2018-12-10	calvin
+		* 插件logpipe-input-file新增配置选项inheritance_lines_after_rotating
+		  ，用于当文件转档时新文件继承老文件的行号
+
 1.0.10		2018-11-29	calvin
 		* 插件logpipe-output-ingeek新增配置项cut_key_seqchar和cut_key_word_count
 		  ，用于分割发送接口中的key字段，缺省值为"_"和2

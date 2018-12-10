@@ -494,8 +494,8 @@ static int SendLineBuffer( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin
 	
 	/* 发送数据块到TCP */
 	INFOLOGC( "IOV-BUF LOG[%d][%.*s] TAIL[%d][%.*s]" , line_len , MIN(line_len,MAX_OUTPUT_BUF) , line , (*p_tail_len) , (*p_tail_len)-1 , (*p_tail_array) )
-	DEBUGHEXLOGC( line , line_len , NULL )
-	DEBUGHEXLOGC( (*p_tail_array) , (*p_tail_len) , NULL )
+	DEBUGHEXLOGC( line , line_len , "log body" )
+	DEBUGHEXLOGC( (*p_tail_array) , (*p_tail_len) , "log tail" )
 	
 	p_plugin_ctx->iov_array[p_plugin_ctx->iov_count].iov_base = line ;
 	p_plugin_ctx->iov_array[p_plugin_ctx->iov_count].iov_len = line_len ;
