@@ -866,6 +866,7 @@ static int AddFileWatcher( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	if( nret )
 	{
 		ERRORLOGC( "LinkTraceFileInotifyWdTreeNode failed[%d] , wd[%d] path_filename[%s]" , nret , p_trace_file->inotify_file_wd , p_trace_file->path_filename )
+		UnlinkTraceFilenameTreeNode( p_plugin_ctx , p_trace_file );
 		UnlinkTraceFilePathFilenameTreeNode( p_plugin_ctx , p_trace_file );
 		close( p_trace_file->fd );
 		FreeTraceFile( p_trace_file );
