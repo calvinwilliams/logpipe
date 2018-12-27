@@ -14,7 +14,7 @@ c_FILE		=	\
 			logpipe-output-tcp.c \
 			logpipe-input-exec.c \
 			logpipe-output-hdfs.c \
-			logpipe-output-ek.c \
+			logpipe-output-es.c \
 			logpipe-output-kafka.c \
 			logpipe-output-ingeek.c \
 			logpipe-output-linemode-template.c \
@@ -27,7 +27,7 @@ LIB		=	\
 			logpipe-input-tcp.so \
 			logpipe-output-tcp.so \
 			logpipe-input-exec.so \
-			logpipe-output-ek.so \
+			logpipe-output-es.so \
 			logpipe-output-ingeek.so \
 			logpipe-output-linemode-template.so \
 
@@ -85,8 +85,8 @@ logpipe-output-hdfs.o		:	logpipe-output-hdfs.c
 
 LFLAGS_hdfs			=	$(LFLAGS) -L/home/hdfs/expack/hadoop/lib/native -lhdfs -L$(HOME)/expack/jdk1.8.0_152/jre/lib/amd64/server -ljvm
 
-logpipe-output-ek.so		:	logpipe-output-ek.o fasterhttp.o
-	$(CC) -o $@ logpipe-output-ek.o fasterhttp.o $(SOFLAGS) $(LFLAGS)
+logpipe-output-es.so		:	logpipe-output-es.o fasterhttp.o
+	$(CC) -o $@ logpipe-output-es.o fasterhttp.o $(SOFLAGS) $(LFLAGS)
 
 logpipe-output-hdfs.so		:	logpipe-output-hdfs.o
 	$(CC) -o $@ logpipe-output-hdfs.o $(SOFLAGS) $(LFLAGS_hdfs)
