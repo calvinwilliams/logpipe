@@ -3,10 +3,10 @@
 #include "fasterhttp.h"
 
 /* command for compile && install
-make logpipe-output-ek.so && cp -f logpipe-output-ek.so ~/so/
+make logpipe-output-es.so && cp -f logpipe-output-es.so ~/so/
 */
 
-int	__LOGPIPE_OUTPUT_EK_VERSION_0_1_0 = 1 ;
+int	__LOGPIPE_OUTPUT_ES_VERSION_0_1_0 = 1 ;
 
 /* 分列信息结构 */
 struct FieldSeparatorInfo
@@ -374,7 +374,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 /* 发送HTTP请求到ES */
-static int PostToEk( struct OutputPluginContext *p_plugin_ctx )
+static int PostToEs( struct OutputPluginContext *p_plugin_ctx )
 {
 	struct HttpBuffer	*http_req = NULL ;
 	struct HttpBuffer	*http_rsp = NULL ;
@@ -580,15 +580,15 @@ static int FormatOutputTemplate( struct OutputPluginContext *p_plugin_ctx )
 	/* 如果单条提交（非批量），发送HTTP请求到ES */
 	if( p_plugin_ctx->bulk == NULL )
 	{
-		nret = PostToEk( p_plugin_ctx ) ;
+		nret = PostToEs( p_plugin_ctx ) ;
 		if( nret )
 		{
-			ERRORLOGC( "PostToEk failed[%d]" , nret )
+			ERRORLOGC( "PostToEs failed[%d]" , nret )
 			return nret;
 		}
 		else
 		{
-			INFOLOGC( "PostToEk ok" )
+			INFOLOGC( "PostToEs ok" )
 		}
 	}
 	
@@ -754,15 +754,15 @@ static int CombineToParseBuffer( struct OutputPluginContext *p_plugin_ctx , char
 	/* 如果启用批量HTTP提交 */
 	if( p_plugin_ctx->bulk )
 	{
-		nret = PostToEk( p_plugin_ctx ) ;
+		nret = PostToEs( p_plugin_ctx ) ;
 		if( nret )
 		{
-			ERRORLOGC( "PostToEk failed[%d]" , nret )
+			ERRORLOGC( "PostToEs failed[%d]" , nret )
 			return nret;
 		}
 		else
 		{
-			INFOLOGC( "PostToEk ok" )
+			INFOLOGC( "PostToEs ok" )
 		}
 	}
 	
