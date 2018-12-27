@@ -18,6 +18,8 @@ c_FILE		=	\
 			logpipe-output-kafka.c \
 			logpipe-output-ingeek.c \
 			logpipe-output-linemode-template.c \
+			logpipe-filter-split-line.c \
+			logpipe-output-stdout.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -30,6 +32,8 @@ LIB		=	\
 			logpipe-output-es.so \
 			logpipe-output-ingeek.so \
 			logpipe-output-linemode-template.so \
+			logpipe-filter-split-line.so \
+			logpipe-output-stdout.so \
 
 LIBINST		=	$(_LIBINST)
 
@@ -106,4 +110,10 @@ logpipe-output-ingeek.so	:	logpipe-output-ingeek.o
 
 logpipe-output-linemode-template.so	:	logpipe-output-linemode-template.o
 	$(CC) -o $@ logpipe-output-linemode-template.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-filter-split-line.so	:	logpipe-filter-split-line.o
+	$(CC) -o $@ logpipe-filter-split-line.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-output-stdout.so	:	logpipe-output-stdout.o
+	$(CC) -o $@ logpipe-output-stdout.o $(SOFLAGS) $(LFLAGS)
 

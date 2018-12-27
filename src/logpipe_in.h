@@ -33,6 +33,7 @@ struct LogpipePluginConfigItem
 
 /* 插件类型 */
 #define LOGPIPE_PLUGIN_TYPE_INPUT	'I'
+#define LOGPIPE_PLUGIN_TYPE_FILTER	'F'
 #define LOGPIPE_PLUGIN_TYPE_OUTPUT	'O'
 
 /* 插件环境结构，用于先查询插件类型时使用 */
@@ -60,6 +61,29 @@ struct LogpipeInputPlugin
 	funcAfterReadInputPlugin	*pfuncAfterReadInputPlugin ; /* 读取一个数据块后 */
 	funcCleanInputPluginContext	*pfuncCleanInputPluginContext ; /* 工作主循环后清理插件 */
 	funcUnloadInputPluginConfig	*pfuncUnloadInputPluginConfig ; /* 退出前卸载插件 */
+	int				fd ;
+	void				*context ; /* 插件实例上下文 */
+	
+	struct list_head		this_node ;
+} ;
+
+/* 过滤插件环境结构 */
+struct LogpipeFilterPlugin
+{
+	unsigned char			type ; /* 插件类型 */
+	
+	struct LogpipePluginConfigItem	plugin_config_items ; /* 自定义配置参数 */
+	
+	char				so_filename[ PATH_MAX + 1 ] ; /* 插件文件名 */
+	char				so_path_filename[ PATH_MAX + 1 ] ; /* 插件路径文件名 */
+	void				*so_handler ; /* 插件打开句柄 */
+	funcLoadFilterPluginConfig	*pfuncLoadFilterPluginConfig ; /* 解析配置文件时装载插件 */
+	funcInitFilterPluginContext	*pfuncInitFilterPluginContext ; /* 工作主循环前初始化插件 */
+	funcBeforeProcessFilterPlugin	*pfuncBeforeProcessFilterPlugin ; /* 在过滤一个数据块前 */
+	funcProcessFilterPlugin		*pfuncProcessFilterPlugin ; /* 过滤一个数据块 */
+	funcAfterProcessFilterPlugin	*pfuncAfterProcessFilterPlugin ; /* 在过滤一个数据块后 */
+	funcCleanFilterPluginContext	*pfuncCleanFilterPluginContext ; /* 工作主循环后清理插件 */
+	funcUnloadFilterPluginConfig	*pfuncUnloadFilterPluginConfig ; /* 退出前卸载插件 */
 	int				fd ;
 	void				*context ; /* 插件实例上下文 */
 	
@@ -113,6 +137,7 @@ struct LogpipeEnv
 	int				epoll_fd ; /* epoll事件总线 */
 	
 	struct LogpipeInputPlugin	logpipe_input_plugins_list ; /* 输入插件链表 */
+	struct LogpipeFilterPlugin	logpipe_filter_plugins_list ; /* 过滤插件链表 */
 	struct LogpipeOutputPlugin	logpipe_output_plugins_list ; /* 输出插件链表 */
 	struct LogpipeInputPlugin	*p_block_input_plugin ; /* 禁用epoll事件总线而改用某一输入插件的堵塞模式，指向该输入插件链表节点 */
 	unsigned char			idle_processing_flag ;
@@ -135,6 +160,7 @@ void RemoveAllPluginConfigItems( struct LogpipePluginConfigItem *config );
 int LoadConfig( struct LogpipeEnv *p_env );
 void UnloadConfig( struct LogpipeEnv *p_env );
 void UnloadInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin );
+void UnloadFilterPluginSession( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin );
 void UnloadOutputPluginSession( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin );
 
 /* 环境 */

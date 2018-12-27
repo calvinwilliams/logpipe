@@ -1721,7 +1721,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	int				nret = 0 ;
 	
 	if( p_plugin_ctx->remain_len == 0 )
-		return LOGPIPE_READ_END_OF_INPUT;
+		return LOGPIPE_READ_END_FROM_INPUT;
 	
 	if( p_plugin_ctx->read_len > 0 || p_plugin_ctx->read_line > 0 )
 	{
@@ -1758,7 +1758,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		else if( p_plugin_ctx->read_len == 0 )
 		{
 			WARNLOGC( "read eof of file" )
-			return LOGPIPE_READ_END_OF_INPUT;
+			return LOGPIPE_READ_END_FROM_INPUT;
 		}
 		else
 		{
@@ -1794,7 +1794,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		else if( p_plugin_ctx->read_len == 0 )
 		{
 			WARNLOGC( "read eof of file" )
-			return LOGPIPE_READ_END_OF_INPUT;
+			return LOGPIPE_READ_END_FROM_INPUT;
 		}
 		else
 		{
