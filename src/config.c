@@ -12,6 +12,8 @@
 #define LOGPIPE_CONFIG_LOG_LOGLEVEL	"/log/log_level"
 #define LOGPIPE_CONFIG_INPUTS		"/inputs"
 #define LOGPIPE_CONFIG_INPUTS_		"/inputs/"
+#define LOGPIPE_CONFIG_FILTERS		"/filters"
+#define LOGPIPE_CONFIG_FILTERS_		"/filters/"
 #define LOGPIPE_CONFIG_OUTPUTS		"/outputs"
 #define LOGPIPE_CONFIG_OUTPUTS_		"/outputs/"
 
@@ -123,6 +125,83 @@ static int LoadLogpipeInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInpu
 }
 
 /* 装载插出插件 */
+static int LoadLogpipeFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin )
+{
+	char		*p = NULL ;
+	
+	/* 查询输出插件文件名 */
+	p = QueryPluginConfigItem( & (p_logpipe_filter_plugin->plugin_config_items) , "plugin" ) ;
+	if( p == NULL )
+	{
+		ERRORLOGC( "expect 'plugin' in 'filters'" )
+		return -1;
+	}
+	
+	strncpy( p_logpipe_filter_plugin->so_filename , p , sizeof(p_logpipe_filter_plugin->so_filename)-1 );
+	if( p_logpipe_filter_plugin->so_filename[0] == '/' )
+	{
+		strcpy( p_logpipe_filter_plugin->so_path_filename , p_logpipe_filter_plugin->so_filename );
+	}
+	else
+	{
+		snprintf( p_logpipe_filter_plugin->so_path_filename , sizeof(p_logpipe_filter_plugin->so_path_filename)-1 , "%s/%s" , getenv("HOME") , p_logpipe_filter_plugin->so_filename );
+	}
+	
+	/* 打开输出插件 */
+	p_logpipe_filter_plugin->so_handler = dlopen( p_logpipe_filter_plugin->so_path_filename , RTLD_LAZY ) ;
+	if( p_logpipe_filter_plugin->so_handler == NULL )
+	{
+		ERRORLOGC( "dlopen[%s] failed , dlerror[%s]" , p_logpipe_filter_plugin->so_path_filename , dlerror() )
+		return -1;
+	}
+	
+	/* 查询所有回调函数指针 */
+	p_logpipe_filter_plugin->pfuncLoadFilterPluginConfig = (funcLoadFilterPluginConfig *)dlsym( p_logpipe_filter_plugin->so_handler , "LoadFilterPluginConfig" ) ;
+	if( p_logpipe_filter_plugin->pfuncLoadFilterPluginConfig == NULL )
+	{
+		ERRORLOGC( "dlsym[%s][InitLogpipeFilterPlugin] failed , dlerror[%s]" , p_logpipe_filter_plugin->so_path_filename , dlerror() )
+		return -1;
+	}
+	
+	p_logpipe_filter_plugin->pfuncInitFilterPluginContext = (funcInitFilterPluginContext *)dlsym( p_logpipe_filter_plugin->so_handler , "InitFilterPluginContext" ) ;
+	if( p_logpipe_filter_plugin->pfuncInitFilterPluginContext == NULL )
+	{
+		ERRORLOGC( "dlsym[%s][InitLogpipeFilterPlugin] failed , dlerror[%s]" , p_logpipe_filter_plugin->so_path_filename , dlerror() )
+		return -1;
+	}
+	
+	p_logpipe_filter_plugin->pfuncBeforeProcessFilterPlugin = (funcBeforeProcessFilterPlugin *)dlsym( p_logpipe_filter_plugin->so_handler , "BeforeProcessFilterPlugin" ) ;
+	
+	p_logpipe_filter_plugin->pfuncProcessFilterPlugin = (funcProcessFilterPlugin *)dlsym( p_logpipe_filter_plugin->so_handler , "ProcessFilterPlugin" ) ;
+	if( p_logpipe_filter_plugin->pfuncProcessFilterPlugin == NULL )
+	{
+		ERRORLOGC( "dlsym[%s][ProcessFilterPlugin] failed , dlerror[%s]" , p_logpipe_filter_plugin->so_path_filename , dlerror() )
+		return -1;
+	}
+	
+	p_logpipe_filter_plugin->pfuncAfterProcessFilterPlugin = (funcAfterProcessFilterPlugin *)dlsym( p_logpipe_filter_plugin->so_handler , "AfterProcessFilterPlugin" ) ;
+	
+	p_logpipe_filter_plugin->pfuncCleanFilterPluginContext = (funcCleanFilterPluginContext *)dlsym( p_logpipe_filter_plugin->so_handler , "CleanFilterPluginContext" ) ;
+	if( p_logpipe_filter_plugin->pfuncCleanFilterPluginContext == NULL )
+	{
+		ERRORLOGC( "dlsym[%s][CleanFilterPluginContext] failed , dlerror[%s]" , p_logpipe_filter_plugin->so_path_filename , dlerror() )
+		return -1;
+	}
+	
+	p_logpipe_filter_plugin->pfuncUnloadFilterPluginConfig = (funcUnloadFilterPluginConfig *)dlsym( p_logpipe_filter_plugin->so_handler , "UnloadFilterPluginConfig" ) ;
+	if( p_logpipe_filter_plugin->pfuncUnloadFilterPluginConfig == NULL )
+	{
+		ERRORLOGC( "dlsym[%s][UnloadFilterPluginConfig] failed , dlerror[%s]" , p_logpipe_filter_plugin->so_path_filename , dlerror() )
+		return -1;
+	}
+	
+	/* 加入到输出插件链表 */
+	list_add_tail( & (p_logpipe_filter_plugin->this_node) , & (p_env->logpipe_filter_plugins_list.this_node) );
+	
+	return 0;
+}
+
+/* 装载插出插件 */
 static int LoadLogpipeOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin )
 {
 	char		*p = NULL ;
@@ -215,6 +294,7 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 {
 	struct LogpipeEnv			*p_env = (struct LogpipeEnv *)p ;
 	static struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+	static struct LogpipeFilterPlugin	*p_logpipe_filter_plugin = NULL ;
 	static struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
 	
 	int					nret = 0 ;
@@ -232,6 +312,17 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 			p_logpipe_input_plugin->type = LOGPIPE_PLUGIN_TYPE_INPUT ;
 			
 			INIT_LIST_HEAD( & (p_logpipe_input_plugin->plugin_config_items.this_node) );
+		}
+		else if( jpath_len == sizeof(LOGPIPE_CONFIG_FILTERS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_FILTERS , jpath_len ) )
+		{
+			p_logpipe_filter_plugin = (struct LogpipeFilterPlugin *)malloc( sizeof(struct LogpipeFilterPlugin) ) ;
+			if( p_logpipe_filter_plugin == NULL )
+				return -1;
+			memset( p_logpipe_filter_plugin , 0x00 , sizeof(struct LogpipeFilterPlugin) );
+			
+			p_logpipe_filter_plugin->type = LOGPIPE_PLUGIN_TYPE_FILTER ;
+			
+			INIT_LIST_HEAD( & (p_logpipe_filter_plugin->plugin_config_items.this_node) );
 		}
 		else if( jpath_len == sizeof(LOGPIPE_CONFIG_OUTPUTS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_OUTPUTS , jpath_len ) )
 		{
@@ -251,6 +342,12 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 		if( jpath_len == sizeof(LOGPIPE_CONFIG_INPUTS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_INPUTS , jpath_len ) )
 		{
 			nret = LoadLogpipeInputPlugin( p_env , p_logpipe_input_plugin ) ;
+			if( nret )
+				return nret;
+		}
+		else if( jpath_len == sizeof(LOGPIPE_CONFIG_FILTERS)-1 && STRNCMP( jpath , == , LOGPIPE_CONFIG_FILTERS , jpath_len ) )
+		{
+			nret = LoadLogpipeFilterPlugin( p_env , p_logpipe_filter_plugin ) ;
 			if( nret )
 				return nret;
 		}
@@ -286,6 +383,15 @@ int CallbackOnJsonNode( int type , char *jpath , int jpath_len , int jpath_size 
 				return -1;
 			}
 		}
+		else if( MEMCMP( jpath , == , LOGPIPE_CONFIG_FILTERS_ , sizeof(LOGPIPE_CONFIG_FILTERS_)-1 ) )
+		{
+			nret = AddPluginConfigItem( & (p_logpipe_filter_plugin->plugin_config_items) , node , node_len , content , content_len ) ;
+			if( nret )
+			{
+				ERRORLOGC( "AddPluginConfigItem [%.*s][%.*s] failed" , node_len , node , content_len , content )
+				return -1;
+			}
+		}
 		else if( MEMCMP( jpath , == , LOGPIPE_CONFIG_OUTPUTS_ , sizeof(LOGPIPE_CONFIG_OUTPUTS_)-1 ) )
 		{
 			nret = AddPluginConfigItem( & (p_logpipe_output_plugin->plugin_config_items) , node , node_len , content , content_len ) ;
@@ -307,6 +413,7 @@ int LoadConfig( struct LogpipeEnv *p_env )
 	char				jpath[ 1024 + 1 ] ;
 	
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+	struct LogpipeFilterPlugin	*p_logpipe_filter_plugin = NULL ;
 	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
 	
 	int				nret = 0 ;
@@ -348,6 +455,22 @@ int LoadConfig( struct LogpipeEnv *p_env )
 		}
 	}
 	
+	/* 执行所有过滤端初始化函数 */
+	list_for_each_entry( p_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
+	{
+		p_logpipe_filter_plugin->context = NULL ;
+		nret = p_logpipe_filter_plugin->pfuncLoadFilterPluginConfig( p_env , p_logpipe_filter_plugin , & (p_logpipe_filter_plugin->plugin_config_items) , & (p_logpipe_filter_plugin->context) ) ;
+		if( nret )
+		{
+			ERRORLOGC( "[%s]->pfuncLoadFilterPluginConfig failed , errno[%d]" , p_logpipe_filter_plugin->so_filename , errno )
+			return -1;
+		}
+		else
+		{
+			DEBUGLOGC( "[%s]->pfuncLoadFilterPluginConfig ok" , p_logpipe_filter_plugin->so_filename )
+		}
+	}
+	
 	/* 执行所有输入端初始化函数 */
 	list_for_each_entry( p_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
 	{
@@ -372,14 +495,22 @@ int LoadConfig( struct LogpipeEnv *p_env )
 void UnloadConfig( struct LogpipeEnv *p_env )
 {
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
-	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
 	struct LogpipeInputPlugin	*p_next_logpipe_input_plugin = NULL ;
+	struct LogpipeFilterPlugin	*p_logpipe_filter_plugin = NULL ;
+	struct LogpipeFilterPlugin	*p_next_logpipe_filter_plugin = NULL ;
+	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
 	struct LogpipeOutputPlugin	*p_next_logpipe_output_plugin = NULL ;
 	
 	/* 执行所有输入端初始化函数 */
 	list_for_each_entry_safe( p_logpipe_input_plugin , p_next_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
 	{
 		UnloadInputPluginSession( p_env , p_logpipe_input_plugin );
+	}
+	
+	/* 执行所有过滤端初始化函数 */
+	list_for_each_entry_safe( p_logpipe_filter_plugin , p_next_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
+	{
+		UnloadFilterPluginSession( p_env , p_logpipe_filter_plugin );
 	}
 	
 	/* 执行所有输出端初始化函数 */
@@ -409,6 +540,25 @@ void UnloadInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlu
 	list_del( & (p_logpipe_input_plugin->this_node) );
 	
 	free( p_logpipe_input_plugin );
+	
+	return;
+}
+
+/* 卸载过滤插件实例 */
+void UnloadFilterPluginSession( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin )
+{
+	RemoveAllPluginConfigItems( & (p_logpipe_filter_plugin->plugin_config_items) );
+	
+	p_logpipe_filter_plugin->pfuncUnloadFilterPluginConfig( p_env , p_logpipe_filter_plugin , & (p_logpipe_filter_plugin->context) );
+	
+	if( p_logpipe_filter_plugin->so_handler )
+	{
+		dlclose( p_logpipe_filter_plugin->so_handler );
+	}
+	
+	list_del( & (p_logpipe_filter_plugin->this_node) );
+	
+	free( p_logpipe_filter_plugin );
 	
 	return;
 }

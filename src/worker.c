@@ -78,22 +78,6 @@ int worker( struct LogpipeEnv *p_env )
 		INFOLOGC( "epoll_ctl[%d] add quit pipe fd[%d] ok" , p_env->epoll_fd , p_env->quit_pipe[0] )
 	}
 	
-#if 0
-	/* 创建内部状态输出有名管道 */
-	memset( p_env->logpipe_fifo_path_filename , 0x00 , sizeof(p_env->logpipe_fifo_path_filename) );
-	snprintf( p_env->logpipe_fifo_path_filename , sizeof(p_env->logpipe_fifo_path_filename)-1 , "%s/etc/logpipe.fifo" , getenv("HOME") );
-	nret = CreateLogpipeFifo( p_env ) ;
-	if( nret )
-	{
-		ERRORLOGC( "CreateLogpipeFifo failed[%d]" , nret )
-		return -1;
-	}
-	else
-	{
-		INFOLOGC( "CreateLogpipeFifo ok" )
-	}
-#endif
-	
 	/* 工作主循环 */
 	quit_flag = 0 ;
 	while( quit_flag == 0 )
@@ -156,22 +140,6 @@ int worker( struct LogpipeEnv *p_env )
 				DEBUGLOGC( "p_event->data.ptr[%p] quit_pipe" , p_event->data.ptr )
 				quit_flag = 1 ;
 			}
-#if 0
-			else if( p_event->data.ptr == & (p_env->logpipe_fifo_inotify_fd) )
-			{
-				/* 处理内部状态输出有名管道事件 */
-				nret = ProcessLogpipeFifoEvents( p_env ) ;
-				if( nret )
-				{
-					ERRORLOGC( "ProcessLogpipeFifoEvents failed[%d]\n" , nret )
-					return -1;
-				}
-				else
-				{
-					DEBUGLOGC( "ProcessLogpipeFifoEvents ok\n" )
-				}
-			}
-#endif
 			else
 			{
 				struct LogpipePlugin	*p_logpipe_plugin = NULL ;

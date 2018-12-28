@@ -153,7 +153,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			if( errno == EAGAIN )
 			{
 				INFOLOGC( "fread none" )
-				return LOGPIPE_READ_END_OF_INPUT;
+				return LOGPIPE_READ_END_FROM_INPUT;
 			}
 			else
 			{
@@ -166,7 +166,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		else if( len == 0 )
 		{
 			INFOLOGC( "fread none" )
-			return LOGPIPE_READ_END_OF_INPUT;
+			return LOGPIPE_READ_END_FROM_INPUT;
 		}
 		else
 		{
@@ -190,7 +190,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			if( errno == EAGAIN )
 			{
 				INFOLOGC( "fread none" )
-				return LOGPIPE_READ_END_OF_INPUT;
+				return LOGPIPE_READ_END_FROM_INPUT;
 			}
 			else
 			{
@@ -203,7 +203,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		else if( len == 0 )
 		{
 			INFOLOGC( "fread none" )
-			return LOGPIPE_READ_END_OF_INPUT;
+			return LOGPIPE_READ_END_FROM_INPUT;
 		}
 		else
 		{

@@ -11,6 +11,7 @@
 /* 激活一轮从输入插件读，写到所有输出插件流程处理 */
 int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , uint16_t filename_len , char *filename )
 {
+	struct LogpipeFilterPlugin	*p_travel_logpipe_filter_plugin = NULL ;
 	struct LogpipeOutputPlugin	*p_travel_logpipe_output_plugin = NULL ;
 	
 	uint64_t			file_offset ;
@@ -51,6 +52,33 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 	}
 	
+	/* 执行所有过滤端过滤前函数 */
+	list_for_each_entry( p_travel_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
+	{
+		INFOLOGC( "[%s]->pfuncBeforeProcessFilterPlugin ..." , p_travel_logpipe_filter_plugin->so_filename )
+		if( p_travel_logpipe_filter_plugin->pfuncBeforeProcessFilterPlugin )
+		{
+			gettimeofday( & tv_begin , NULL );
+			nret = p_travel_logpipe_filter_plugin->pfuncBeforeProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , filename_len , filename ) ;
+			gettimeofday( & tv_end , NULL );
+			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
+			if( nret < 0 )
+			{
+				ERRORLOGC( "[%s]->pfuncBeforeProcessFilterPlugin failed , errno[%d]" , p_travel_logpipe_filter_plugin->so_filename , errno )
+				return -1;
+			}
+			else if( nret > 0 )
+			{
+				WARNLOGC( "[%s]->pfuncBeforeProcessFilterPlugin failed , errno[%d]" , p_travel_logpipe_filter_plugin->so_filename , errno )
+				goto _GOTO_AFTER_OUTPUT;
+			}
+			else
+			{
+				INFOLOGC( "[%s]->pfuncBeforeProcessFilterPlugin ok , ELAPSE[%ld.%06ld]" , p_travel_logpipe_filter_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
+			}
+		}
+	}
+	
 	/* 执行所有输出端写前函数 */
 	list_for_each_entry( p_travel_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
@@ -87,9 +115,9 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		nret = p_logpipe_input_plugin->pfuncReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & file_offset , & file_line , & block_len , block_buf , sizeof(block_buf) ) ;
 		gettimeofday( & tv_end , NULL );
 		DiffTimeval( & tv_begin , & tv_end , & tv_diff );
-		if( nret == LOGPIPE_READ_END_OF_INPUT )
+		if( nret == LOGPIPE_READ_END_FROM_INPUT )
 		{
-			INFOLOGC( "[%s]->pfuncReadInputPlugin done" , p_logpipe_input_plugin->so_filename )
+			INFOLOGC( "[%s]->pfuncReadInputPlugin return LOGPIPE_READ_END_FROM_INPUT" , p_logpipe_input_plugin->so_filename )
 			nret = 0 ;
 			break;
 		}
@@ -106,6 +134,30 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		else
 		{
 			INFOLOGC( "[%s]->pfuncReadInputPlugin ok , ELAPSE[%ld.%06ld]" , p_logpipe_input_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
+		}
+		
+		/* 执行所有过滤端函数 */
+		list_for_each_entry( p_travel_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
+		{
+			INFOLOGC( "[%s]->pfuncProcessFilterPlugin ..." , p_travel_logpipe_filter_plugin->so_filename )
+			gettimeofday( & tv_begin , NULL );
+			nret = p_travel_logpipe_filter_plugin->pfuncProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , file_offset , file_line , & block_len , block_buf ) ;
+			gettimeofday( & tv_end , NULL );
+			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
+			if( nret < 0 )
+			{
+				ERRORLOGC( "[%s]->pfuncProcessFilterPlugin failed[%d]" , p_travel_logpipe_filter_plugin->so_filename , nret )
+				return -1;
+			}
+			else if( nret > 0 )
+			{
+				WARNLOGC( "[%s]->pfuncProcessFilterPlugin return[%d]" , p_travel_logpipe_filter_plugin->so_filename , nret )
+				goto _GOTO_AFTER_OUTPUT;
+			}
+			else
+			{
+				INFOLOGC( "[%s]->pfuncProcessFilterPlugin ok , ELAPSE[%ld.%06ld]" , p_travel_logpipe_filter_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
+			}
 		}
 		
 		/* 执行所有输出端写函数 */
@@ -154,6 +206,31 @@ _GOTO_AFTER_OUTPUT :
 		else
 		{
 			INFOLOGC( "[%s]->pfuncAfterReadInputPlugin ok , ELAPSE[%ld.%06ld]" , p_logpipe_input_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
+		}
+	}
+	
+	/* 执行所有过滤端过滤后函数 */
+	list_for_each_entry( p_travel_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
+	{
+		INFOLOGC( "[%s]->pfuncAfterProcessFilterPlugin ..." , p_travel_logpipe_filter_plugin->so_filename )
+		if( p_travel_logpipe_filter_plugin->pfuncAfterProcessFilterPlugin )
+		{
+			gettimeofday( & tv_begin , NULL );
+			nret2 = p_travel_logpipe_filter_plugin->pfuncAfterProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , filename_len , filename ) ;
+			gettimeofday( & tv_end , NULL );
+			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
+			if( nret2 < 0 )
+			{
+				ERRORLOGC( "[%s]->pfuncAfterProcessFilterPlugin failed[%d]" , p_travel_logpipe_filter_plugin->so_filename , nret2 )
+			}
+			else if( nret2 > 0 )
+			{
+				WARNLOGC( "[%s]->pfuncAfterProcessFilterPlugin return[%d]" , p_travel_logpipe_filter_plugin->so_filename , nret2 )
+			}
+			else
+			{
+				INFOLOGC( "[%s]->pfuncAfterProcessFilterPlugin ok , ELAPSE[%ld.%06ld]" , p_travel_logpipe_filter_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
+			}
 		}
 	}
 	

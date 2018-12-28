@@ -12,6 +12,7 @@
 int InitEnvironment( struct LogpipeEnv *p_env )
 {
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+	struct LogpipeFilterPlugin	*p_logpipe_filter_plugin = NULL ;
 	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
 	
 	int				nret = 0 ;
@@ -28,6 +29,21 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 		else
 		{
 			DEBUGLOGC( "[%s]->pfuncInitOutputPluginContext ok" , p_logpipe_output_plugin->so_filename )
+		}
+	}
+	
+	/* 执行所有过滤端初始化函数 */
+	list_for_each_entry( p_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
+	{
+		nret = p_logpipe_filter_plugin->pfuncInitFilterPluginContext( p_env , p_logpipe_filter_plugin , p_logpipe_filter_plugin->context ) ;
+		if( nret )
+		{
+			ERRORLOGC( "[%s]->pfuncInitFilterPluginContext failed , errno[%d]" , p_logpipe_filter_plugin->so_filename , errno )
+			return -1;
+		}
+		else
+		{
+			DEBUGLOGC( "[%s]->pfuncInitFilterPluginContext ok" , p_logpipe_filter_plugin->so_filename )
 		}
 	}
 	
@@ -58,11 +74,12 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 void CleanEnvironment( struct LogpipeEnv *p_env )
 {
 	struct LogpipeInputPlugin	*p_logpipe_input_plugin = NULL ;
+	struct LogpipeFilterPlugin	*p_logpipe_filter_plugin = NULL ;
 	struct LogpipeOutputPlugin	*p_logpipe_output_plugin = NULL ;
 	
 	int				nret = 0 ;
 	
-	/* 执行所有输入端初始化函数 */
+	/* 执行所有输入端销毁函数 */
 	list_for_each_entry( p_logpipe_input_plugin , & (p_env->logpipe_input_plugins_list.this_node) , struct LogpipeInputPlugin , this_node )
 	{
 		if( p_env->epoll_fd >= 0 )
@@ -86,7 +103,22 @@ void CleanEnvironment( struct LogpipeEnv *p_env )
 		}
 	}
 	
-	/* 执行所有输出端初始化函数 */
+	/* 执行所有过滤端销毁函数 */
+	list_for_each_entry( p_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
+	{
+		nret = p_logpipe_filter_plugin->pfuncCleanFilterPluginContext( p_env , p_logpipe_filter_plugin , p_logpipe_filter_plugin->context ) ;
+		if( nret )
+		{
+			ERRORLOGC( "[%s]->pfuncCleanFilterPluginContext failed , errno[%d]" , p_logpipe_filter_plugin->so_filename , errno )
+			return;
+		}
+		else
+		{
+			DEBUGLOGC( "[%s]->pfuncCleanFilterPluginContext ok" , p_logpipe_filter_plugin->so_filename )
+		}
+	}
+	
+	/* 执行所有输出端销毁函数 */
 	list_for_each_entry( p_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 	{
 		if( p_env->epoll_fd >= 0 )

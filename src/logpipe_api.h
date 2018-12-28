@@ -112,11 +112,14 @@ char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr );
 
 #define LOGPIPE_COMM_HEAD_MAGIC			'@'
 
-#define LOGPIPE_READ_END_OF_INPUT		4
+#define LOGPIPE_READ_END_FROM_INPUT		4
 
 struct LogpipeEnv ;
+
 struct LogpipePluginConfigItem ;
+
 struct LogpipeInputPlugin ;
+struct LogpipeFilterPlugin ;
 struct LogpipeOutputPlugin ;
 
 /* 插件配置函数 */
@@ -132,6 +135,15 @@ typedef int funcReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputP
 typedef int funcAfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line );
 typedef int funcCleanInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context );
 typedef int funcUnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void **pp_context );
+
+/* 过滤插件回调函数原型 */
+typedef int funcLoadFilterPluginConfig( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context );
+typedef int funcInitFilterPluginContext( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context );
+typedef int funcBeforeProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context , uint16_t filename_len , char *filename );
+typedef int funcProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t *p_block_len , char *block_buf );
+typedef int funcAfterProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context , uint16_t filename_len , char *filename );
+typedef int funcCleanFilterPluginContext( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context );
+typedef int funcUnloadFilterPluginConfig( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void **pp_context );
 
 /* 输出插件回调函数原型 */
 typedef int funcLoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context );
@@ -177,6 +189,17 @@ uint64_t usleep_atou64( char *str );
 
 /* 时间 */
 void DiffTimeval( struct timeval *p_tv1 , struct timeval *p_tv2 , struct timeval *p_diff );
+
+/* 拆分行工具库 */
+struct SplitLineBuffer ;
+
+#define LOGPIPE_NO_LINE		6
+
+struct SplitLineBuffer *AllocSplitLineCache();
+char *GetSplitLineBufferPtr( struct SplitLineBuffer *split_line_buf , uint64_t *p_split_line_buflen );
+uint64_t GetSplitLineBufferLength( struct SplitLineBuffer *split_line_buf );
+int FetchSplitLineBuffer( struct SplitLineBuffer *split_line_buf , uint64_t *p_block_len , char *block_buf );
+void FreeSplitLineBuffer( struct SplitLineBuffer *split_line_buf );
 
 #ifdef __cplusplus
 extern }
