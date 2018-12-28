@@ -9,30 +9,30 @@
 #@ c_FILE
 c_FILE		=	\
 			logpipe-input-file.c \
-			logpipe-output-file.c \
 			logpipe-input-tcp.c \
-			logpipe-output-tcp.c \
 			logpipe-input-exec.c \
+			logpipe-filter-log.c \
+			logpipe-output-file.c \
+			logpipe-output-tcp.c \
 			logpipe-output-hdfs.c \
 			logpipe-output-es.c \
 			logpipe-output-kafka.c \
 			logpipe-output-ingeek.c \
 			logpipe-output-linemode-template.c \
-			logpipe-filter-split-line.c \
 			logpipe-output-stdout.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
 LIB		=	\
 			logpipe-input-file.so \
-			logpipe-output-file.so \
 			logpipe-input-tcp.so \
-			logpipe-output-tcp.so \
 			logpipe-input-exec.so \
+			logpipe-filter-log.so \
+			logpipe-output-file.so \
+			logpipe-output-tcp.so \
 			logpipe-output-es.so \
 			logpipe-output-ingeek.so \
 			logpipe-output-linemode-template.so \
-			logpipe-filter-split-line.so \
 			logpipe-output-stdout.so \
 
 LIBINST		=	$(_LIBINST)
@@ -67,17 +67,20 @@ include $(MKTPL2_HOME)/makeobj_$(MKTPL2_OS).inc
 logpipe-input-file.so		:	logpipe-input-file.o
 	$(CC) -o $@ logpipe-input-file.o $(SOFLAGS) $(LFLAGS)
 
-logpipe-output-file.so		:	logpipe-output-file.o
-	$(CC) -o $@ logpipe-output-file.o $(SOFLAGS) $(LFLAGS)
-
 logpipe-input-tcp.so		:	logpipe-input-tcp.o
 	$(CC) -o $@ logpipe-input-tcp.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-input-exec.so		:	logpipe-input-exec.o
+	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-filter-log.so	:	logpipe-filter-log.o
+	$(CC) -o $@ logpipe-filter-log.o $(SOFLAGS) $(LFLAGS)
 
 logpipe-output-tcp.so		:	logpipe-output-tcp.o
 	$(CC) -o $@ logpipe-output-tcp.o $(SOFLAGS) $(LFLAGS)
 
-logpipe-input-exec.so		:	logpipe-input-exec.o
-	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
+logpipe-output-file.so		:	logpipe-output-file.o
+	$(CC) -o $@ logpipe-output-file.o $(SOFLAGS) $(LFLAGS)
 
 fasterhttp.o			:	fasterhttp.c
 	$(CC) $(CFLAGS) -c fasterhttp.c
@@ -110,9 +113,6 @@ logpipe-output-ingeek.so	:	logpipe-output-ingeek.o
 
 logpipe-output-linemode-template.so	:	logpipe-output-linemode-template.o
 	$(CC) -o $@ logpipe-output-linemode-template.o $(SOFLAGS) $(LFLAGS)
-
-logpipe-filter-split-line.so	:	logpipe-filter-split-line.o
-	$(CC) -o $@ logpipe-filter-split-line.o $(SOFLAGS) $(LFLAGS)
 
 logpipe-output-stdout.so	:	logpipe-output-stdout.o
 	$(CC) -o $@ logpipe-output-stdout.o $(SOFLAGS) $(LFLAGS)

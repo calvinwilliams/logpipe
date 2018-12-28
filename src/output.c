@@ -137,99 +137,50 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		}
 		
 		/* 执行所有过滤端函数 */
-		if( list_empty( & (p_env->logpipe_filter_plugins_list.this_node) ) )
+		list_for_each_entry( p_travel_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
 		{
-			/* 执行所有输出端写函数 */
-			list_for_each_entry( p_travel_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
+			INFOLOGC( "[%s]->pfuncProcessFilterPlugin ..." , p_travel_logpipe_filter_plugin->so_filename )
+			gettimeofday( & tv_begin , NULL );
+			nret = p_travel_logpipe_filter_plugin->pfuncProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , file_offset , file_line , & block_len , block_buf ) ;
+			gettimeofday( & tv_end , NULL );
+			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
+			if( nret < 0 )
 			{
-				INFOLOGC( "[%s]->pfuncWriteOutputPlugin ..." , p_travel_logpipe_output_plugin->so_filename )
-				gettimeofday( & tv_begin , NULL );
-				nret = p_travel_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , file_offset , file_line , block_len , block_buf ) ;
-				gettimeofday( & tv_end , NULL );
-				DiffTimeval( & tv_begin , & tv_end , & tv_diff );
-				if( nret < 0 )
-				{
-					ERRORLOGC( "[%s]->pfuncWriteOutputPlugin failed[%d]" , p_travel_logpipe_output_plugin->so_filename , nret )
-					return -1;
-				}
-				else if( nret > 0 )
-				{
-					WARNLOGC( "[%s]->pfuncWriteOutputPlugin return[%d]" , p_travel_logpipe_output_plugin->so_filename , nret )
-					goto _GOTO_AFTER_OUTPUT;
-				}
-				else
-				{
-					INFOLOGC( "[%s]->pfuncWriteOutputPlugin ok , ELAPSE[%ld.%06ld]" , p_travel_logpipe_output_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
-				}
+				ERRORLOGC( "[%s]->pfuncProcessFilterPlugin failed[%d]" , p_travel_logpipe_filter_plugin->so_filename , nret )
+				return -1;
+			}
+			else if( nret > 0 )
+			{
+				WARNLOGC( "[%s]->pfuncProcessFilterPlugin return[%d]" , p_travel_logpipe_filter_plugin->so_filename , nret )
+				goto _GOTO_AFTER_OUTPUT;
+			}
+			else
+			{
+				INFOLOGC( "[%s]->pfuncProcessFilterPlugin ok , ELAPSE[%ld.%06ld]" , p_travel_logpipe_filter_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
 			}
 		}
-		else
+		
+		/* 执行所有输出端写函数 */
+		list_for_each_entry( p_travel_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
 		{
-			char			*continue_block_buf = NULL ;
-			uint64_t		continue_block_len ;
-			unsigned char		continue_to_filter_flag ;
-			
-			list_for_each_entry( p_travel_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
+			INFOLOGC( "[%s]->pfuncWriteOutputPlugin ..." , p_travel_logpipe_output_plugin->so_filename )
+			gettimeofday( & tv_begin , NULL );
+			nret = p_travel_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , file_offset , file_line , block_len , block_buf ) ;
+			gettimeofday( & tv_end , NULL );
+			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
+			if( nret < 0 )
 			{
-				continue_block_buf = block_buf ;
-				continue_block_len = block_len ;
-_GOTO_CONTINUE_TO_FILTER :
-				continue_to_filter_flag = 0 ;
-				
-				INFOLOGC( "[%s]->pfuncProcessFilterPlugin ..." , p_travel_logpipe_filter_plugin->so_filename )
-				gettimeofday( & tv_begin , NULL );
-				nret = p_travel_logpipe_filter_plugin->pfuncProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , file_offset , file_line , & continue_block_len , continue_block_buf ) ;
-				gettimeofday( & tv_end , NULL );
-				DiffTimeval( & tv_begin , & tv_end , & tv_diff );
-				if( nret == LOGPIPE_CONTINUE_TO_FILTER )
-				{
-					INFOLOGC( "[%s]->pfuncProcessFilterPlugin return LOGPIPE_CONTINUE_TO_FILTER" , p_travel_logpipe_filter_plugin->so_filename )
-					continue_to_filter_flag = 1 ;
-				}
-				else if( nret < 0 )
-				{
-					ERRORLOGC( "[%s]->pfuncProcessFilterPlugin failed[%d]" , p_travel_logpipe_filter_plugin->so_filename , nret )
-					return -1;
-				}
-				else if( nret > 0 )
-				{
-					WARNLOGC( "[%s]->pfuncProcessFilterPlugin return[%d]" , p_travel_logpipe_filter_plugin->so_filename , nret )
-					goto _GOTO_AFTER_OUTPUT;
-				}
-				else
-				{
-					INFOLOGC( "[%s]->pfuncProcessFilterPlugin ok , ELAPSE[%ld.%06ld]" , p_travel_logpipe_filter_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
-				}
-				
-				/* 执行所有输出端写函数 */
-				list_for_each_entry( p_travel_logpipe_output_plugin , & (p_env->logpipe_output_plugins_list.this_node) , struct LogpipeOutputPlugin , this_node )
-				{
-					INFOLOGC( "[%s]->pfuncWriteOutputPlugin ..." , p_travel_logpipe_output_plugin->so_filename )
-					gettimeofday( & tv_begin , NULL );
-					nret = p_travel_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , file_offset , file_line , block_len , block_buf ) ;
-					gettimeofday( & tv_end , NULL );
-					DiffTimeval( & tv_begin , & tv_end , & tv_diff );
-					if( nret < 0 )
-					{
-						ERRORLOGC( "[%s]->pfuncWriteOutputPlugin failed[%d]" , p_travel_logpipe_output_plugin->so_filename , nret )
-						return -1;
-					}
-					else if( nret > 0 )
-					{
-						WARNLOGC( "[%s]->pfuncWriteOutputPlugin return[%d]" , p_travel_logpipe_output_plugin->so_filename , nret )
-						goto _GOTO_AFTER_OUTPUT;
-					}
-					else
-					{
-						INFOLOGC( "[%s]->pfuncWriteOutputPlugin ok , ELAPSE[%ld.%06ld]" , p_travel_logpipe_output_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
-					}
-				}
-				
-				if( continue_to_filter_flag == 1 )
-				{
-					continue_block_buf = NULL ;
-					goto _GOTO_CONTINUE_TO_FILTER;
-				}
+				ERRORLOGC( "[%s]->pfuncWriteOutputPlugin failed[%d]" , p_travel_logpipe_output_plugin->so_filename , nret )
+				return -1;
+			}
+			else if( nret > 0 )
+			{
+				WARNLOGC( "[%s]->pfuncWriteOutputPlugin return[%d]" , p_travel_logpipe_output_plugin->so_filename , nret )
+				goto _GOTO_AFTER_OUTPUT;
+			}
+			else
+			{
+				INFOLOGC( "[%s]->pfuncWriteOutputPlugin ok , ELAPSE[%ld.%06ld]" , p_travel_logpipe_output_plugin->so_filename , tv_diff.tv_sec , tv_diff.tv_usec )
 			}
 		}
 	}

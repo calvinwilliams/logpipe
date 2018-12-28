@@ -100,7 +100,9 @@ struct InputPluginContext
 	int			max_watch_count ;
 	uint64_t		max_usleep_interval ;
 	uint64_t		min_usleep_interval ;
-	signed char		inheritance_lines_after_rotating ;
+	unsigned char		inheritance_lines_after_rotating ;
+	unsigned char		line_mode ;
+	
 	int			start_once_for_full_dose ;
 	
 	int			inotify_fd ;
@@ -122,6 +124,8 @@ struct InputPluginContext
 	uint64_t		remain_len ;
 	uint64_t		read_len ;
 	uint64_t		read_line ;
+	
+	struct SplitLineBuffer	*split_line_buf ;
 } ;
 
 LINK_RBTREENODE_STRING_ALLOWDUPLICATE( LinkTraceFilenameTreeNode , struct InputPluginContext , inotify_filename_rbtree , struct TraceFile , inotify_filename_rbnode , filename )
@@ -1121,6 +1125,13 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		p_plugin_ctx->inheritance_lines_after_rotating = 0 ;
 	INFOLOGC( "inheritance_lines_after_rotating[%d]" , p_plugin_ctx->inheritance_lines_after_rotating )
 	
+	p = QueryPluginConfigItem( p_plugin_config_items , "line_mode" ) ;
+	if( p )
+		p_plugin_ctx->line_mode = atoi(p) ;
+	else
+		p_plugin_ctx->line_mode = 0 ;
+	INFOLOGC( "line_mode[%d]" , p_plugin_ctx->line_mode )
+	
 	/* 设置插件环境上下文 */
 	(*pp_context) = p_plugin_ctx ;
 	
@@ -1145,6 +1156,13 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	
 	/* 初始化其它变量 */
 	INIT_LIST_HEAD( & (p_plugin_ctx->movefrom_filename_list) );
+	
+	p_plugin_ctx->split_line_buf = AllocSplitLineCache() ;
+	if( p_plugin_ctx->split_line_buf == NULL )
+	{
+		ERRORLOGC( "AllocSplitLineCache failed , errno[%d]" , errno )
+		return -1;
+	}
 	
 	/* 初始化插件环境内部数据 */
 	p_plugin_ctx->inotify_fd = inotify_init() ;
@@ -1720,6 +1738,29 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	
 	int				nret = 0 ;
 	
+	if( p_plugin_ctx->line_mode )
+	{
+		(*p_block_len) = 0 ;
+		nret = FetchSplitLineBuffer( p_plugin_ctx->split_line_buf , p_block_len , block_buf ) ;
+		if( nret == LOGPIPE_NO_LINE )
+		{
+			INFOLOGC( "FetchSplitLineBuffer return LOGPIPE_NO_LINE" )
+		}
+		else if( nret )
+		{
+			ERRORLOGC( "FetchSplitLineBuffer failed[%d]" , nret )
+			return -1;
+		}
+		else
+		{
+			INFOLOGC( "FetchSplitLineBuffer ok , [%"PRIu64"]bytes" , (*p_block_len) )
+			DEBUGHEXLOGC( block_buf , (*p_block_len) , NULL )
+			(*p_file_offset) += (*p_block_len)+1 ;
+			(*p_file_line)++;
+			return 0;
+		}
+	}
+	
 	if( p_plugin_ctx->remain_len == 0 )
 		return LOGPIPE_READ_END_FROM_INPUT;
 	
@@ -1829,6 +1870,31 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	
 	p_plugin_ctx->remain_len -= p_plugin_ctx->read_len ;
 	
+	if( p_plugin_ctx->line_mode )
+	{
+		p_trace_file->trace_offset += (*p_block_len) ;
+		p_trace_file->trace_line++;
+		
+		nret = FetchSplitLineBuffer( p_plugin_ctx->split_line_buf , p_block_len , block_buf ) ;
+		if( nret == LOGPIPE_NO_LINE )
+		{
+			INFOLOGC( "FetchSplitLineBuffer return LOGPIPE_NO_LINE" )
+			return LOGPIPE_READ_END_FROM_INPUT;
+		}
+		else if( nret )
+		{
+			ERRORLOGC( "FetchSplitLineBuffer failed[%d]" , nret )
+			return -1;
+		}
+		else
+		{
+			INFOLOGC( "FetchSplitLineBuffer ok , [%"PRIu64"]bytes" , (*p_block_len) )
+			DEBUGHEXLOGC( block_buf , (*p_block_len) , NULL )
+			(*p_file_offset) += (*p_block_len)+1 ;
+			(*p_file_line)++;
+		}
+	}
+	
 	return 0;
 }
 
@@ -1842,13 +1908,18 @@ int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *
 		, p_trace_file->path_filename
 		, p_plugin_ctx->p_trace_file->trace_offset+p_plugin_ctx->read_len , p_plugin_ctx->p_trace_file->trace_offset , p_plugin_ctx->read_len
 		, p_trace_file->trace_line+p_plugin_ctx->read_line , p_trace_file->trace_line , p_plugin_ctx->read_line )
-	p_trace_file->trace_offset += p_plugin_ctx->read_len ;
-	p_trace_file->trace_line += p_plugin_ctx->read_line ;
+	
+	if( ! p_plugin_ctx->line_mode )
+	{
+		p_trace_file->trace_offset += p_plugin_ctx->read_len ;
+		p_trace_file->trace_line += p_plugin_ctx->read_line ;
+		
+		(*p_file_offset) = p_trace_file->trace_offset ;
+		(*p_file_line) = p_trace_file->trace_line ;
+	}
+	
 	p_plugin_ctx->read_len = 0 ;
 	p_plugin_ctx->read_line = 0 ;
-	
-	(*p_file_offset) = p_trace_file->trace_offset ;
-	(*p_file_line) = p_trace_file->trace_line ;
 	
 	return 0;
 }
@@ -1870,6 +1941,8 @@ int CleanInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 	DestroyTraceFileTree( p_plugin_ctx );
 	
 	free( p_plugin_ctx->inotify_read_buffer );
+	
+	FreeSplitLineBuffer( p_plugin_ctx->split_line_buf );
 	
 	return 0;
 }

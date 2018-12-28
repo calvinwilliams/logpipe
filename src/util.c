@@ -608,12 +608,10 @@ uint64_t GetSplitLineBufferLength( struct SplitLineBuffer *split_line_buf )
 
 int FetchSplitLineBuffer( struct SplitLineBuffer *split_line_buf , uint64_t *p_block_len , char *block_buf )
 {
-	uint64_t	remain_len ;
-	char		*p_line = NULL ;
 	char		*p_newline = NULL ;
 	uint64_t	line_len ;
 	
-	if( block_buf )
+	if( (*p_block_len) )
 	{
 		/* 如果遗留数据+当前数据块能塞进拆分缓冲区 */
 		if( split_line_buf->split_line_buflen + *(p_block_len) <= sizeof(split_line_buf->split_line_buffer)-1 )
@@ -636,29 +634,25 @@ int FetchSplitLineBuffer( struct SplitLineBuffer *split_line_buf , uint64_t *p_b
 			memcpy( split_line_buf->split_line_buffer , buf , len );
 			split_line_buf->split_line_buflen = len ;
 			
-			return LOGPIPE_CONTINUE_TO_FILTER;
+			return 0;
 		}
 	}
 	
 	/* 处理掉解析缓冲区中的一行有效行 */
-	remain_len = split_line_buf->split_line_buflen ;
-	
-	p_line = split_line_buf->split_line_buffer ;
-	p_newline = memchr( p_line , '\n' , remain_len ) ;
+	p_newline = memchr( split_line_buf->split_line_buffer , '\n' , split_line_buf->split_line_buflen ) ;
 	if( p_newline == NULL )
-		return 0;
+		return LOGPIPE_NO_LINE;
 	
 	(*p_newline) = '\0' ;
 	
-	line_len = p_newline - p_line ;
-	memcpy( block_buf , p_line , line_len );
+	line_len = p_newline - split_line_buf->split_line_buffer ;
+	memcpy( block_buf , split_line_buf->split_line_buffer , line_len );
 	*(p_block_len) = line_len ;
 	
-	remain_len -= ( line_len + 1 ) ;
-	memmove( split_line_buf->split_line_buffer , p_newline , remain_len );
-	split_line_buf->split_line_buflen = remain_len ;
+	split_line_buf->split_line_buflen -= ( line_len + 1 ) ;
+	memmove( split_line_buf->split_line_buffer , p_newline+1 , split_line_buf->split_line_buflen );
 	
-	return LOGPIPE_CONTINUE_TO_FILTER;
+	return 0;
 }
 
 void FreeSplitLineBuffer( struct SplitLineBuffer *split_line_buf )

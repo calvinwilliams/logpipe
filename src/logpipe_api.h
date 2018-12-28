@@ -113,7 +113,6 @@ char *ConvertContentEncoding( char *encFrom , char *encTo , char *inptr );
 #define LOGPIPE_COMM_HEAD_MAGIC			'@'
 
 #define LOGPIPE_READ_END_FROM_INPUT		4
-#define LOGPIPE_CONTINUE_TO_FILTER		6
 
 struct LogpipeEnv ;
 
@@ -192,11 +191,9 @@ uint64_t usleep_atou64( char *str );
 void DiffTimeval( struct timeval *p_tv1 , struct timeval *p_tv2 , struct timeval *p_diff );
 
 /* 拆分行工具库 */
-struct SplitLineBuffer
-{
-	char			split_line_buffer[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ; /* 拆分缓冲区 */
-	uint64_t		split_line_buflen ; /* 拆分缓冲区数据长度 */
-} ;
+struct SplitLineBuffer ;
+
+#define LOGPIPE_NO_LINE		6
 
 struct SplitLineBuffer *AllocSplitLineCache();
 char *GetSplitLineBufferPtr( struct SplitLineBuffer *split_line_buf , uint64_t *p_split_line_buflen );

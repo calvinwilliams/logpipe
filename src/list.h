@@ -193,10 +193,10 @@ void list_splice_tail_init(struct list_head *list, struct list_head *head);
  * Continue to iterate over list of given type, continuing after
  * the current position.
  */
-#define list_for_each_entry_continue(p_node, head, member) 		\
-	for (p_node = list_next_entry(p_node, member);			\
+#define list_for_each_entry_continue(p_node, head, type, member) 		\
+	for (p_node = list_next_entry(p_node, type, member);			\
 	     &p_node->member != (head);					\
-	     p_node = list_next_entry(p_node, member))
+	     p_node = list_next_entry(p_node, type, member))
 
 /**
  * list_for_each_entry_continue_reverse - iterate backwards from the given point
@@ -220,9 +220,9 @@ void list_splice_tail_init(struct list_head *list, struct list_head *head);
  *
  * Iterate over list of given type, continuing from current position.
  */
-#define list_for_each_entry_from(p_node, head, member) 			\
+#define list_for_each_entry_from(p_node, head, type, member) 			\
 	for (; &p_node->member != (head);					\
-	     p_node = list_next_entry(p_node, member))
+	     p_node = list_next_entry(p_node, type, member))
 
 /**
  * list_for_each_entry_safe - iterate over list of given type safe against removal of list entry

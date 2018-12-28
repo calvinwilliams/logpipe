@@ -9,7 +9,7 @@
         - [2.1.2. 编译安装自带logpipe插件](#212-编译安装自带logpipe插件)
         - [2.1.3. 编译安装自带选安装logpipe插件](#213-编译安装自带选安装logpipe插件)
             - [2.1.3.1. logpipe-output-hdfs](#2131-logpipe-output-hdfs)
-            - [2.1.3.2. logpipe-output-ek](#2132-logpipe-output-ek)
+            - [2.1.3.2. logpipe-output-es](#2132-logpipe-output-es)
         - [2.1.4. 确认安装](#214-确认安装)
 - [3. 使用](#3-使用)
     - [3.1. 案例A](#31-案例a)
@@ -27,7 +27,7 @@
         - [4.2.4. logpipe-output-tcp](#424-logpipe-output-tcp)
         - [4.2.5. logpipe-input-exec](#425-logpipe-input-exec)
         - [4.2.6. logpipe-output-hdfs](#426-logpipe-output-hdfs)
-        - [4.2.7. logpipe-output-ek](#427-logpipe-output-ek)
+        - [4.2.7. logpipe-output-es](#427-logpipe-output-es)
 - [5. 插件开发](#5-插件开发)
     - [5.1. 输入插件](#51-输入插件)
     - [5.2. 输出插件](#52-输出插件)
@@ -46,7 +46,7 @@
 
 作为一个日志采集的本地代理，内存占用应该小而受控，性能应该高效，耗费CPU低对应用影响尽可能小，要能异步实时追踪日志文件增长，某些应用会在目标目录下产生多个日志文件甚至现在不能确定将来的日志文件名，架构上要支持多输入多输出流式日志采集传输，为了达成以上需求，我研究了所需技术，评估实现难度并不高，就自研了logpipe。
 
-logpipe是一个分布式、高可用的用于采集、传输、对接落地的日志工具，采用了插件风格的框架结构设计，支持多输入多输出按需配置组件用于流式日志收集架构，无第三方依赖。
+logpipe是一个分布式、高可用的用于采集、传输、对接落地的日志工具，采用了插件风格的框架结构设计，支持多输入、多过滤、多输出按需配置组件用于流式日志收集架构，无第三方依赖。
 
 logpipe的一种用法是能异步实时监控集群里的所有日志目录，一旦有文件新增或追加写，立即采集并传输到大存储上以相同日志文件名合并落地，或者写入HDFS。异步意味着不影响应用输出日志的性能，实时意味着一有日志立即采集，很多日志采集工具如flume-ng、logstash介绍文档通篇不提采集方式是否实时还是周期性的，这很关键。
 
@@ -78,7 +78,12 @@ logpipe配置采用JSON格式，层次分明，编写简洁，如示例：
 	
 	"inputs" : 
 	[
-		{ "plugin":"so/logpipe-input-file.so" , "path":"/home/calvin/log" , "compress_algorithm":"deflate" }
+		{ "plugin":"so/logpipe-input-file.so" , "path":"/home/calvin/log" }
+	] ,
+	
+	"filters" :
+	[
+		{ "plugin":"so/logpipe-filter-log.so" }
 	] ,
 	
 	"outputs" : 
@@ -207,14 +212,14 @@ gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -o logpipe-output-hdfs.so lo
 $ cp logpipe-output-hdfs.so ~/so/
 ```
 
-#### 2.1.3.2. logpipe-output-ek
+#### 2.1.3.2. logpipe-output-es
 
 ```
-$ make logpipe-output-ek.so && cp logpipe-output-ek.so ~/so/
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -std=gnu99 -I. -I/home/dep_lhh/include -std=gnu99 -I/home/dep_lhh/include/logpipe  -c logpipe-output-ek.c
+$ make logpipe-output-es.so && cp logpipe-output-es.so ~/so/
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -std=gnu99 -I. -I/home/dep_lhh/include -std=gnu99 -I/home/dep_lhh/include/logpipe  -c logpipe-output-es.c
 gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -std=gnu99 -I. -I/home/dep_lhh/include -std=gnu99 -I/home/dep_lhh/include/logpipe  -c fasterhttp.c
-gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -std=gnu99 -o logpipe-output-ek.so logpipe-output-ek.o fasterhttp.o -shared -L. -L/home/dep_lhh/so -L/home/dep_lhh/lib -llogpipe_api -rdynamic 
-$ cp logpipe-output-ek.so ~/so/
+gcc -g -fPIC -O2 -Wall -Werror -fno-strict-aliasing -std=gnu99 -o logpipe-output-es.so logpipe-output-es.o fasterhttp.o -shared -L. -L/home/dep_lhh/so -L/home/dep_lhh/lib -llogpipe_api -rdynamic 
+$ cp logpipe-output-es.so ~/so/
 ```
 
 ### 2.1.4. 确认安装
@@ -477,6 +482,7 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 * `max_usleep_interval` : 最大沉睡间隔，防止CPU被耗完，如`100ms`；不填为不沉睡；可选
 * `min_usleep_interval` : 最小沉睡间隔，防止CPU被耗完，如`10ms`；不填为不沉睡；可选
 * `inheritance_lines_after_rotating` : 当文件转档时，新文件是否继承老文件的行号，如1继承，0或不填为不继承；可选
+* `line_mode` : 以行方式输入；不填默认为块方式；插件始终以块方式读取文件，当设置`line_mode`时，插件内部启用块拆分行缓冲区，迭代拆分出行；可选
 
 配置项`exec_before_rotating`和`exec_after_rotating`的内置环境变量
 
@@ -593,7 +599,7 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 { "plugin":"so/logpipe-output-hdfs.so" , "name_node":"192.168.6.21" , "port":9000 , "user":"hdfs" , "path":"/log" }
 ```
 
-### 4.2.7. logpipe-output-ek
+### 4.2.7. logpipe-output-es
 
 按行格式化列，存储到ElasticSearch。
 
@@ -621,7 +627,7 @@ $ logpipe -f $HOME/etc/logpipe.conf --start-once-for-env "start_once_for_full_do
 ] ,
 "outputs" : 
 [
-	{ "plugin":"so/logpipe-output-ek.so" , "output_template":"{ \"trans_date\":\"$1\",\"trans_time\":\"$2\" , \"cpu_usr\":$3,\"cpu_sys\":$4,\"cpu_iowait\":$5,\"cpu_idle\":$6 , \"mem_used\":$7,\"mem_buffer_and_cache\":$8,\"mem_free\":$9 , \"disk_r_s\":$10,\"disk_w_s\":$11,\"disk_rKB_s\":$12,\"disk_wKB_s\":$13 , \"net_rPCK_s\":$14,\"net_wPCK_s\":$15,\"net_rKB_s\":$16,\"net_wKB_s\":$17 }" , "ip":"192.168.6.21" , "port":9200 , "index":"system_monitor" , "type":"data" }
+	{ "plugin":"so/logpipe-output-es.so" , "output_template":"{ \"trans_date\":\"$1\",\"trans_time\":\"$2\" , \"cpu_usr\":$3,\"cpu_sys\":$4,\"cpu_iowait\":$5,\"cpu_idle\":$6 , \"mem_used\":$7,\"mem_buffer_and_cache\":$8,\"mem_free\":$9 , \"disk_r_s\":$10,\"disk_w_s\":$11,\"disk_rKB_s\":$12,\"disk_wKB_s\":$13 , \"net_rPCK_s\":$14,\"net_wPCK_s\":$15,\"net_rKB_s\":$16,\"net_wKB_s\":$17 }" , "ip":"192.168.6.21" , "port":9200 , "index":"system_monitor" , "type":"data" }
 ]
 ```
 
@@ -910,6 +916,113 @@ int UnloadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 * 回调函数`LoadOutputPluginConfig`用于装载配置时构造插件上下文和解析配置参数填充上下文，构造的插件上下文被其它回调函数使用，最后在回调函数`UnloadoutputPluginConfig`里释放。插件上下文由应用自定义。
 * 回调函数`InitOutputPluginContexth`和`CleanOutputPluginContext`负责初始化、清理内部环境。
 * 回调函数`WriteOutputPlugin`在触发框架传递消息时被迭代调用。
+
+注意：以上所有回调函数，当返回值大于0时中断本次消息传递，当返回值小于0时重启logpipe工作进程。
+
+## 5.3. 过滤插件
+
+过滤插件基本代码模板如下：
+
+```
+#include "logpipe_api.h"
+
+char	*__LOGPIPE_FILTER_LOG_VERSION = "0.1.0" ;
+
+struct FilterPluginContext
+{
+	...
+} ;
+
+funcLoadFilterPluginConfig LoadFilterPluginConfig ;
+int LoadFilterPluginConfig( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+{
+	struct FilterPluginContext	*p_plugin_ctx = NULL ;
+	
+	p_plugin_ctx = (struct FilterPluginContext *)malloc( sizeof(struct FilterPluginContext) ) ;
+	if( p_plugin_ctx == NULL )
+	{
+		ERRORLOG( "malloc failed , errno[%d]" , errno );
+		return -1;
+	}
+	memset( p_plugin_ctx , 0x00 , sizeof(struct FilterPluginContext) );
+	
+	p_plugin_ctx->... = QueryPluginConfigItem( p_plugin_config_items , "..." ) ;
+	INFOLOG( "...[%s]" , p_plugin_ctx->... )
+	
+	...
+	
+	/* 设置插件环境上下文 */
+	(*pp_context) = p_plugin_ctx ;
+	
+	return 0;
+}
+
+funcInitFilterPluginContext InitFilterPluginContext ;
+int InitFilterPluginContext( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context )
+{
+	struct FilterPluginContext	*p_plugin_ctx = (struct FilterPluginContext *)p_context ;
+	
+	...
+	
+	/* 设置输出描述字 */
+	AddFilterPluginEvent( p_env , p_logpipe_filter_plugin , . ); /* 订阅可读事件，当不可用时回调函数OnFilterPluginEvent */
+	
+	return 0;
+}
+
+funcBeforeProcessFilterPlugin BeforeProcessFilterPlugin ; /* 所有过滤之前执行，可选存在函数 */
+int BeforeProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context , uint16_t filename_len , char *filename )
+{
+	struct FilterPluginContext	*p_plugin_ctx = (struct FilterPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcProcessFilterPlugin ProcessFilterPlugin ;
+int ProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context , uint32_t *p_block_len , char *block_buf )
+{
+	struct FilterPluginContext	*p_plugin_ctx = (struct FilterPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcAfterProcessFilterPlugin AfterProcessFilterPlugin ; /* 所有过滤之后执行，可选存在函数 */
+int AfterProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context , uint16_t filename_len , char *filename )
+{
+	struct FilterPluginContext	*p_plugin_ctx = (struct FilterPluginContext *)p_context ;
+	
+	...
+	
+	return 0;
+}
+
+funcCleanFilterPluginContext CleanFilterPluginContext ;
+int CleanFilterPluginContext( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context )
+{
+	return 0;
+}
+
+funcUnloadFilterPluginConfig UnloadFilterPluginConfig ;
+int UnloadFilterPluginConfig( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void **pp_context )
+{
+	struct FilterPluginContext	**pp_plugin_ctx = (struct FilterPluginContext **)pp_context ;
+	
+	/* 释放内存以存放插件上下文 */
+	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
+	
+	return 0;
+}
+```
+
+说明：
+
+* 回调函数`LoadFilterPluginConfig`用于装载配置时构造插件上下文和解析配置参数填充上下文，构造的插件上下文被其它回调函数使用，最后在回调函数`UnloadfilterPluginConfig`里释放。插件上下文由应用自定义。
+* 回调函数`InitFilterPluginContexth`和`CleanFilterPluginContext`负责初始化、清理内部环境。
+* 回调函数`WriteFilterPlugin`在触发框架传递消息时被迭代调用。
 
 注意：以上所有回调函数，当返回值大于0时中断本次消息传递，当返回值小于0时重启logpipe工作进程。
 

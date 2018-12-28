@@ -1,3 +1,7 @@
+1.1.0		2018-12-28	calvin
+		* 插件logpipe-input-file新增配置选项line_mode，用于内部拆分为行输出
+		* 新增过滤插件机制
+
 1.0.11		2018-12-10	calvin
 		* 插件logpipe-input-file新增配置选项inheritance_lines_after_rotating
 		  ，用于当文件转档时新文件继承老文件的行号

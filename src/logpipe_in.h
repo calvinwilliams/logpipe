@@ -84,7 +84,6 @@ struct LogpipeFilterPlugin
 	funcAfterProcessFilterPlugin	*pfuncAfterProcessFilterPlugin ; /* 在过滤一个数据块后 */
 	funcCleanFilterPluginContext	*pfuncCleanFilterPluginContext ; /* 工作主循环后清理插件 */
 	funcUnloadFilterPluginConfig	*pfuncUnloadFilterPluginConfig ; /* 退出前卸载插件 */
-	int				fd ;
 	void				*context ; /* 插件实例上下文 */
 	
 	struct list_head		this_node ;
@@ -127,12 +126,6 @@ struct LogpipeEnv
 	
 	char				hostname[ HOST_NAME_MAX + 1 ] ;
 	struct passwd			*pwd ;
-	
-#if 0 /* 可惜inotify不支持有名管道 */
-	char				logpipe_fifo_path_filename[ PATH_MAX + 1 ] ; /* 内部状态输出有名管道路径文件名 */
-	int				logpipe_fifo_inotify_fd ; /* 内部状态输出有名管道文件监控事件描述字 */
-	int				logpipe_fifo_inotify_wd ; /* 内部状态输出有名管道文件监控事件监控描述字 */
-#endif
 	
 	int				epoll_fd ; /* epoll事件总线 */
 	
@@ -180,6 +173,13 @@ int worker( struct LogpipeEnv *p_env );
 
 /* 空闲事件函数 */
 int ProcessOnIdle( struct LogpipeEnv *p_env );
+
+/* 拆分行工具库 */
+struct SplitLineBuffer
+{
+	char			split_line_buffer[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ; /* 拆分缓冲区 */
+	uint64_t		split_line_buflen ; /* 拆分缓冲区数据长度 */
+} ;
 
 #ifdef __cplusplus
 }

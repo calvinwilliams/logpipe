@@ -458,7 +458,6 @@ int LoadConfig( struct LogpipeEnv *p_env )
 	/* 执行所有过滤端初始化函数 */
 	list_for_each_entry( p_logpipe_filter_plugin , & (p_env->logpipe_filter_plugins_list.this_node) , struct LogpipeFilterPlugin , this_node )
 	{
-		p_logpipe_filter_plugin->fd = -1 ;
 		p_logpipe_filter_plugin->context = NULL ;
 		nret = p_logpipe_filter_plugin->pfuncLoadFilterPluginConfig( p_env , p_logpipe_filter_plugin , & (p_logpipe_filter_plugin->plugin_config_items) , & (p_logpipe_filter_plugin->context) ) ;
 		if( nret )
