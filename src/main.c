@@ -12,8 +12,8 @@
 ps -f -u $USER | grep "logpipe -f" | awk '{if($3==1)print $2}' | xargs kill
 */
 
-char __LOGPIPE_VERSION_1_0_11[] = "1.0.11" ;
-char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_1_0_11 ;
+char __LOGPIPE_VERSION_1_1_0[] = "1.1.0" ;
+char *__LOGPIPE_VERSION = __LOGPIPE_VERSION_1_1_0 ;
 
 /* 显示版本号 */
 static void version()
@@ -118,6 +118,7 @@ int main( int argc , char *argv[] )
 	INIT_LIST_HEAD( & (p_env->start_once_for_plugin_config_items.this_node) );
 	p_env->epoll_fd = -1 ;
 	INIT_LIST_HEAD( & (p_env->logpipe_input_plugins_list.this_node) );
+	INIT_LIST_HEAD( & (p_env->logpipe_filter_plugins_list.this_node) );
 	INIT_LIST_HEAD( & (p_env->logpipe_output_plugins_list.this_node) );
 	
 	/* 解析命令行参数 */

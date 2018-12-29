@@ -9,27 +9,31 @@
 #@ c_FILE
 c_FILE		=	\
 			logpipe-input-file.c \
-			logpipe-output-file.c \
 			logpipe-input-tcp.c \
-			logpipe-output-tcp.c \
 			logpipe-input-exec.c \
+			logpipe-filter-log.c \
+			logpipe-output-file.c \
+			logpipe-output-tcp.c \
 			logpipe-output-hdfs.c \
 			logpipe-output-es.c \
 			logpipe-output-kafka.c \
 			logpipe-output-ingeek.c \
 			logpipe-output-linemode-template.c \
+			logpipe-output-stdout.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
 LIB		=	\
 			logpipe-input-file.so \
-			logpipe-output-file.so \
 			logpipe-input-tcp.so \
-			logpipe-output-tcp.so \
 			logpipe-input-exec.so \
+			logpipe-filter-log.so \
+			logpipe-output-file.so \
+			logpipe-output-tcp.so \
 			logpipe-output-es.so \
 			logpipe-output-ingeek.so \
 			logpipe-output-linemode-template.so \
+			logpipe-output-stdout.so \
 
 LIBINST		=	$(_LIBINST)
 
@@ -49,6 +53,7 @@ LFLAGS		=	$(_LFLAGS) \
 CLEAN_ADDITION	=	fasterhttp.o \
 			logpipe-output-hdfs.so \
 			logpipe-output-kafka.so \
+			logpipe-output-kafka-with-zookeeper.so \
 
 ###### 加载mktpl模板库
 #@ make_all
@@ -63,17 +68,20 @@ include $(MKTPL2_HOME)/makeobj_$(MKTPL2_OS).inc
 logpipe-input-file.so		:	logpipe-input-file.o
 	$(CC) -o $@ logpipe-input-file.o $(SOFLAGS) $(LFLAGS)
 
-logpipe-output-file.so		:	logpipe-output-file.o
-	$(CC) -o $@ logpipe-output-file.o $(SOFLAGS) $(LFLAGS)
-
 logpipe-input-tcp.so		:	logpipe-input-tcp.o
 	$(CC) -o $@ logpipe-input-tcp.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-input-exec.so		:	logpipe-input-exec.o
+	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-filter-log.so	:	logpipe-filter-log.o
+	$(CC) -o $@ logpipe-filter-log.o $(SOFLAGS) $(LFLAGS)
 
 logpipe-output-tcp.so		:	logpipe-output-tcp.o
 	$(CC) -o $@ logpipe-output-tcp.o $(SOFLAGS) $(LFLAGS)
 
-logpipe-input-exec.so		:	logpipe-input-exec.o
-	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
+logpipe-output-file.so		:	logpipe-output-file.o
+	$(CC) -o $@ logpipe-output-file.o $(SOFLAGS) $(LFLAGS)
 
 fasterhttp.o			:	fasterhttp.c
 	$(CC) $(CFLAGS) -c fasterhttp.c
@@ -96,14 +104,27 @@ CFLAGS_kafka			=	$(CFLAGS) -I$(HOME)/include/librdkafka
 logpipe-output-kafka.o		:	logpipe-output-kafka.c
 	$(CC) $(CFLAGS_kafka) -c logpipe-output-kafka.c
 
+CFLAGS_kafka_zookeeper		=	$(CFLAGS) -I$(HOME)/include/librdkafka -I$(HOME)/include/zookeeper
+
+logpipe-output-kafka-with-zookeeper.o:	logpipe-output-kafka.c
+	$(CC) $(CFLAGS_kafka_zookeeper) -D_WITH_ZOOKEEPER -o logpipe-output-kafka-with-zookeeper.o -c logpipe-output-kafka.c
+
 LFLAGS_kafka			=	$(LFLAGS) -L$(HOME)/lib -lrdkafka
 
 logpipe-output-kafka.so		:	logpipe-output-kafka.o
 	$(CC) -o $@ logpipe-output-kafka.o $(SOFLAGS) $(LFLAGS_kafka)
+
+LFLAGS_kafka_zookeeper		=	$(LFLAGS) -L$(HOME)/lib -lrdkafka -lzookeeper_mt
+
+logpipe-output-kafka-with-zookeeper.so:	logpipe-output-kafka-with-zookeeper.o
+	$(CC) -o $@ logpipe-output-kafka-with-zookeeper.o $(SOFLAGS) $(LFLAGS_kafka_zookeeper)
 
 logpipe-output-ingeek.so	:	logpipe-output-ingeek.o
 	$(CC) -o $@ logpipe-output-ingeek.o $(SOFLAGS) $(LFLAGS)
 
 logpipe-output-linemode-template.so	:	logpipe-output-linemode-template.o
 	$(CC) -o $@ logpipe-output-linemode-template.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-output-stdout.so	:	logpipe-output-stdout.o
+	$(CC) -o $@ logpipe-output-stdout.o $(SOFLAGS) $(LFLAGS)
 

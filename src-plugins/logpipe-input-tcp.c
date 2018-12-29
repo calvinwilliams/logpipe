@@ -328,7 +328,7 @@ int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeI
 	
 	(*p_block_len) = ntohl( block_len_htonl ) ;
 	if( (*p_block_len) == 0 )
-		return LOGPIPE_READ_END_OF_INPUT;
+		return LOGPIPE_READ_END_FROM_INPUT;
 	if( (*p_block_len) > block_bufsize-1 )
 	{
 		ERRORLOGC( "block length[%d] too long" , (*p_block_len) )
