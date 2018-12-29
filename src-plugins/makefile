@@ -53,6 +53,7 @@ LFLAGS		=	$(_LFLAGS) \
 CLEAN_ADDITION	=	fasterhttp.o \
 			logpipe-output-hdfs.so \
 			logpipe-output-kafka.so \
+			logpipe-output-kafka-with-zookeeper.so \
 
 ###### ¼ÓÔØmktplÄ£°å¿â
 #@ make_all
@@ -103,10 +104,20 @@ CFLAGS_kafka			=	$(CFLAGS) -I$(HOME)/include/librdkafka
 logpipe-output-kafka.o		:	logpipe-output-kafka.c
 	$(CC) $(CFLAGS_kafka) -c logpipe-output-kafka.c
 
+CFLAGS_kafka_zookeeper		=	$(CFLAGS) -I$(HOME)/include/librdkafka -I$(HOME)/include/zookeeper
+
+logpipe-output-kafka-with-zookeeper.o:	logpipe-output-kafka.c
+	$(CC) $(CFLAGS_kafka_zookeeper) -D_WITH_ZOOKEEPER -o logpipe-output-kafka-with-zookeeper.o -c logpipe-output-kafka.c
+
 LFLAGS_kafka			=	$(LFLAGS) -L$(HOME)/lib -lrdkafka
 
 logpipe-output-kafka.so		:	logpipe-output-kafka.o
 	$(CC) -o $@ logpipe-output-kafka.o $(SOFLAGS) $(LFLAGS_kafka)
+
+LFLAGS_kafka_zookeeper		=	$(LFLAGS) -L$(HOME)/lib -lrdkafka -lzookeeper_mt
+
+logpipe-output-kafka-with-zookeeper.so:	logpipe-output-kafka-with-zookeeper.o
+	$(CC) -o $@ logpipe-output-kafka-with-zookeeper.o $(SOFLAGS) $(LFLAGS_kafka_zookeeper)
 
 logpipe-output-ingeek.so	:	logpipe-output-ingeek.o
 	$(CC) -o $@ logpipe-output-ingeek.o $(SOFLAGS) $(LFLAGS)
