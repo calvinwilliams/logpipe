@@ -25,6 +25,8 @@ struct InputPluginContext
 #else
 	char				*bootstrap_servers ;
 #endif
+	
+	char				*group ;
 	char				*topic ;
 	
 	rd_kafka_conf_t			*kafka_conf ;
@@ -67,6 +69,14 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	}
 #endif
 	
+	p_plugin_ctx->group = QueryPluginConfigItem( p_plugin_config_items , "group" ) ;
+	INFOLOGC( "group[%s]" , p_plugin_ctx->group )
+	if( p_plugin_ctx->group == NULL || p_plugin_ctx->group[0] == '\0' )
+	{
+		ERRORLOGC( "expect config for 'group'" )
+		return -1;
+	}
+	
 	p_plugin_ctx->topic = QueryPluginConfigItem( p_plugin_config_items , "topic" ) ;
 	INFOLOGC( "topic[%s]" , p_plugin_ctx->topic )
 	if( p_plugin_ctx->topic == NULL || p_plugin_ctx->topic[0] == '\0' )
@@ -86,10 +96,13 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	
-	int				nret = 0 ;
+	rd_kafka_topic_conf_t		*topic_conf = NULL ;
+	rd_kafka_topic_partition_list_t	*topics = NULL ;
 	
 	rd_kafka_conf_res_t		kafka_conf_res ;
 	char				errstr[ 512 ] ;
+	
+	int				nret = 0 ;
 	
 	p_plugin_ctx->kafka_conf = rd_kafka_conf_new() ;
 	
@@ -131,12 +144,24 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	}
 #endif
 	
+	nret = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "group.id" , p_plugin_ctx->group , errstr , sizeof(errstr) ) ;
+	if( nret != RD_KAFKA_CONF_OK )
+	{
+		ERRORLOGC( "rd_kafka_conf_set failed , errstr[%s]" , errstr )
+		rd_kafka_destroy( p_plugin_ctx->kafka );
+		return -1;
+	}
+	
+	rd_kafka_conf_set_default_topic_conf( p_plugin_ctx->kafka_conf , topic_conf );
+	
 	p_plugin_ctx->kafka = rd_kafka_new( RD_KAFKA_CONSUMER , p_plugin_ctx->kafka_conf , errstr , sizeof(errstr) ) ;
 	if( p_plugin_ctx->kafka == NULL )
 	{
 		ERRORLOGC( "rd_kafka_new failed , errstr[%s]" , errstr )
 		return -1;
 	}
+	
+	rd_kafka_poll_set_consumer( p_plugin_ctx->kafka );
 	
 	p_plugin_ctx->kafka_topic = rd_kafka_topic_new( p_plugin_ctx->kafka , p_plugin_ctx->topic , NULL ) ;
 	if( p_plugin_ctx->kafka_topic == NULL )
@@ -146,16 +171,37 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		return -1;
 	}
 	
-	nret = rd_kafka_consume_start( p_plugin_ctx->kafka_topic , RD_KAFKA_PARTITION_UA , RD_KAFKA_OFFSET_END ) ;
+	topic_conf = rd_kafka_topic_conf_new() ;
+	if( topic_conf == NULL )
+	{
+		ERRORLOGC( "rd_kafka_topic_conf_new failed , errno[%s]" , errno )
+		rd_kafka_destroy( p_plugin_ctx->kafka );
+		return -1;
+	}
+	
+	nret = rd_kafka_topic_conf_set( topic_conf , "offset.store.method" , "broker" , errstr , sizeof(errstr) ) ;
+	if( nret != RD_KAFKA_CONF_OK )
+	{
+		ERRORLOGC( "rd_kafka_topic_conf_set failed , errstr[%s]" , errstr )
+		rd_kafka_destroy( p_plugin_ctx->kafka );
+		return -1;
+	}
+	
+	topics = rd_kafka_topic_partition_list_new(1) ;
+	rd_kafka_topic_partition_list_add( topics , p_plugin_ctx->topic , -1 );
+	
+	rd_kafka_subscribe( p_plugin_ctx->kafka , topics );
+	
+#if 0
+	// nret = rd_kafka_consume_start( p_plugin_ctx->kafka_topic , RD_KAFKA_PARTITION_UA , RD_KAFKA_OFFSET_END ) ;
+	nret = rd_kafka_consume_start( p_plugin_ctx->kafka_topic , 1 , RD_KAFKA_OFFSET_END ) ;
 	if( nret == -1 )
 	{
 		ERRORLOGC( "rd_kafka_consume_start failed , last_error[%s]" , rd_kafka_err2str(rd_kafka_last_error()) )
 		rd_kafka_destroy( p_plugin_ctx->kafka );
 		return -1;
 	}
-	
-	/* ÉèÖÃÊäÈëÃèÊö×Ö */
-	AddInputPluginEvent( p_env , p_logpipe_input_plugin , -1 );
+#endif
 	
 	return 0;
 }

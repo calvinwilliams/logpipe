@@ -61,8 +61,9 @@ int InitEnvironment( struct LogpipeEnv *p_env )
 			DEBUGLOGC( "[%s]->pfuncInitInputPluginContext ok" , p_logpipe_input_plugin->so_filename )
 		}
 		
-		if( p_logpipe_input_plugin->fd < 0 )
+		if( p_logpipe_input_plugin->fd == -1 )
 		{
+			INFOLOGC( "set block plugin [%s]" , p_logpipe_input_plugin->so_filename )
 			p_env->p_block_input_plugin = p_logpipe_input_plugin ;
 		}
 	}
