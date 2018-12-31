@@ -3,12 +3,8 @@
 #include "rdkafka.h"
 
 #ifdef _WITH_ZOOKEEPER
-#include "zookeeper.h"
+#include "kafka_with_zookeeper.h"
 #endif
-
-#include "IDL_zookeeper_broker_ids.dsc.c"
-
-#define KAFKA_BROKER_PATH	"/brokers/ids"
 
 int	__LOGPIPE_OUTPUT_KAFKA_VERSION_0_1_0 = 1 ;
 
@@ -61,19 +57,19 @@ rmlog ; rm -f logpipe_case6_input_file_and_output_kafka.log.*
 struct OutputPluginContext
 {
 #ifdef _WITH_ZOOKEEPER
-	char			*zookeeper ;
-	zhandle_t		*zh ;
-	char			brokers[ 1024 ] ;
+	char				*zookeeper ;
+	zhandle_t			*zh ;
+	struct KafkaWatcherContext	kafka_watcher_context ;
 #else
-	char			*bootstrap_servers ;
+	char				*bootstrap_servers ;
 #endif
-	char			*topic ;
+	char				*topic ;
 	
-	rd_kafka_conf_t		*kafka_conf ;
-	rd_kafka_t		*kafka ;
-	rd_kafka_topic_t	*kafka_topic ;
+	rd_kafka_conf_t			*kafka_conf ;
+	rd_kafka_t			*kafka ;
+	rd_kafka_topic_t		*kafka_topic ;
 	
-	char			*uncompress_algorithm ;
+	char				*uncompress_algorithm ;
 	
 } ;
 
@@ -152,107 +148,6 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 	return 0;
 }
 
-static void set_brokerlist_from_zookeeper( zhandle_t *zh , char *brokers , int brokers_bufsize )
-{
-	char			*brokers_offset_ptr = NULL ;
-	int			brokers_buf_remain_len ;
-	int			len ;
-	
-	int			i ;
-	char			path[ 256 ] ;
-	char			msg[ 1024 ] ;
-	int			msg_len ;
-	zookeeper_broker_ids	st ;
-	
-	int			nret = 0 ;
-	
-	if( zh )
-	{
-		struct String_vector	brokerlist ;
-		
-		nret = zoo_get_children( zh , KAFKA_BROKER_PATH , 1 , & brokerlist ) ;
-		if( nret != ZOK )
-		{
-			ERRORLOGC( "zoo_get_children '%s' failed[%d]" , KAFKA_BROKER_PATH , nret )
-			return;
-		}
-		else
-		{
-			INFOLOGC( "zoo_get_children '%s' ok , brokerlist.count[%d]" , KAFKA_BROKER_PATH , brokerlist.count )
-		}
-		
-		memset( brokers , 0x00 , brokers_bufsize );
-		brokers_offset_ptr = brokers ;
-		brokers_buf_remain_len = brokers_bufsize-1 ;
-		for( i = 0 ; i < brokerlist.count ; i++ )
-		{
-			memset( path , 0x00 , sizeof(path) );
-			snprintf( path , sizeof(path) , "%s/%s", KAFKA_BROKER_PATH , brokerlist.data[i] );
-			memset( msg , 0x00 , sizeof(msg) );
-			msg_len = sizeof(msg) ;
-			zoo_get( zh , path , 0 , msg , & msg_len , NULL );
-			if( msg_len > 0 )
-			{
-				DEBUGLOGC( "msg[%.*s]" , msg_len , msg )
-				memset( & st , 0x00 , sizeof(zookeeper_broker_ids) );
-				msg_len = 0 ;
-				nret = DSCDESERIALIZE_JSON_zookeeper_broker_ids( "GB18030" , msg , & msg_len , & st ) ;
-				if( nret )
-				{
-					ERRORLOGC( "DSCDESERIALIZE_JSON_zookeeper_broker_ids failed[%d]" , nret )
-					return;
-				}
-				else
-				{
-					INFOLOGC( "DSCDESERIALIZE_JSON_zookeeper_broker_ids ok" )
-				}
-				
-				if( i > 0 )
-				{
-					len = snprintf( brokers_offset_ptr , brokers_buf_remain_len , "," ) ;
-					if( len > 0 )
-					{
-						brokers_offset_ptr += len ;
-						brokers_buf_remain_len -= len ;
-					}
-				}
-				
-				len = snprintf( brokers_offset_ptr , brokers_buf_remain_len , "%s:%d" , st.host , st.port ) ;
-				if( len > 0 )
-				{
-					brokers_offset_ptr += len ;
-					brokers_buf_remain_len -= len ;
-				}
-			}
-		}
-		
-		deallocate_String_vector( & brokerlist );
-	}
-	
-	return;
-}
-
-static void watcher( zhandle_t *zh , int type , int state , const char *path , void *watcherCtx )
-{
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)watcherCtx ;
-	
-	DEBUGLOGC( "watcher - zh[%p] type[%d] state[%d] path[%s] watcherCtx[%p]" , zh , type , state , path , watcherCtx )
-	if( type == ZOO_CHILD_EVENT && strncmp( path , KAFKA_BROKER_PATH , sizeof(KAFKA_BROKER_PATH)-1) == 0 )
-	{
-		set_brokerlist_from_zookeeper( zh , p_plugin_ctx->brokers , sizeof(p_plugin_ctx->brokers) );
-		DEBUGLOGC( "watcher - p_plugin_ctx->brokers[%s]" , p_plugin_ctx->brokers )
-		if( p_plugin_ctx->brokers[0] && p_plugin_ctx->kafka )
-		{
-			rd_kafka_brokers_add( p_plugin_ctx->kafka , p_plugin_ctx->brokers );
-			DEBUGLOGC( "watcher - rd_kafka_brokers_add p_plugin_ctx->brokers[%s]" , p_plugin_ctx->brokers )
-			rd_kafka_poll( p_plugin_ctx->kafka , 10 );
-			DEBUGLOGC( "watcher - rd_kafka_poll p_plugin_ctx->brokers[%s]" , p_plugin_ctx->brokers )
-		}
-	}
-	
-	return;
-}
-
 funcInitOutputPluginContext InitOutputPluginContext ;
 int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
 {
@@ -264,7 +159,8 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	p_plugin_ctx->kafka_conf = rd_kafka_conf_new() ;
 	
 #ifdef _WITH_ZOOKEEPER
-	p_plugin_ctx->zh = zookeeper_init( p_plugin_ctx->zookeeper , watcher , 10000 , 0 , p_plugin_ctx , 0 ) ;
+	p_plugin_ctx->kafka_watcher_context.kafka = p_plugin_ctx->kafka ;
+	p_plugin_ctx->zh = zookeeper_init( p_plugin_ctx->zookeeper , & KafkaWatcher , 10000 , 0 , & (p_plugin_ctx->kafka_watcher_context) , 0 ) ;
 	if( p_plugin_ctx->zh == NULL )
 	{
 		ERRORLOGC( "zookeeper_init failed" )
@@ -275,17 +171,17 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		INFOLOGC( "zookeeper_init '%s' ok" , p_plugin_ctx->zookeeper )
 	}
 	
-	set_brokerlist_from_zookeeper( p_plugin_ctx->zh , p_plugin_ctx->brokers , sizeof(p_plugin_ctx->brokers) ) ;
+	GetBrokerListFromZookeeper( p_plugin_ctx->zh , & (p_plugin_ctx->kafka_watcher_context) ) ;
 	
-	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "metadata.broker.list" , p_plugin_ctx->brokers , errstr , sizeof(errstr) ) ;
+	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "metadata.broker.list" , p_plugin_ctx->kafka_watcher_context.brokers , errstr , sizeof(errstr) ) ;
 	if( kafka_conf_res != RD_KAFKA_CONF_OK )
 	{
-		ERRORLOGC( "rd_kafka_conf_set metadata.broker.list '%s' failed[%d] , errstr[%s]" , p_plugin_ctx->brokers , kafka_conf_res , errstr )
+		ERRORLOGC( "rd_kafka_conf_set metadata.broker.list '%s' failed[%d] , errstr[%s]" , p_plugin_ctx->kafka_watcher_context.brokers , kafka_conf_res , errstr )
 		return -1;
 	}
 	else
 	{
-		INFOLOGC( "rd_kafka_conf_set metadata.broker.list '%s' ok" , p_plugin_ctx->brokers )
+		INFOLOGC( "rd_kafka_conf_set metadata.broker.list '%s' ok" , p_plugin_ctx->kafka_watcher_context.brokers )
 	}
 #else
 	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "bootstrap.servers" , p_plugin_ctx->bootstrap_servers , errstr , sizeof(errstr) ) ;
@@ -431,7 +327,9 @@ int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlu
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
+#ifdef _WITH_ZOOKEEPER
 	zookeeper_close( p_plugin_ctx->zh );
+#endif
 	
 	rd_kafka_flush( p_plugin_ctx->kafka , 10*1000 );
 	

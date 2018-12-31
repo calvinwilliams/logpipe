@@ -63,6 +63,31 @@ int worker( struct LogpipeEnv *p_env )
 		INFOLOGC( "InitEnvironment ok" )
 	}
 	
+	/* 如果有堵塞输入插件 */
+	if( p_env->p_block_input_plugin )
+	{
+		while(1)
+		{
+			/* 调用输入插件事件回调函数 */
+			nret = p_env->p_block_input_plugin->pfuncOnInputPluginEvent( p_env , p_env->p_block_input_plugin , p_env->p_block_input_plugin->context ) ;
+			if( nret < 0 )
+			{
+				FATALLOGC( "[%s]->pfuncOnInputPluginEvent failed[%d]" , p_env->p_block_input_plugin->so_filename , nret )
+				return -1;
+			}
+			else if( nret > 0 )
+			{
+				WARNLOGC( "[%s]->pfuncOnInputPluginEvent return[%d]" , p_env->p_block_input_plugin->so_filename , nret )
+			}
+			else
+			{
+				DEBUGLOGC( "[%s]->pfuncOnInputPluginEvent ok" , p_env->p_block_input_plugin->so_filename )
+			}
+		}
+		
+		return 0;
+	}
+	
 	/* 管道描述字加入epoll */
 	memset( & event , 0x00 , sizeof(struct epoll_event) );
 	event.events = EPOLLIN | EPOLLERR ;
@@ -224,7 +249,6 @@ int worker( struct LogpipeEnv *p_env )
 					FATALLOGC( "unknow plugin[%p] type[%c]" , p_event->data.ptr , p_logpipe_plugin->type )
 					return -1;
 				}
-				
 			}
 		}
 	}
