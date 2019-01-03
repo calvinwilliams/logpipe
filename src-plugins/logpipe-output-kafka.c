@@ -157,9 +157,13 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	char				errstr[ 512 ] ;
 	
 	p_plugin_ctx->kafka_conf = rd_kafka_conf_new() ;
+	if( p_plugin_ctx->kafka_conf == NULL )
+	{
+		ERRORLOGC( "rd_kafka_conf_new failed" )
+		return -1;
+	}
 	
 #ifdef _WITH_ZOOKEEPER
-	p_plugin_ctx->kafka_watcher_context.kafka = p_plugin_ctx->kafka ;
 	p_plugin_ctx->zh = zookeeper_init( p_plugin_ctx->zookeeper , & KafkaWatcher , 10000 , 0 , & (p_plugin_ctx->kafka_watcher_context) , 0 ) ;
 	if( p_plugin_ctx->zh == NULL )
 	{
@@ -172,7 +176,6 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	}
 	
 	GetBrokerListFromZookeeper( p_plugin_ctx->zh , & (p_plugin_ctx->kafka_watcher_context) ) ;
-	
 	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "metadata.broker.list" , p_plugin_ctx->kafka_watcher_context.brokers , errstr , sizeof(errstr) ) ;
 	if( kafka_conf_res != RD_KAFKA_CONF_OK )
 	{
@@ -204,6 +207,7 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		ERRORLOGC( "rd_kafka_new failed , errstr[%s]" , errstr )
 		return -1;
 	}
+	p_plugin_ctx->kafka_watcher_ctx.kafka = p_plugin_ctx->kafka ;
 	
 	p_plugin_ctx->kafka_topic = rd_kafka_topic_new( p_plugin_ctx->kafka , p_plugin_ctx->topic , NULL ) ;
 	if( p_plugin_ctx->kafka_topic == NULL )
