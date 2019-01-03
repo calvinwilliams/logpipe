@@ -93,53 +93,6 @@ int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	return 0;
 }
 
-void msg_consume (rd_kafka_message_t *rkmessage,
-       void *opaque) {
-  if (rkmessage->err) {
-    if (rkmessage->err == RD_KAFKA_RESP_ERR__PARTITION_EOF) {
-      fprintf(stderr,
-        "%% Consumer reached end of %s [%"PRId32"] "
-             "message queue at offset %"PRId64"\n",
-             rd_kafka_topic_name(rkmessage->rkt),
-             rkmessage->partition, rkmessage->offset);
-
-      return;
-    }
-
-    if (rkmessage->rkt)
-            fprintf(stderr, "%% Consume error for "
-                    "topic \"%s\" [%"PRId32"] "
-                    "offset %"PRId64": %s\n",
-                    rd_kafka_topic_name(rkmessage->rkt),
-                    rkmessage->partition,
-                    rkmessage->offset,
-                    rd_kafka_message_errstr(rkmessage));
-    else
-            fprintf(stderr, "%% Consumer error: %s: %s\n",
-                    rd_kafka_err2str(rkmessage->err),
-                    rd_kafka_message_errstr(rkmessage));
-
-    if (rkmessage->err == RD_KAFKA_RESP_ERR__UNKNOWN_PARTITION ||
-        rkmessage->err == RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC)
-    return;
-  }
-
-  fprintf(stdout, "%% Message (topic %s [%"PRId32"], "
-                      "offset %"PRId64", %zd bytes):\n",
-                      rd_kafka_topic_name(rkmessage->rkt),
-                      rkmessage->partition,
-    rkmessage->offset, rkmessage->len);
-
-  if (rkmessage->key_len) {
-    printf("Key: %.*s\n",
-             (int)rkmessage->key_len, (char *)rkmessage->key);
-  }
-
-  printf("%.*s\n",
-           (int)rkmessage->len, (char *)rkmessage->payload);
-
-}
-
 funcInitInputPluginContext InitInputPluginContext ;
 int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context )
 {
@@ -206,33 +159,9 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 	GetBrokerListFromZookeeper( p_plugin_ctx->zh , & (p_plugin_ctx->kafka_watcher_context) ) ;
 	rd_kafka_brokers_add( p_plugin_ctx->kafka_watcher_context.kafka , p_plugin_ctx->kafka_watcher_context.brokers );
 	rd_kafka_poll( p_plugin_ctx->kafka_watcher_context.kafka , 10 );
-	/*
-	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "metadata.broker.list" , p_plugin_ctx->kafka_watcher_context.brokers , errstr , sizeof(errstr) ) ;
-	if( kafka_conf_res != RD_KAFKA_CONF_OK )
-	{
-		ERRORLOGC( "rd_kafka_conf_set \"metadata.broker.list\" \"%s\" failed[%d] , errstr[%s]" , p_plugin_ctx->kafka_watcher_context.brokers , kafka_conf_res , errstr )
-		return -1;
-	}
-	else
-	{
-		INFOLOGC( "rd_kafka_conf_set \"metadata.broker.list\" \"%s\" ok" , p_plugin_ctx->kafka_watcher_context.brokers )
-	}
-	*/
 #else
 	rd_kafka_brokers_add( p_plugin_ctx->kafka , p_plugin_ctx->bootstrap_servers );
 	rd_kafka_poll( p_plugin_ctx->kafka , 10 );
-	/*
-	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "bootstrap.servers" , p_plugin_ctx->bootstrap_servers , errstr , sizeof(errstr) ) ;
-	if( kafka_conf_res != RD_KAFKA_CONF_OK )
-	{
-		ERRORLOGC( "rd_kafka_conf_set \"bootstrap.servers\" \"%s\" failed[%d] , errstr[%s]" , p_plugin_ctx->bootstrap_servers , kafka_conf_res , errstr )
-		return -1;
-	}
-	else
-	{
-		INFOLOGC( "rd_kafka_conf_set \"bootstrap.servers\" \"%s\" ok" , p_plugin_ctx->bootstrap_servers )
-	}
-	*/
 #endif
 	
 	rd_kafka_poll_set_consumer( p_plugin_ctx->kafka );
@@ -244,7 +173,6 @@ int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin
 		return -1;
 	}
 	
-printf( "LIHUA - p_plugin_ctx->topic[%s]\n" , p_plugin_ctx->topic );
 	rd_kafka_topic_partition_list_add( p_plugin_ctx->kafka_topic_partition_list , p_plugin_ctx->topic , -1 );
 	
 	kafla_resp_err = rd_kafka_subscribe( p_plugin_ctx->kafka , p_plugin_ctx->kafka_topic_partition_list ) ;
@@ -253,32 +181,6 @@ printf( "LIHUA - p_plugin_ctx->topic[%s]\n" , p_plugin_ctx->topic );
 		ERRORLOGC( "rd_kafka_subscribe failed[%d] , errstr[%s]" , kafla_resp_err , rd_kafka_err2str(kafla_resp_err) )
 		return -1;
 	}
-	
-#if 0
-while(1)
-{
-	rd_kafka_message_t		*kafka_message = NULL ;
-	
-	kafka_message = rd_kafka_consumer_poll( p_plugin_ctx->kafka , 1000 ) ;
-	if( kafka_message == NULL )
-	{
-		DEBUGLOGC( "rd_kafka_consumer_poll timeout" )
-		return 0;;
-	}
-	
-	/*
-	INFOLOGC( "topic[%s] partition[%"PRId32"] offset[%"PRId64"] key[%.*s] msg[%.*s]"
-		, rd_kafka_topic_name(kafka_message->rkt)
-		, kafka_message->partition
-		, kafka_message->offset
-		, kafka_message->key_len,kafka_message->key
-		, kafka_message->len,kafka_message->payload )
-	*/
-	msg_consume( kafka_message , NULL );
-	
-	rd_kafka_message_destroy( kafka_message );
-}
-#endif
 	
 	return 0;
 }
