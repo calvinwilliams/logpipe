@@ -16,7 +16,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	
 	uint64_t			file_offset ;
 	uint64_t			file_line ;
-	char				block_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
+	char				block_buf[ LOGPIPE_OUTPUT_BUFSIZE + 1 ] ;
 	uint64_t			block_len ;
 	struct timeval			tv_begin ;
 	struct timeval			tv_end ;
@@ -112,7 +112,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		INFOLOGC( "[%s]->pfuncReadInputPlugin ..." , p_logpipe_input_plugin->so_filename )
 		memset( block_buf , 0x00 , sizeof(block_buf) );
 		gettimeofday( & tv_begin , NULL );
-		nret = p_logpipe_input_plugin->pfuncReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & file_offset , & file_line , & block_len , block_buf , sizeof(block_buf) ) ;
+		nret = p_logpipe_input_plugin->pfuncReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & file_offset , & file_line , & block_len , block_buf , LOGPIPE_INPUT_BUFSIZE ) ;
 		gettimeofday( & tv_end , NULL );
 		DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 		if( nret == LOGPIPE_READ_END_FROM_INPUT )
@@ -141,7 +141,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		{
 			INFOLOGC( "[%s]->pfuncProcessFilterPlugin ..." , p_travel_logpipe_filter_plugin->so_filename )
 			gettimeofday( & tv_begin , NULL );
-			nret = p_travel_logpipe_filter_plugin->pfuncProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , file_offset , file_line , & block_len , block_buf ) ;
+			nret = p_travel_logpipe_filter_plugin->pfuncProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , file_offset , file_line , & block_len , block_buf , LOGPIPE_OUTPUT_BUFSIZE ) ;
 			gettimeofday( & tv_end , NULL );
 			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret < 0 )
@@ -165,7 +165,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		{
 			INFOLOGC( "[%s]->pfuncWriteOutputPlugin ..." , p_travel_logpipe_output_plugin->so_filename )
 			gettimeofday( & tv_begin , NULL );
-			nret = p_travel_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , file_offset , file_line , block_len , block_buf ) ;
+			nret = p_travel_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , file_offset , file_line , block_len , block_buf , LOGPIPE_OUTPUT_BUFSIZE ) ;
 			gettimeofday( & tv_end , NULL );
 			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret < 0 )

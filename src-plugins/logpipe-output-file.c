@@ -286,7 +286,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf , uint64_t block_buf_size )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
@@ -318,11 +318,11 @@ int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_
 	{
 		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
 		{
-			char			block_out_buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
+			char			block_out_buf[ LOGPIPE_OUTPUT_BUFSIZE + 1 ] ;
 			uint64_t		block_out_len ;
 			
 			memset( block_out_buf , 0x00 , sizeof(block_out_buf) );
-			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len ) ;
+			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len , LOGPIPE_OUTPUT_BUFSIZE ) ;
 			if( nret )
 			{
 				ERRORLOGC( "UncompressInputPluginData failed[%d]" , nret )

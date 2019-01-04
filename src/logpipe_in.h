@@ -177,7 +177,7 @@ int ProcessOnIdle( struct LogpipeEnv *p_env );
 /* 拆分行工具库 */
 struct SplitLineBuffer
 {
-	char			split_line_buffer[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ; /* 拆分缓冲区 */
+	char			split_line_buffer[ LOGPIPE_OUTPUT_BUFSIZE + 1 ] ; /* 拆分缓冲区 */
 	uint64_t		split_line_buflen ; /* 拆分缓冲区数据长度 */
 } ;
 

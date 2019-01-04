@@ -3,7 +3,7 @@
 #include "zlib.h"
 
 /* 压缩输入插件数据块 */
-int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uint64_t block_in_len , char *block_out_buf , uint64_t *p_block_out_len )
+int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uint64_t block_in_len , char *block_out_buf , uint64_t *p_block_out_len , uint64_t block_out_buf_size )
 {
 	int		nret = 0 ;
 	
@@ -21,7 +21,7 @@ int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uin
 		
 		deflate_strm.avail_in = block_in_len ;
 		deflate_strm.next_in = (Bytef*)block_in_buf ;
-		deflate_strm.avail_out = LOGPIPE_BLOCK_BUFSIZE ;
+		deflate_strm.avail_out = block_out_buf_size ;
 		deflate_strm.next_out = (Bytef*)block_out_buf ;
 		nret = deflate( & deflate_strm , Z_FINISH ) ;
 		if( nret == Z_STREAM_ERROR )
@@ -36,7 +36,7 @@ int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uin
 			deflateEnd( & deflate_strm );
 			return -1;
 		}
-		(*p_block_out_len) = LOGPIPE_BLOCK_BUFSIZE-1 - deflate_strm.avail_out ;
+		(*p_block_out_len) = block_out_buf_size-1 - deflate_strm.avail_out ;
 		
 		deflateEnd( & deflate_strm );
 	}
@@ -50,7 +50,7 @@ int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uin
 }
 
 /* 解压输出插件数据块 */
-int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf , uint64_t block_in_len , char *block_out_buf , uint64_t *p_block_out_len )
+int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf , uint64_t block_in_len , char *block_out_buf , uint64_t *p_block_out_len , uint64_t block_out_buf_size )
 {
 	int		nret = 0 ;
 	
@@ -68,7 +68,7 @@ int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf ,
 		
 		inflate_strm.avail_in = block_in_len ;
 		inflate_strm.next_in = (Bytef*)block_in_buf ;
-		inflate_strm.avail_out = LOGPIPE_BLOCK_BUFSIZE ;
+		inflate_strm.avail_out = block_out_buf_size ;
 		inflate_strm.next_out = (Bytef*)block_out_buf ;
 		nret = inflate( & inflate_strm , Z_NO_FLUSH ) ;
 		if( nret == Z_STREAM_ERROR )
@@ -89,7 +89,7 @@ int UncompressInputPluginData( char *uncompress_algorithm , char *block_in_buf ,
 			inflateEnd( & inflate_strm );
 			return 1;
 		}
-		(*p_block_out_len) = LOGPIPE_BLOCK_BUFSIZE - inflate_strm.avail_out ;
+		(*p_block_out_len) = block_out_buf_size - inflate_strm.avail_out ;
 		
 		inflateEnd( & inflate_strm );
 	}

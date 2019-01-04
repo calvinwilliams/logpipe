@@ -22,7 +22,7 @@ int BeforeProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPl
 }
 
 funcProcessFilterPlugin ProcessFilterPlugin ;
-int ProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t *p_block_len , char *block_buf )
+int ProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_buf_size )
 {
 	DEBUGLOGC( "logpipe-filter-log - ProcessFilterPlugin - file_offset[%"PRIu64"] file_line[%"PRIu64"] block_len[%"PRIu64"] block_buf[%.*s]" , file_offset , file_line , (*p_block_len) , (int)(*p_block_len),block_buf );
 	
