@@ -29,7 +29,7 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf , uint64_t block_buf_size )
 {
 	printf( "logpipe-output-stdout - WriteOutputPlugin - file_offset[%"PRIu64"] file_line[%"PRIu64"] block_len[%"PRIu64"] block_buf[%.*s]\n" , file_offset , file_line , block_len , (int)block_len,block_buf );
 	DEBUGLOGC( "logpipe-output-stdout - WriteOutputPlugin - file_offset[%"PRIu64"] file_line[%"PRIu64"] block_len[%"PRIu64"] block_buf[%.*s]" , file_offset , file_line , block_len , (int)block_len,block_buf );

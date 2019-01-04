@@ -24,7 +24,7 @@ struct ForwardSession
 
 #define DISABLE_TIMEOUT			10
 
-#define PARSE_BUFFER_SIZE		LOGPIPE_BLOCK_BUFSIZE*2
+#define PARSE_BUFFER_SIZE		LOGPIPE_OUTPUT_BUFSIZE*2
 
 #define MAX_OUTPUT_BUF			256
 #define MAX_TAIL_BUF			256
@@ -670,7 +670,7 @@ static int CombineToParseBuffer( struct LogpipeEnv *p_env , struct LogpipeOutput
 }
 
 funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf )
+int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf , uint64_t block_buf_size )
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	

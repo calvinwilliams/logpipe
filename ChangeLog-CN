@@ -1,3 +1,7 @@
+1.2.0		2019-01-04	calvin
+		* 调整了输入输出缓冲区大小宏
+		* 新增过滤插件logpipe-filter-pack-metadata.so
+
 1.1.0		2018-12-28	calvin
 		* 公共层新增拆分行缓冲区工具库
 		* 插件logpipe-input-file新增配置选项line_mode，用于内部拆分为行输出

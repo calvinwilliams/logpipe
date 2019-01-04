@@ -134,7 +134,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 }
 
 funcReadInputPlugin ReadInputPlugin ;
-int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_bufsize )
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_buf_size )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	
@@ -146,8 +146,8 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		int			len ;
 		
 		INFOLOGC( "fread popen ..." )
-		memset( block_buf , 0x00 , block_bufsize );
-		len = fread( block_buf , 1 , block_bufsize-1 , p_plugin_ctx->pp ) ;
+		memset( block_buf , 0x00 , block_buf_size );
+		len = fread( block_buf , 1 , block_buf_size-1 , p_plugin_ctx->pp ) ;
 		if( len == -1 )
 		{
 			if( errno == EAGAIN )
@@ -179,12 +179,12 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	/* 如果启用了压缩 */
 	else
 	{
-		char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
+		char			block_in_buf[ LOGPIPE_INPUT_BEFORE_COMPRESSBUFSIZE + 1 ] ;
 		int			len ;
 		
 		INFOLOGC( "fread popen ..." )
 		memset( block_in_buf , 0x00 , sizeof(block_in_buf) );
-		len = fread( block_in_buf , 1 , LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE , p_plugin_ctx->pp ) ;
+		len = fread( block_in_buf , 1 , sizeof(block_in_buf) , p_plugin_ctx->pp ) ;
 		if( len == -1 )
 		{
 			if( errno == EAGAIN )
@@ -211,8 +211,8 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 			DEBUGHEXLOGC( block_in_buf , len , NULL )
 		}
 		
-		memset( block_buf , 0x00 , block_bufsize );
-		nret = CompressInputPluginData( p_plugin_ctx->compress_algorithm , block_in_buf , len , block_buf , p_block_len ) ;
+		memset( block_buf , 0x00 , block_buf_size );
+		nret = CompressInputPluginData( p_plugin_ctx->compress_algorithm , block_in_buf , len , block_buf , p_block_len , block_buf_size ) ;
 		if( nret )
 		{
 			ERRORLOGC( "CompressInputPluginData failed[%d]" , nret )

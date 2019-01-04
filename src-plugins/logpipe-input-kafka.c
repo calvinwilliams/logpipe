@@ -213,7 +213,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 }
 
 funcReadInputPlugin ReadInputPlugin ;
-int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_bufsize )
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_buf_size )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	
@@ -222,7 +222,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	(*p_file_offset) = 0 ;
 	(*p_file_line) = 0 ;
 	(*p_block_len) = 0 ;
-	memset( block_buf , 0x00 , sizeof(block_bufsize) );
+	memset( block_buf , 0x00 , sizeof(block_buf_size) );
 	
 	kafka_message = rd_kafka_consumer_poll( p_plugin_ctx->kafka , 1000 ) ;
 	if( kafka_message == NULL )
@@ -242,7 +242,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	{
 		(*p_file_offset) = 0 ;
 		(*p_file_line) = 0 ;
-		(*p_block_len) = MIN(kafka_message->len,block_bufsize-1) ;
+		(*p_block_len) = MIN(kafka_message->len,block_buf_size-1) ;
 		memcpy( block_buf , kafka_message->payload , (*p_block_len) );
 	}
 	

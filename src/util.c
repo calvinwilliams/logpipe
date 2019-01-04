@@ -621,7 +621,7 @@ int FetchSplitLineBuffer( struct SplitLineBuffer *split_line_buf , uint64_t *p_b
 		}
 		else
 		{
-			char		buf[ LOGPIPE_BLOCK_BUFSIZE + 1 ] ;
+			char		buf[ LOGPIPE_OUTPUT_BUFSIZE + 1 ] ;
 			uint64_t	len ;
 			
 			/* 强制把缓存数据都处理掉 */

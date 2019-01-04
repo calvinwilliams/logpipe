@@ -1726,7 +1726,7 @@ int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 }
 
 funcReadInputPlugin ReadInputPlugin ;
-int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_bufsize )
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_buf_size )
 {
 	struct InputPluginContext	*p_plugin_ctx = (struct InputPluginContext *)p_context ;
 	struct TraceFile		*p_trace_file = p_plugin_ctx->p_trace_file ;
@@ -1782,8 +1782,8 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	/* 如果未启用压缩 */
 	if( p_plugin_ctx->compress_algorithm == NULL )
 	{
-		if( p_plugin_ctx->remain_len > block_bufsize - 1 )
-			read_len = block_bufsize - 1 ;
+		if( p_plugin_ctx->remain_len > block_buf_size - 1 )
+			read_len = block_buf_size - 1 ;
 		else
 			read_len = p_plugin_ctx->remain_len ;
 		memset( block_buf , 0x00 , read_len+1 );
@@ -1814,7 +1814,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	/* 如果启用了压缩 */
 	else
 	{
-		char			block_in_buf[ LOGPIPE_UNCOMPRESS_BLOCK_BUFSIZE + 1 ] ;
+		char			block_in_buf[ LOGPIPE_INPUT_BEFORE_COMPRESSBUFSIZE + 1 ] ;
 		uint64_t		block_in_len ;
 		
 		if( p_plugin_ctx->remain_len > sizeof(block_in_buf) - 1 )
@@ -1845,8 +1845,8 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 		
 		p_plugin_ctx->read_line = stat_memchr( block_buf , p_plugin_ctx->read_len , '\n' ) ;
 		
-		memset( block_buf , 0x00 , block_bufsize );
-		nret = CompressInputPluginData( p_plugin_ctx->compress_algorithm , block_in_buf , p_plugin_ctx->read_len , block_buf , p_block_len ) ;
+		memset( block_buf , 0x00 , block_buf_size );
+		nret = CompressInputPluginData( p_plugin_ctx->compress_algorithm , block_in_buf , p_plugin_ctx->read_len , block_buf , p_block_len , LOGPIPE_INPUT_BUFSIZE ) ;
 		if( nret )
 		{
 			ERRORLOGC( "CompressInputPluginData failed[%d]" , nret )

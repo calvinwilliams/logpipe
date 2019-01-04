@@ -300,7 +300,7 @@ int OnInputPluginEvent_accepted_session( struct LogpipeEnv *p_env , struct Logpi
 }
 
 funcReadInputPlugin ReadInputPlugin_accepted_session ;
-int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_bufsize )
+int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_buf_size )
 {
 	struct InputPluginContext_AcceptedSession	*p_accepted_session_context = (struct InputPluginContext_AcceptedSession *)p_context ;
 	uint64_t					block_len_htonl ;
@@ -329,7 +329,7 @@ int ReadInputPlugin_accepted_session( struct LogpipeEnv *p_env , struct LogpipeI
 	(*p_block_len) = ntohl( block_len_htonl ) ;
 	if( (*p_block_len) == 0 )
 		return LOGPIPE_READ_END_FROM_INPUT;
-	if( (*p_block_len) > block_bufsize-1 )
+	if( (*p_block_len) > block_buf_size-1 )
 	{
 		ERRORLOGC( "block length[%d] too long" , (*p_block_len) )
 		RemoveInputPluginSession( p_env , p_logpipe_input_plugin );
