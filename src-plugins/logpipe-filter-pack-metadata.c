@@ -21,7 +21,7 @@ int LoadFilterPluginConfig( struct LogpipeEnv *p_env , struct LogpipeFilterPlugi
 {
 	struct FilterPluginContext	*p_plugin_ctx = NULL ;
 	
-	uint16_t			len ;
+	// uint16_t			len ;
 	
 	/* 申请内存以存放插件上下文 */
 	p_plugin_ctx = (struct FilterPluginContext *)malloc( sizeof(struct FilterPluginContext) ) ;
@@ -37,6 +37,19 @@ int LoadFilterPluginConfig( struct LogpipeEnv *p_env , struct LogpipeFilterPlugi
 	
 	p_plugin_ctx->server = QueryPluginConfigItem( p_plugin_config_items , "server" ) ;
 	INFOLOGC( "server[%s]" , p_plugin_ctx->server )
+	
+	/* 设置插件环境上下文 */
+	(*pp_context) = p_plugin_ctx ;
+	
+	return 0;
+}
+
+funcInitFilterPluginContext InitFilterPluginContext ;
+int InitFilterPluginContext( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context )
+{
+	struct FilterPluginContext	*p_plugin_ctx = (struct FilterPluginContext *)p_context ;
+	
+	uint16_t			len ;
 	
 	memset( p_plugin_ctx->metadata , 0x00 , sizeof(p_plugin_ctx->metadata) );
 	
@@ -64,15 +77,6 @@ int LoadFilterPluginConfig( struct LogpipeEnv *p_env , struct LogpipeFilterPlugi
 		}
 	}
 	
-	/* 设置插件环境上下文 */
-	(*pp_context) = p_plugin_ctx ;
-	
-	return 0;
-}
-
-funcInitFilterPluginContext InitFilterPluginContext ;
-int InitFilterPluginContext( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *p_logpipe_filter_plugin , void *p_context )
-{
 	return 0;
 }
 
