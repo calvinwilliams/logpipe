@@ -29,7 +29,6 @@ LIB		=	\
 			logpipe-input-exec.so \
 			logpipe-input-file.so \
 			logpipe-input-tcp.so \
-			logpipe-input-kafka.so \
 			logpipe-filter-log.so \
 			logpipe-filter-pack-metadata.so \
 			logpipe-output-file.so \
