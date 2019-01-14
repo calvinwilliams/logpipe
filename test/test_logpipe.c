@@ -22,17 +22,17 @@ int main( int argc , char *argv[] )
 	filename = argv[1] ;
 	count = atoi(argv[2]) ;
 	
-	ptr = (char*)malloc( LOGPIPE_BLOCK_BUFSIZE+1 ) ;
+	ptr = (char*)malloc( LOGPIPE_INPUT_BEFORE_COMPRESSBUFSIZE+1 ) ;
 	if( ptr == NULL )
 	{
 		printf( "malloc failed , errno[%d]\n" , errno );
 		return 1;
 	}
-	memset( ptr , 'X' , LOGPIPE_BLOCK_BUFSIZE );
-	ptr[LOGPIPE_BLOCK_BUFSIZE] = '\0' ;
+	memset( ptr , 'X' , LOGPIPE_INPUT_BEFORE_COMPRESSBUFSIZE );
+	ptr[LOGPIPE_INPUT_BEFORE_COMPRESSBUFSIZE] = '\0' ;
 	
 	if( count == -1 )
-		count = LOGPIPE_BLOCK_BUFSIZE ;
+		count = LOGPIPE_INPUT_BEFORE_COMPRESSBUFSIZE ;
 	for( i = 1 ; i <= count ; i++ )
 	{
 		fd = open( filename , O_CREAT|O_APPEND|O_WRONLY , 00777 ) ;
