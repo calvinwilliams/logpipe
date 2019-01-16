@@ -14,6 +14,7 @@ c_FILE		=	\
 			logpipe-input-kafka.c \
 			logpipe-filter-log.c \
 			logpipe-filter-pack-metadata.c \
+			logpipe-filter-unpack-metadata.c \
 			logpipe-output-file.c \
 			logpipe-output-tcp.c \
 			logpipe-output-hdfs.c \
@@ -31,6 +32,7 @@ LIB		=	\
 			logpipe-input-tcp.so \
 			logpipe-filter-log.so \
 			logpipe-filter-pack-metadata.so \
+			logpipe-filter-unpack-metadata.so \
 			logpipe-output-file.so \
 			logpipe-output-tcp.so \
 			logpipe-output-es.so \
@@ -87,6 +89,9 @@ logpipe-filter-log.so	:	logpipe-filter-log.o
 
 logpipe-filter-pack-metadata.so	:	logpipe-filter-pack-metadata.o
 	$(CC) -o $@ logpipe-filter-pack-metadata.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-filter-unpack-metadata.so	:	logpipe-filter-unpack-metadata.o
+	$(CC) -o $@ logpipe-filter-unpack-metadata.o $(SOFLAGS) $(LFLAGS)
 
 logpipe-output-file.so		:	logpipe-output-file.o
 	$(CC) -o $@ logpipe-output-file.o $(SOFLAGS) $(LFLAGS)

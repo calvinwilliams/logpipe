@@ -176,6 +176,18 @@ void RemoveInputPluginSession( struct LogpipeEnv *p_env , struct LogpipeInputPlu
 /* 激活一轮从输入插件读，写到所有输出插件流程处理 */
 int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , uint16_t filename_len , char *filename );
 
+/* 存取环境结构成员 */
+char *GetInputPluginFilenamePtr( struct LogpipeEnv *p_env , uint16_t *p_filename_len );
+void SetInputPluginFilename( struct LogpipeEnv *p_env , uint16_t filename_len , char *filename );
+uint64_t GetInputPluginFileOffset( struct LogpipeEnv *p_env );
+void SetInputPluginFileOffset( struct LogpipeEnv *p_env , uint64_t file_offset );
+uint64_t GetInputPluginFileLine( struct LogpipeEnv *p_env );
+void SetInputPluginFileLine( struct LogpipeEnv *p_env , uint64_t file_line );
+char *GetInputPluginBlockPtr( struct LogpipeEnv *p_env , uint64_t *p_filename_len );
+void SetInputPluginBlock( struct LogpipeEnv *p_env , uint64_t block_len , char *block );
+char *GetInputPluginTagPtr( struct LogpipeEnv *p_env , int index , uint16_t *p_tag_len );
+void SetInputPluginTag( struct LogpipeEnv *p_env , int index , uint16_t tag_len , char *tag );
+
 /* 加密输入插件读取的块数据 */
 int CompressInputPluginData( char *compress_algorithm , char *block_in_buf , uint64_t block_in_len , char *block_out_buf , uint64_t *p_block_out_len , uint64_t block_out_buf_size );
 /* 解密输出插件读取的块数据 */
