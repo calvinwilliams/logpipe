@@ -42,11 +42,13 @@ struct OutputPluginContext
 	int			port ;
 	char			*user ;
 	char			*path ;
+	char			*system ;
 	char			*uncompress_algorithm ;
 	
 	hdfsFS			fs ;
 	
 	char			pathname[ PATH_MAX + 1 ] ;
+	char			datetime_pathname[ PATH_MAX + 1 ] ;
 	struct tm		stime ;
 	
 	struct TraceFile	*p_trace_file ;
@@ -75,6 +77,9 @@ void FreeTraceFile( void *pv )
 }
 
 DESTROY_RBTREE( DestroyTraceFilenameTree , struct OutputPluginContext , filename_rbtree , struct TraceFile , filename_rbnode , FreeTraceFile )
+
+#define UNPACK_METADATA_SYSTEM_INDEX	1
+#define UNPACK_METADATA_SERVER_INDEX	2
 
 funcLoadOutputPluginConfig LoadOutputPluginConfig ;
 int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
@@ -123,6 +128,9 @@ int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugi
 		ERRORLOGC( "expect config for 'path'" )
 		return -1;
 	}
+	
+	p_plugin_ctx->system = QueryPluginConfigItem( p_plugin_config_items , "system" ) ;
+	INFOLOGC( "system[%s]" , p_plugin_ctx->system )
 	
 	p_plugin_ctx->uncompress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "uncompress_algorithm" ) ;
 	if( p_plugin_ctx->uncompress_algorithm )
@@ -185,19 +193,22 @@ int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 	}
 	
 	/* 创建新启动写目录 */
-	time( & tt );
-	localtime_r( & tt , & (p_plugin_ctx->stime) );
-	memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
-	snprintf( p_plugin_ctx->pathname , sizeof(p_plugin_ctx->pathname) , "%s/%04d%02d%02d_%02d%02d%02d" , p_plugin_ctx->path , p_plugin_ctx->stime.tm_year+1900 , p_plugin_ctx->stime.tm_mon , p_plugin_ctx->stime.tm_mday , p_plugin_ctx->stime.tm_hour , p_plugin_ctx->stime.tm_min , p_plugin_ctx->stime.tm_sec );
-	nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
-	if( nret )
+	if( p_plugin_ctx->system == NULL )
 	{
-		ERRORLOGC( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
-		return -1;
-	}
-	else
-	{
-		DEBUGLOGC( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
+		time( & tt );
+		localtime_r( & tt , & (p_plugin_ctx->stime) );
+		memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
+		snprintf( p_plugin_ctx->pathname , sizeof(p_plugin_ctx->pathname) , "%s/%04d%02d%02d_%02d%02d%02d" , p_plugin_ctx->path , p_plugin_ctx->stime.tm_year+1900 , p_plugin_ctx->stime.tm_mon , p_plugin_ctx->stime.tm_mday , p_plugin_ctx->stime.tm_hour , p_plugin_ctx->stime.tm_min , p_plugin_ctx->stime.tm_sec );
+		nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
+		if( nret )
+		{
+			ERRORLOGC( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
+			return -1;
+		}
+		else
+		{
+			DEBUGLOGC( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
+		}
 	}
 	
 	return 0;
@@ -214,11 +225,47 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 {
 	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
 	
+	int				index ;
 	time_t				tt ;
 	struct tm			stime ;
 	struct TraceFile		trace_file ;
 	
 	int				nret = 0 ;
+	
+	/* 如果目录'系统'不存在，则创建之 */
+	if( p_plugin_ctx->system )
+	{
+		if( p_plugin_ctx->system[0] == "@" )
+		{
+			memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
+			index = strnlen(p_plugin_ctx->system+1,strlen(p_plugin_ctx->system+1)) ;
+			snprintf( p_plugin_ctx->pathname , sizeof(p_plugin_ctx->pathname) , "%s/%s" , p_plugin_ctx->path , GetInputPluginTagPtr(p_env,index,NULL) );
+		}
+		else
+		{
+			memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
+			snprintf( p_plugin_ctx->pathname , sizeof(p_plugin_ctx->pathname) , "%s/%s" , p_plugin_ctx->path , p_plugin_ctx->system );
+		}
+		
+		nret = hdfsExists( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
+		if( nret )
+		{
+			nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
+			if( nret )
+			{
+				ERRORLOGC( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
+				return -1;
+			}
+			else
+			{
+				DEBUGLOGC( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
+			}
+		}
+		else
+		{
+			DEBUGLOGC( "hdfsExists[%s] ok" , p_plugin_ctx->pathname )
+		}
+	}
 	
 	/* 午夜零时，创建新一天的写目录 */
 	time( & tt );
@@ -228,26 +275,28 @@ int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlug
 		INFOLOGC( "DestroyTraceFilenameTree" )
 		DestroyTraceFilenameTree( p_plugin_ctx );
 		
-		memset( p_plugin_ctx->pathname , 0x00 , sizeof(p_plugin_ctx->pathname) );
-		snprintf( p_plugin_ctx->pathname , sizeof(p_plugin_ctx->pathname) , "%s/%04d%02d%02d" , p_plugin_ctx->path , p_plugin_ctx->stime.tm_year+1900 , p_plugin_ctx->stime.tm_mon , p_plugin_ctx->stime.tm_mday );
-		nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->pathname ) ;
+		memset( p_plugin_ctx->datetime_pathname , 0x00 , sizeof(p_plugin_ctx->datetime_pathname) );
+		snprintf( p_plugin_ctx->datetime_pathname , sizeof(p_plugin_ctx->datetime_pathname) , "%s/%s/%04d%02d%02d" , p_plugin_ctx->pathname , p_plugin_ctx->stime.tm_year+1900 , p_plugin_ctx->stime.tm_mon , p_plugin_ctx->stime.tm_mday );
+		nret = hdfsCreateDirectory( p_plugin_ctx->fs , p_plugin_ctx->datetime_pathname ) ;
 		if( nret )
 		{
-			ERRORLOGC( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->pathname , nret )
+			ERRORLOGC( "hdfsCreateDirectory[%s] failed[%d]" , p_plugin_ctx->datetime_pathname , nret )
 			return -1;
 		}
 		else
 		{
-			DEBUGLOGC( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->pathname )
+			DEBUGLOGC( "hdfsCreateDirectory[%s] ok" , p_plugin_ctx->datetime_pathname )
 		}
 		
 		INFOLOGC( "DestroyTraceFilenameTree" )
 		DestroyTraceFilenameTree( p_plugin_ctx );
+		
+		memcpy( & (p_plugin_ctx->stime) , & stime , sizeof(struct tm) );
 	}
 	
 	/* 查询文件跟踪结构 */
 	memset( & trace_file , 0x00 , sizeof(struct TraceFile) );
-	snprintf( trace_file.path_filename , sizeof(trace_file.path_filename)-1 , "%s/%.*s" , p_plugin_ctx->pathname , filename_len , filename );
+	snprintf( trace_file.path_filename , sizeof(trace_file.path_filename)-1 , "%s/%.*s" , p_plugin_ctx->datetime_pathname , filename_len,filename );
 	p_plugin_ctx->p_trace_file = QueryTraceFilenameTreeNode( p_plugin_ctx , & trace_file ) ;
 	if( p_plugin_ctx->p_trace_file == NULL )
 	{

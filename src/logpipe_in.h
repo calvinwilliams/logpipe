@@ -136,6 +136,15 @@ struct LogpipeEnv
 	unsigned char			idle_processing_flag ;
 	
 	int				quit_pipe[2] ; /* 父子进程命令管道 */
+	
+	char				filename_buf[ PATH_MAX + 1 ] ; /* 文件名 */
+	uint16_t			filename_buf_len ; /* 文件名长度 */
+	uint64_t			file_offset ; /* 文件偏移量 */
+	uint64_t			file_line ; /* 文件行号 */
+	char				block_buf[ LOGPIPE_OUTPUT_BUFSIZE + 1 ] ; /* 输入、过滤、输出块缓冲区 */
+	uint64_t			block_buf_len ; /* 输入、过滤、输出块缓冲区有效数据长度 */
+	char				tag[ 64 + 1 ][ 8 ] ; /* 标记 */
+	uint16_t			tag_len[ 8 ] ; /* 标记长度 */
 } ;
 
 /* 公共函数 */

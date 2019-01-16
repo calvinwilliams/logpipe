@@ -2,14 +2,18 @@
 
 int	__LOGPIPE_FILTER_PACK_METADATA_0_1_0 = 1 ;
 
+/*
+[[system=...][server=...][filename=...][offset=...][line=...]]log\n
+*/
+
 struct FilterPluginContext
 {
 	char			*system ;
 	char			*server ;
 	char			metadata[ 1024 ] ;
-	uint16_t		metadata_head_len ;
-	uint16_t		metadata_head2_len ;
-	uint16_t		metadata_len ;
+	uint16_t		system_and_server_len ;
+	uint16_t		system_and_server_and_filename_len ;
+	uint16_t		all_metadata_len ;
 	
 	uint16_t		*filename_len ;
 	char			*filename ;
@@ -53,11 +57,24 @@ int InitFilterPluginContext( struct LogpipeEnv *p_env , struct LogpipeFilterPlug
 	
 	memset( p_plugin_ctx->metadata , 0x00 , sizeof(p_plugin_ctx->metadata) );
 	
+	len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->system_and_server_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->system_and_server_len , "[" ) ;
+	if( len > 0 )
+	{
+		p_plugin_ctx->system_and_server_len += len ;
+	}
+	else
+	{
+		ERRORLOGC( "system[%s] too long" , p_plugin_ctx->system )
+		return -1;
+	}
+	
 	if( p_plugin_ctx->system )
 	{
-		len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->metadata_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->metadata_len , "[system=%s]" , p_plugin_ctx->system ) ;
+		len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->system_and_server_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->system_and_server_len , "[system=%s]" , p_plugin_ctx->system ) ;
 		if( len > 0 )
-			p_plugin_ctx->metadata_head_len += len ;
+		{
+			p_plugin_ctx->system_and_server_len += len ;
+		}
 		else
 		{
 			ERRORLOGC( "system[%s] too long" , p_plugin_ctx->system )
@@ -67,9 +84,11 @@ int InitFilterPluginContext( struct LogpipeEnv *p_env , struct LogpipeFilterPlug
 	
 	if( p_plugin_ctx->server )
 	{
-		len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->metadata_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->metadata_len , "[server=%s]" , p_plugin_ctx->server ) ;
+		len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->system_and_server_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->system_and_server_len , "[server=%s]" , p_plugin_ctx->server ) ;
 		if( len > 0 )
-			p_plugin_ctx->metadata_head_len += len ;
+		{
+			p_plugin_ctx->system_and_server_len += len ;
+		}
 		else
 		{
 			ERRORLOGC( "server[%s] too long" , p_plugin_ctx->server )
@@ -87,9 +106,9 @@ int BeforeProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPl
 	
 	uint16_t			len ;
 	
-	len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->metadata_head_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->metadata_head_len , "[filename=%.*s]" , filename_len,filename ) ;
+	len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->system_and_server_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->system_and_server_len , "[filename=%.*s]" , filename_len,filename ) ;
 	if( len > 0 )
-		p_plugin_ctx->metadata_head2_len = p_plugin_ctx->metadata_head_len + len ;
+		p_plugin_ctx->system_and_server_and_filename_len = p_plugin_ctx->system_and_server_len + len ;
 	else
 	{
 		ERRORLOGC( "filename[%.*s] too long" , filename_len,filename )
@@ -106,24 +125,28 @@ int ProcessFilterPlugin( struct LogpipeEnv *p_env , struct LogpipeFilterPlugin *
 	
 	uint16_t			len ;
 	
-	len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->metadata_head2_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->metadata_head2_len , "[offset=%d][line=%d]" , (int)file_offset , (int)file_line ) ;
+	len = snprintf( p_plugin_ctx->metadata+p_plugin_ctx->system_and_server_and_filename_len , sizeof(p_plugin_ctx->metadata)-1-p_plugin_ctx->system_and_server_and_filename_len , "[offset=%d][line=%d]]" , (int)file_offset , (int)file_line ) ;
 	if( len > 0 )
-		p_plugin_ctx->metadata_len = p_plugin_ctx->metadata_head2_len + len ;
+		p_plugin_ctx->all_metadata_len = p_plugin_ctx->system_and_server_and_filename_len + len ;
 	else
 	{
 		ERRORLOGC( "offset[%d] or line[%d] too long" , (int)file_offset , (int)file_line )
 		return 1;
 	}
 	
-	if( (*p_block_len) + p_plugin_ctx->metadata_len > block_buf_size-1 )
+	if( (*p_block_len) + p_plugin_ctx->all_metadata_len > block_buf_size-1 )
 	{
 		ERRORLOGC( "output buffer overflow" )
 		return 1;
 	}
 	
-	memmove( block_buf+p_plugin_ctx->metadata_len , block_buf , (*p_block_len) );
-	memcpy( block_buf , p_plugin_ctx->metadata , p_plugin_ctx->metadata_len );
-	(*p_block_len) += p_plugin_ctx->metadata_len ;
+	if( p_plugin_ctx->all_metadata_len + (*p_block_len) > block_buf_size-1 )
+		len = block_buf_size-1 - p_plugin_ctx->all_metadata_len ;
+	else
+		len = (*p_block_len) ;
+	memmove( block_buf+p_plugin_ctx->all_metadata_len , block_buf , len );
+	memcpy( block_buf , p_plugin_ctx->metadata , p_plugin_ctx->all_metadata_len );
+	(*p_block_len) += len ;
 	
 	return 0;
 }

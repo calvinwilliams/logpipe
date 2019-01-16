@@ -192,7 +192,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	
 	while(1)
 	{
-		nret = WriteAllOutputPlugins( p_env , p_logpipe_input_plugin , 8 , "demo.log" ) ;
+		nret = WriteAllOutputPlugins( p_env , p_logpipe_input_plugin , 0 , "" ) ;
 		if( nret < 0 )
 		{
 			ERRORLOGC( "WriteAllOutputPlugins failed[%d]" , nret )
@@ -248,7 +248,7 @@ int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_log
 	
 	rd_kafka_message_destroy( kafka_message );
 	
-	return 0;
+	return LOGPIPE_READ_END_FROM_INPUT;
 }
 
 funcCleanInputPluginContext CleanInputPluginContext ;

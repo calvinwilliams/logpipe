@@ -8,16 +8,103 @@
 
 #include "logpipe_in.h"
 
+/* 得到文件名缓冲区基地址 */
+char *GetInputPluginFilenamePtr( struct LogpipeEnv *p_env , uint16_t *p_filename_len )
+{
+	if( p_filename_len )
+		(*p_filename_len) = p_env->filename_buf_len ;
+	
+	return p_env->filename_buf;
+}
+
+/* 设置文件名 */
+void SetInputPluginFilename( struct LogpipeEnv *p_env , uint16_t filename_len , char *filename )
+{
+	p_env->filename_buf_len = MIN( filename_len , sizeof(p_env->filename_buf)-1 ) ;
+	memset( p_env->filename_buf , 0x00 , sizeof(p_env->filename_buf) );
+	memcpy( p_env->filename_buf , filename , p_env->filename_buf_len );
+	
+	return;
+}
+
+/* 得到文件偏移量 */
+uint64_t GetInputPluginFileOffset( struct LogpipeEnv *p_env )
+{
+	return p_env->file_offset;
+}
+
+/* 设置文件偏移量 */
+void SetInputPluginFileOffset( struct LogpipeEnv *p_env , uint64_t file_offset )
+{
+	p_env->file_offset = file_offset ;
+	
+	return;
+}
+
+/* 得到文件行号 */
+uint64_t GetInputPluginFileLine( struct LogpipeEnv *p_env )
+{
+	return p_env->file_line;
+}
+
+/* 设置文件行号 */
+void SetInputPluginFileLine( struct LogpipeEnv *p_env , uint64_t file_line )
+{
+	p_env->file_line = file_line ;
+	
+	return;
+}
+
+/* 得到输入输出块缓冲区基地址 */
+char *GetInputPluginBlockPtr( struct LogpipeEnv *p_env , uint64_t *p_block_len )
+{
+	if( p_block_len )
+		(*p_block_len) = p_env->block_buf_len ;
+	
+	return p_env->block_buf;
+}
+
+/* 设置输入输出块数据 */
+void SetInputPluginBlock( struct LogpipeEnv *p_env , uint64_t block_len , char *block )
+{
+	p_env->block_buf_len = MIN( block_len , sizeof(p_env->block_buf)-1 ) ;
+	memset( p_env->block_buf , 0x00 , sizeof(p_env->block_buf) );
+	memcpy( p_env->block_buf , block , p_env->block_buf_len );
+	
+	return;
+}
+
+/* 得到标记缓冲区基地址 */
+char *GetInputPluginTagPtr( struct LogpipeEnv *p_env , int index , uint16_t *p_tag_len )
+{
+	if( index <= 0 || index > sizeof(p_env->tag)/sizeof(p_env->tag[0]) )
+		return NULL;
+	
+	if( p_tag_len )
+		(*p_tag_len) = p_env->tag_len[index-1] ;
+	
+	return p_env->tag[index-1];
+}
+
+/* 设置标记 */
+void SetInputPluginTag( struct LogpipeEnv *p_env , int index , uint16_t tag_len , char *tag )
+{
+	if( index <= 0 || index > sizeof(p_env->tag)/sizeof(p_env->tag[0]) )
+		return;
+	
+	p_env->tag_len[index-1] = MIN( tag_len , sizeof(p_env->tag[index-1])-1 ) ;
+	memset( p_env->tag[index-1] , 0x00 , sizeof(p_env->tag[index-1]) );
+	memcpy( p_env->tag[index-1] , tag , p_env->tag_len[index-1] );
+	
+	return;
+}
+
 /* 激活一轮从输入插件读，写到所有输出插件流程处理 */
 int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , uint16_t filename_len , char *filename )
 {
 	struct LogpipeFilterPlugin	*p_travel_logpipe_filter_plugin = NULL ;
 	struct LogpipeOutputPlugin	*p_travel_logpipe_output_plugin = NULL ;
 	
-	uint64_t			file_offset ;
-	uint64_t			file_line ;
-	char				block_buf[ LOGPIPE_OUTPUT_BUFSIZE + 1 ] ;
-	uint64_t			block_len ;
 	struct timeval			tv_begin ;
 	struct timeval			tv_end ;
 	struct timeval			tv_diff ;
@@ -25,15 +112,20 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	int				nret = 0 ;
 	int				nret2 = 0 ;
 	
-	file_offset = 0 ;
-	file_line = 0 ;
+	p_env->filename_buf_len = MIN( filename_len , sizeof(p_env->filename_buf)-1 ) ;
+	memset( p_env->filename_buf , 0x00 , sizeof(p_env->filename_buf) );
+	memcpy( p_env->filename_buf , filename , p_env->filename_buf_len );
+	p_env->file_offset = 0 ;
+	p_env->file_line = 0 ;
+	memset( p_env->block_buf , 0x00 , sizeof(p_env->block_buf) );
+	p_env->block_buf_len = 0 ;
 	
 	/* 执行输入端读前函数 */
 	INFOLOGC( "[%s]->pfuncBeforeReadInputPlugin ..." , p_logpipe_input_plugin->so_filename )
 	if( p_logpipe_input_plugin->pfuncBeforeReadInputPlugin )
 	{
 		gettimeofday( & tv_begin , NULL );
-		nret = p_logpipe_input_plugin->pfuncBeforeReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & file_offset , & file_line ) ;
+		nret = p_logpipe_input_plugin->pfuncBeforeReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & (p_env->file_offset) , & (p_env->file_line) ) ;
 		gettimeofday( & tv_end , NULL );
 		DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 		if( nret < 0 )
@@ -59,7 +151,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		if( p_travel_logpipe_filter_plugin->pfuncBeforeProcessFilterPlugin )
 		{
 			gettimeofday( & tv_begin , NULL );
-			nret = p_travel_logpipe_filter_plugin->pfuncBeforeProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , filename_len , filename ) ;
+			nret = p_travel_logpipe_filter_plugin->pfuncBeforeProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , p_env->filename_buf_len , p_env->filename_buf ) ;
 			gettimeofday( & tv_end , NULL );
 			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret < 0 )
@@ -86,7 +178,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		if( p_travel_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin )
 		{
 			gettimeofday( & tv_begin , NULL );
-			nret = p_travel_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , filename_len , filename ) ;
+			nret = p_travel_logpipe_output_plugin->pfuncBeforeWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , p_env->filename_buf_len , p_env->filename_buf ) ;
 			gettimeofday( & tv_end , NULL );
 			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret < 0 )
@@ -110,9 +202,9 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 	{
 		/* 执行输入端读函数 */
 		INFOLOGC( "[%s]->pfuncReadInputPlugin ..." , p_logpipe_input_plugin->so_filename )
-		memset( block_buf , 0x00 , sizeof(block_buf) );
+		memset( p_env->block_buf , 0x00 , sizeof(p_env->block_buf) );
 		gettimeofday( & tv_begin , NULL );
-		nret = p_logpipe_input_plugin->pfuncReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & file_offset , & file_line , & block_len , block_buf , LOGPIPE_INPUT_BUFSIZE ) ;
+		nret = p_logpipe_input_plugin->pfuncReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & (p_env->file_offset) , & (p_env->file_line) , & (p_env->block_buf_len) , p_env->block_buf , LOGPIPE_INPUT_BUFSIZE ) ;
 		gettimeofday( & tv_end , NULL );
 		DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 		if( nret == LOGPIPE_READ_END_FROM_INPUT )
@@ -141,7 +233,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		{
 			INFOLOGC( "[%s]->pfuncProcessFilterPlugin ..." , p_travel_logpipe_filter_plugin->so_filename )
 			gettimeofday( & tv_begin , NULL );
-			nret = p_travel_logpipe_filter_plugin->pfuncProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , file_offset , file_line , & block_len , block_buf , LOGPIPE_OUTPUT_BUFSIZE ) ;
+			nret = p_travel_logpipe_filter_plugin->pfuncProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , p_env->file_offset , p_env->file_line , & (p_env->block_buf_len) , p_env->block_buf , LOGPIPE_OUTPUT_BUFSIZE ) ;
 			gettimeofday( & tv_end , NULL );
 			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret < 0 )
@@ -165,7 +257,7 @@ int WriteAllOutputPlugins( struct LogpipeEnv *p_env , struct LogpipeInputPlugin 
 		{
 			INFOLOGC( "[%s]->pfuncWriteOutputPlugin ..." , p_travel_logpipe_output_plugin->so_filename )
 			gettimeofday( & tv_begin , NULL );
-			nret = p_travel_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , file_offset , file_line , block_len , block_buf , LOGPIPE_OUTPUT_BUFSIZE ) ;
+			nret = p_travel_logpipe_output_plugin->pfuncWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , p_env->file_offset , p_env->file_line , p_env->block_buf_len , p_env->block_buf , LOGPIPE_OUTPUT_BUFSIZE ) ;
 			gettimeofday( & tv_end , NULL );
 			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret < 0 )
@@ -192,7 +284,7 @@ _GOTO_AFTER_OUTPUT :
 	if( p_logpipe_input_plugin->pfuncAfterReadInputPlugin )
 	{
 		gettimeofday( & tv_begin , NULL );
-		nret2 = p_logpipe_input_plugin->pfuncAfterReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & file_offset , & file_line ) ;
+		nret2 = p_logpipe_input_plugin->pfuncAfterReadInputPlugin( p_env , p_logpipe_input_plugin , p_logpipe_input_plugin->context , & (p_env->file_offset) , & (p_env->file_line) ) ;
 		gettimeofday( & tv_end , NULL );
 		DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 		if( nret2 < 0 )
@@ -216,7 +308,7 @@ _GOTO_AFTER_OUTPUT :
 		if( p_travel_logpipe_filter_plugin->pfuncAfterProcessFilterPlugin )
 		{
 			gettimeofday( & tv_begin , NULL );
-			nret2 = p_travel_logpipe_filter_plugin->pfuncAfterProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , filename_len , filename ) ;
+			nret2 = p_travel_logpipe_filter_plugin->pfuncAfterProcessFilterPlugin( p_env , p_travel_logpipe_filter_plugin , p_travel_logpipe_filter_plugin->context , p_env->filename_buf_len , p_env->filename_buf ) ;
 			gettimeofday( & tv_end , NULL );
 			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret2 < 0 )
@@ -241,7 +333,7 @@ _GOTO_AFTER_OUTPUT :
 		if( p_travel_logpipe_output_plugin->pfuncAfterWriteOutputPlugin )
 		{
 			gettimeofday( & tv_begin , NULL );
-			nret2 = p_travel_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , filename_len , filename ) ;
+			nret2 = p_travel_logpipe_output_plugin->pfuncAfterWriteOutputPlugin( p_env , p_travel_logpipe_output_plugin , p_travel_logpipe_output_plugin->context , p_env->filename_buf_len , p_env->filename_buf ) ;
 			gettimeofday( & tv_end , NULL );
 			DiffTimeval( & tv_begin , & tv_end , & tv_diff );
 			if( nret2 < 0 )
