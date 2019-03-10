@@ -2,40 +2,57 @@
 ====================
 <!-- TOC -->
 
-- [1. ¸ÅÊö](#1-¸ÅÊö)
-- [2. °²×°](#2-°²×°)
-    - [2.1. Ô´Âë±àÒë°²×°](#21-Ô´Âë±àÒë°²×°)
-        - [2.1.1. ±àÒë°²×°logpipe](#211-±àÒë°²×°logpipe)
-        - [2.1.2. ±àÒë°²×°×Ô´ølogpipe²å¼ş](#212-±àÒë°²×°×Ô´ølogpipe²å¼ş)
-        - [2.1.3. ±àÒë°²×°×Ô´øÑ¡°²×°logpipe²å¼ş](#213-±àÒë°²×°×Ô´øÑ¡°²×°logpipe²å¼ş)
-            - [2.1.3.1. logpipe-output-hdfs](#2131-logpipe-output-hdfs)
-            - [2.1.3.2. logpipe-output-es](#2132-logpipe-output-es)
-        - [2.1.4. È·ÈÏ°²×°](#214-È·ÈÏ°²×°)
-- [3. Ê¹ÓÃ](#3-Ê¹ÓÃ)
-    - [3.1. °¸ÀıA](#31-°¸Àıa)
-        - [3.1.1. ²¿Êğ¹é¼¯¶Ë](#311-²¿Êğ¹é¼¯¶Ë)
-        - [3.1.2. ²¿Êğ²É¼¯¶Ë](#312-²¿Êğ²É¼¯¶Ë)
-        - [3.1.3. ²âÊÔ](#313-²âÊÔ)
-        - [3.1.4. Í£Ö¹logpipe](#314-Í£Ö¹logpipe)
-        - [3.1.5. ÆäËü×¢ÒâÊÂÏî](#315-ÆäËü×¢ÒâÊÂÏî)
-- [4. ²Î¿¼](#4-²Î¿¼)
-    - [4.1. logpipe](#41-logpipe)
-    - [4.2. ×Ô´ø²å¼ş](#42-×Ô´ø²å¼ş)
-        - [4.2.1. logpipe-input-file](#421-logpipe-input-file)
-        - [4.2.2. logpipe-output-file](#422-logpipe-output-file)
-        - [4.2.3. logpipe-input-tcp](#423-logpipe-input-tcp)
-        - [4.2.4. logpipe-output-tcp](#424-logpipe-output-tcp)
-        - [4.2.5. logpipe-input-exec](#425-logpipe-input-exec)
-        - [4.2.6. logpipe-output-hdfs](#426-logpipe-output-hdfs)
-        - [4.2.7. logpipe-output-es](#427-logpipe-output-es)
-- [5. ²å¼ş¿ª·¢](#5-²å¼ş¿ª·¢)
-    - [5.1. ÊäÈë²å¼ş](#51-ÊäÈë²å¼ş)
-    - [5.2. Êä³ö²å¼ş](#52-Êä³ö²å¼ş)
-- [6. ĞÔÄÜÑ¹²â](#6-ĞÔÄÜÑ¹²â)
-    - [6.1. flume-ng](#61-flume-ng)
-    - [6.2. logpipe](#62-logpipe)
-    - [6.3. ×Ü½á](#63-×Ü½á)
-- [7. ×îºó](#7-×îºó)
+- [ÈÕÖ¾²É¼¯¹¤¾ß(logpipe)](#%E6%97%A5%E5%BF%97%E9%87%87%E9%9B%86%E5%B7%A5%E5%85%B7logpipe)
+- [1. ¸ÅÊö](#1-%E6%A6%82%E8%BF%B0)
+- [2. °²×°](#2-%E5%AE%89%E8%A3%85)
+	- [2.1. Ô´Âë±àÒë°²×°](#21-%E6%BA%90%E7%A0%81%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85)
+		- [2.1.1. ±àÒë°²×°logpipe](#211-%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85logpipe)
+		- [2.1.2. ±àÒë°²×°×Ô´ølogpipe²å¼ş](#212-%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85%E8%87%AA%E5%B8%A6logpipe%E6%8F%92%E4%BB%B6)
+		- [2.1.3. ±àÒë°²×°×Ô´øÑ¡°²×°logpipe²å¼ş](#213-%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85%E8%87%AA%E5%B8%A6%E9%80%89%E5%AE%89%E8%A3%85logpipe%E6%8F%92%E4%BB%B6)
+			- [2.1.3.1. logpipe-output-hdfs](#2131-logpipe-output-hdfs)
+			- [2.1.3.2. logpipe-output-es](#2132-logpipe-output-es)
+		- [2.1.4. È·ÈÏ°²×°](#214-%E7%A1%AE%E8%AE%A4%E5%AE%89%E8%A3%85)
+- [3. Ê¹ÓÃ](#3-%E4%BD%BF%E7%94%A8)
+	- [3.1. °¸ÀıA](#31-%E6%A1%88%E4%BE%8Ba)
+		- [3.1.1. ²¿Êğ¹é¼¯¶Ë](#311-%E9%83%A8%E7%BD%B2%E5%BD%92%E9%9B%86%E7%AB%AF)
+		- [3.1.2. ²¿Êğ²É¼¯¶Ë](#312-%E9%83%A8%E7%BD%B2%E9%87%87%E9%9B%86%E7%AB%AF)
+		- [3.1.3. ²âÊÔ](#313-%E6%B5%8B%E8%AF%95)
+		- [3.1.4. Í£Ö¹logpipe](#314-%E5%81%9C%E6%AD%A2logpipe)
+		- [3.1.5. ÆäËü×¢ÒâÊÂÏî](#315-%E5%85%B6%E5%AE%83%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9)
+- [4. ²Î¿¼](#4-%E5%8F%82%E8%80%83)
+	- [4.1. logpipe](#41-logpipe)
+	- [4.2. ×Ô´ø²å¼ş](#42-%E8%87%AA%E5%B8%A6%E6%8F%92%E4%BB%B6)
+		- [4.2.1. logpipe-input-file](#421-logpipe-input-file)
+		- [4.2.2. logpipe-output-file](#422-logpipe-output-file)
+		- [4.2.3. logpipe-input-tcp](#423-logpipe-input-tcp)
+		- [4.2.4. logpipe-output-tcp](#424-logpipe-output-tcp)
+		- [4.2.5. logpipe-input-exec](#425-logpipe-input-exec)
+		- [4.2.6. logpipe-output-hdfs](#426-logpipe-output-hdfs)
+		- [4.2.7. logpipe-output-es](#427-logpipe-output-es)
+- [5. ²å¼ş¿ª·¢](#5-%E6%8F%92%E4%BB%B6%E5%BC%80%E5%8F%91)
+	- [5.1. ÊäÈë²å¼ş](#51-%E8%BE%93%E5%85%A5%E6%8F%92%E4%BB%B6)
+	- [5.2. Êä³ö²å¼ş](#52-%E8%BE%93%E5%87%BA%E6%8F%92%E4%BB%B6)
+	- [5.3. ¹ıÂË²å¼ş](#53-%E8%BF%87%E6%BB%A4%E6%8F%92%E4%BB%B6)
+- [6. ĞÔÄÜÑ¹²â](#6-%E6%80%A7%E8%83%BD%E5%8E%8B%E6%B5%8B)
+	- [6.1. flume-ng](#61-flume-ng)
+	- [6.2. logpipe](#62-logpipe)
+	- [6.3. ×Ü½á](#63-%E6%80%BB%E7%BB%93)
+- [7. ÄÚ²¿ÊµÏÖ](#7-%E5%86%85%E9%83%A8%E5%AE%9E%E7%8E%B0)
+	- [7.1. logpipe¿ò¼ÜÒıÇæ](#71-logpipe%E6%A1%86%E6%9E%B6%E5%BC%95%E6%93%8E)
+	- [7.2. ÊäÈë²å¼ş](#72-%E8%BE%93%E5%85%A5%E6%8F%92%E4%BB%B6)
+		- [7.2.1. ÎÄ¼şÊäÈë²å¼ş`logpipe-input-file`](#721-%E6%96%87%E4%BB%B6%E8%BE%93%E5%85%A5%E6%8F%92%E4%BB%B6logpipe-input-file)
+		- [7.2.2. TCPÊäÈë²å¼ş`logpipe-input-tcp`](#722-tcp%E8%BE%93%E5%85%A5%E6%8F%92%E4%BB%B6logpipe-input-tcp)
+		- [7.2.3. ³¤ÃüÁîÊäÈë²å¼ş`logpipe-input-exec`](#723-%E9%95%BF%E5%91%BD%E4%BB%A4%E8%BE%93%E5%85%A5%E6%8F%92%E4%BB%B6logpipe-input-exec)
+		- [7.2.4. KafkaÊäÈë²å¼ş`logpipe-input-kafka`](#724-kafka%E8%BE%93%E5%85%A5%E6%8F%92%E4%BB%B6logpipe-input-kafka)
+	- [7.3. ¹ıÂË²å¼ş](#73-%E8%BF%87%E6%BB%A4%E6%8F%92%E4%BB%B6)
+	- [7.4. Êä³ö²å¼ş](#74-%E8%BE%93%E5%87%BA%E6%8F%92%E4%BB%B6)
+		- [7.4.1. ÎÄ¼şÊä³ö²å¼ş`logpipe-output-file`](#741-%E6%96%87%E4%BB%B6%E8%BE%93%E5%87%BA%E6%8F%92%E4%BB%B6logpipe-output-file)
+		- [7.4.2. TCPÊä³ö²å¼ş`logpipe-output-tcp`](#742-tcp%E8%BE%93%E5%87%BA%E6%8F%92%E4%BB%B6logpipe-output-tcp)
+		- [7.4.3. ÆÁÄ»Êä³ö²å¼ş`logpipe-output-stdout`](#743-%E5%B1%8F%E5%B9%95%E8%BE%93%E5%87%BA%E6%8F%92%E4%BB%B6logpipe-output-stdout)
+		- [7.4.4. KafkaÊä³ö²å¼ş`logpipe-output-kafka`](#744-kafka%E8%BE%93%E5%87%BA%E6%8F%92%E4%BB%B6logpipe-output-kafka)
+		- [7.4.5. ESÊä³ö²å¼ş`logpipe-output-es`](#745-es%E8%BE%93%E5%87%BA%E6%8F%92%E4%BB%B6logpipe-output-es)
+		- [7.4.6. HDFSÊä³ö²å¼ş`logpipe-output-hdfs`](#746-hdfs%E8%BE%93%E5%87%BA%E6%8F%92%E4%BB%B6logpipe-output-hdfs)
+- [8. ×îºó](#8-%E6%9C%80%E5%90%8E)
 
 <!-- /TOC -->
 # 1. ¸ÅÊö
@@ -50,7 +67,11 @@ logpipeÊÇÒ»¸ö·Ö²¼Ê½¡¢¸ß¿ÉÓÃµÄÓÃÓÚ²É¼¯¡¢´«Êä¡¢¶Ô½ÓÂäµØµÄÈÕÖ¾¹¤¾ß£¬²ÉÓÃÁË²å¼ş·ç¸ñµ
 
 logpipeµÄÒ»ÖÖÓÃ·¨ÊÇÄÜÒì²½ÊµÊ±¼à¿Ø¼¯ÈºÀïµÄËùÓĞÈÕÖ¾Ä¿Â¼£¬Ò»µ©ÓĞÎÄ¼şĞÂÔö»ò×·¼ÓĞ´£¬Á¢¼´²É¼¯²¢´«Êäµ½´ó´æ´¢ÉÏÒÔÏàÍ¬ÈÕÖ¾ÎÄ¼şÃûºÏ²¢ÂäµØ£¬»òÕßĞ´ÈëHDFS¡£Òì²½ÒâÎ¶×Å²»Ó°ÏìÓ¦ÓÃÊä³öÈÕÖ¾µÄĞÔÄÜ£¬ÊµÊ±ÒâÎ¶×ÅÒ»ÓĞÈÕÖ¾Á¢¼´²É¼¯£¬ºÜ¶àÈÕÖ¾²É¼¯¹¤¾ßÈçflume-ng¡¢logstash½éÉÜÎÄµµÍ¨Æª²»Ìá²É¼¯·½Ê½ÊÇ·ñÊµÊ±»¹ÊÇÖÜÆÚĞÔµÄ£¬ÕâºÜ¹Ø¼ü¡£
 
+ÒÔÏÂÊÇÁ½ÖÖ³£ÓÃ¼Ü¹¹£º
+
 ![logpipe.png](logpipe.png)
+
+![logpipe2.png](logpipe2.png)
 
 logpipe¸ÅÄîÆÓÊµ¡¢Ê¹ÓÃ·½±ã¡¢ÅäÖÃ¼òÁ·£¬Ã»ÓĞÈçsinkµÈÒ»´ó¶ÑĞÂÃû´Ê¡£
 
@@ -1316,7 +1337,93 @@ calvin   45492  0.1  0.1  15988  1712 ?        S    22:16   0:00 logpipe -f logp
 
 ½áÂÛ£º logpipeĞÔÄÜÍêÈ«ÄëÑ¹flume-ng¡£
 
-# 7. ×îºó
+# 7. ÄÚ²¿ÊµÏÖ
+
+## 7.1. logpipe¿ò¼ÜÒıÇæ
+
+`logpipe`Îª¸¸×Ó½ø³Ì½á¹¹£¬Æô¶¯³ÌĞòºó¶ÁÈ¡ÅäÖÃÎÄ¼ş¡¢×°ÔØËùÓĞ²å¼ş¡¢×ª»¯Îª¹ÜÀí½ø³Ì£¬¹ÜÀí½ø³Ì´´½¨¹¤×÷½ø³Ì£¬²¢¼à¿Ø¹¤×÷½ø³Ì´æ»î×´Ì¬£¬Èç¹û¹¤×÷½ø³Ì±ÀÀ£ÔòÖØÆôÖ®¡£
+
+ÅäÖÃÎÄ¼şÊ¾ÀıÈçÏÂ£º
+```
+{
+	"log" : 
+	{
+		"log_file" : "/tmp/logpipe.log" ,
+		"log_level" : "NOTICE"
+	} ,
+	
+	"inputs" : 
+	[
+		{ "plugin":"so/logpipe-input-file.so" , "path":"/home/calvin/log" }
+	] ,
+	
+    "filter" :
+    [
+        { "plugin":"so/logpipe-filter-xxx.so" , ... }
+    ] ,
+
+	"outputs" : 
+	[
+		{ "plugin":"so/logpipe-output-hdfs.so" , "name_node":"192.168.6.21" , "port":9000 , "user":"hdfs" , "path":"/log" } ,
+		{ "plugin":"so/logpipe-output-ek.so" , "iconv_from":"GB18030" , "iconv_to":"UTF-8" , "translate_charset":"[]" , "output_template":"{ \"trans_date\":\"$1\",\"trans_time\":\"$2\" , \"source_channel\":\"$11\",\"source_netaddr\":\"$12\",\"dest_netaddr\":\"$6\" , \"comm_app_code\":\"$13\",\"comm_app_desc\":\"$14\",\"comm_status_code\":\"$15\" , \"total_elapse\":$18,\"keepalive_elapse\":$19,\"comm_recv_elapse\":$20,\"app_elapse\":$21,\"comm_send_elapse\":$22,\"somain_elapse\":$23 }\r\n" , "ip":"158.1.0.59" , "port":9200 , "index":"ecif_platform" , "type":"data" , "bulk":"true" }
+	]
+}
+```
+
+¹¤×÷½ø³ÌÄÚ²¿ÊÇÒ»¸ö¿ò¼ÜÒıÇæ£¬±¾Éí²¢²»ÊµÏÖÈÎºÎ¹¦ÄÜ£¬ÈÕÖ¾²É¼¯¹¦ÄÜÊÇ½èÖú×éºÏ²å¼şÀ´Íê³É¡£`logpipe`²å¼ş·ÖÈıÀà£ºÊäÈë²å¼ş`input`¡¢¹ıÂË²å¼ş`filter`ºÍÊä³ö²å¼ş`output`£¬Ã¿Ò»¸ö`logpipe`²å¼ş¶¼ÊÇÒ»¸ö¶¯Ì¬¿â£¨.soÎÄ¼ş£©£¬²»Í¬ÀàĞÍ²å¼şĞë°üº¬¶ÔÓ¦¹³×Óº¯Êı¼¯ºÏÊµÏÖ£¬¿ò¼ÜÒıÇæ»áÔÚ¶ÔÓ¦Ê±»úµ÷ÓÃ¶ÔÓ¦¹³×Óº¯Êı¡£
+
+ÊäÈë²å¼şĞë°üº¬¹³×Óº¯Êı¼¯ºÏÊµÏÖÈçÏÂ£º
+```
+int LoadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context );
+int InitInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context );
+int OnInputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context );
+int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context );
+int BeforeReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line );
+int ReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line , uint64_t *p_block_len , char *block_buf , uint64_t block_buf_size );
+int AfterReadInputPlugin( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context , uint64_t *p_file_offset , uint64_t *p_file_line );
+int CleanInputPluginContext( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void *p_context );
+int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_logpipe_input_plugin , void **pp_context );
+```
+
+Ã¿¸ö²å¼ş×°ÔØºóÁ¢¼´µ÷ÓÃÆä`LoadInputPluginConfig`º¯Êı£¬ÒÔÈÃÆä¹¹Ôì²å¼şË½ÓĞ»·¾³£¬±ãÓÚÔÚ²å¼şºóĞø¹³×Óº¯ÊıÖĞ¹²ÏíÊı¾İ¡£Ğ¶ÔØËùÓĞ²å¼şÇ°µ÷ÓÃÆä`UnloadInputPluginConfig`º¯Êı£¬ÈÃÆäÎö¹¹²å¼şË½ÓĞ»·¾³£¬Ïú»ÙÊÍ·ÅÄÚ´æµÈ×ÊÔ´¡£
+
+![process_flow.png](process_flow.png)
+
+¹¤×÷½ø³Ì¹¹ÔìÊÂ¼ş×ÜÏß£¬µ÷ÓÃËùÓĞ²å¼şµÄ³õÊ¼»¯¹³×Óº¯Êı£¬ÊäÈë²å¼ş`InitInputPluginContext`ÄÚ²¿µ÷ÓÃAPI`AddInputPluginEvent`×¢²áÒ»Ğ©¶ÁÊÂ¼şµ½ÊÂ¼ş×ÜÏßÉÏ¡£
+
+³õÊ¼»¯Íê³Éºó£¬¹¤×÷½ø³Ì½øÈëÊÂ¼şÑ­»·£¬Ò»µ©ÓĞÊÂ¼ş·¢Éú£¬Á¢¼´Í¨ÖªÊÂ¼ş×¢²á·½£¬µ÷ÓÃ¶ÔÓ¦ÊäÈë²å¼şµÄ`OnInputPluginEvent`º¯Êı£¬Ò»°ãµÄ£¬²å¼şÏìÓ¦¸ÃÊÂ¼şºóÓ¦¼ì²éÊÂ¼ş¡¢¸üĞÂÄÚ²¿×´Ì¬ºóµ÷ÓÃAPI`WriteAllOutputPlugins`Æô¶¯´¦ÀíÁ÷£¬µ÷ÓÃÊÂ¼ş·½ÊäÈë²å¼ş¹³×Óº¯Êı`BeforeReadInputPlugin`¡¢ËùÓĞ¹ıÂË²å¼ş¹³×Óº¯Êı`BeforeProcessFilterPlugin`¡¢ËùÓĞÊä³ö²å¼ş¹³×Óº¯Êı`BeforeWriteOutputPlugin`£¬È»ºóµü´úÊÂ¼ş·½ÊäÈë²å¼ş¹³×Óº¯Êı`ReadInputPlugin`¡¢ËùÓĞ¹ıÂË²å¼ş¹³×Óº¯Êı`ProcessFilterPlugin`ºÍËùÓĞÊä³ö²å¼ş¹³×Óº¯Êı`WriteOutputPlugin`£¬Ö±µ½ÊäÈë²å¼ş·µ»Ø`END_FROM_INPUT`ÔòÖĞ¶Ïµü´ú£¬×îºóµ÷ÓÃÊäÈë²å¼ş¹³×Óº¯Êı`AfterReadInputPlugin`¡¢ËùÓĞ¹ıÂË²å¼ş¹³×Óº¯Êı`AfterProcessFilterPlugin`¡¢ËùÓĞÊä³ö²å¼ş¹³×Óº¯Êı`AfterWriteOutputPlugin`£¬½áÊø±¾ÊÂ¼şÁ÷´¦Àí¡£
+
+Èç¹ûÊÂ¼ş×ÜÏßÃ¿µÈ´ıÒ»ÃëÖÓÃ»ÓĞÊÂ¼ş·¢Éú£¬¿ò¼ÜÒıÇæ»áÑ²²éµ÷ÓÃËùÓĞÊäÈë²å¼ş¹³×Óº¯Êı`OnInputPluginIdle`ºÍËùÓĞÊä³ö²å¼ş¹³×Óº¯Êı`OnOutputPluginIdle`¡£
+
+## 7.2. ÊäÈë²å¼ş
+
+### 7.2.1. ÎÄ¼şÊäÈë²å¼ş`logpipe-input-file`
+
+
+
+### 7.2.2. TCPÊäÈë²å¼ş`logpipe-input-tcp`
+
+### 7.2.3. ³¤ÃüÁîÊäÈë²å¼ş`logpipe-input-exec`
+
+### 7.2.4. KafkaÊäÈë²å¼ş`logpipe-input-kafka`
+
+## 7.3. ¹ıÂË²å¼ş
+
+## 7.4. Êä³ö²å¼ş
+
+### 7.4.1. ÎÄ¼şÊä³ö²å¼ş`logpipe-output-file`
+
+### 7.4.2. TCPÊä³ö²å¼ş`logpipe-output-tcp`
+
+### 7.4.3. ÆÁÄ»Êä³ö²å¼ş`logpipe-output-stdout`
+
+### 7.4.4. KafkaÊä³ö²å¼ş`logpipe-output-kafka`
+
+### 7.4.5. ESÊä³ö²å¼ş`logpipe-output-es`
+
+### 7.4.6. HDFSÊä³ö²å¼ş`logpipe-output-hdfs`
+
+# 8. ×îºó
 
 »¶Ó­Ê¹ÓÃlogpipe£¬Èç¹ûÄãÊ¹ÓÃÖĞÅöµ½ÁËÎÊÌâÇë¸æËßÎÒ£¬Ğ»Ğ» ^_^
 
