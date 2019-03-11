@@ -1357,11 +1357,11 @@ calvin   45492  0.1  0.1  15988  1712 ?        S    22:16   0:00 logpipe -f logp
 		{ "plugin":"so/logpipe-input-file.so" , "path":"/home/calvin/log" }
 	] ,
 	
-    "filter" :
-    [
-        { "plugin":"so/logpipe-filter-xxx.so" , ... }
-    ] ,
-
+	"filter" :
+	[
+ 		{ "plugin":"so/logpipe-filter-xxx.so" , ... }
+	] ,
+	
 	"outputs" : 
 	[
 		{ "plugin":"so/logpipe-output-hdfs.so" , "name_node":"192.168.6.21" , "port":9000 , "user":"hdfs" , "path":"/log" } ,
