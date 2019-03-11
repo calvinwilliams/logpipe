@@ -1487,6 +1487,8 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 
 钩子函数`AfterWriteOutputPlugin`发送最后为0的文件块长度。
 
+通讯应用协议见TCP输入插件。
+
 ### 7.4.3. 屏幕输出插件`logpipe-output-stdout`
 
 钩子函数`WriteOutputPlugin`输出数据。同时也往日志里写一份。
