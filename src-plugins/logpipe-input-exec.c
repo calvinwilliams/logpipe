@@ -124,7 +124,7 @@ int OnInputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeInputPlugin *p_
 	
 	if( p_plugin_ctx->pp == NULL )
 	{
-		OnInputPluginEvent( p_env , p_logpipe_input_plugin , p_context );
+		InitInputPluginContext( p_env , p_logpipe_input_plugin , p_context );
 	}
 	
 	/* 激活一轮从输入插件读，写到所有输出插件流程处理 */

@@ -1399,13 +1399,69 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 
 ### 7.2.1. 文件输入插件`logpipe-input-file`
 
+初始化钩子函数`InitInputPluginContext`装载当前目录中所有文件跟踪信息挂接到红黑树，初始化文件系统监控接口`inotify`描述字，注册监控目标目录事件到事件总线，注册所有已存在文件变动事件到事件总线。
 
+一旦有文件系统事件发生，`logpipe`框架引擎调用事件通知钩子函数`OnInputPluginEvent`，读取、分支处理事件集合：
+
+* 如果监控目标目录中有文件的创建事件，经过文件名黑白名单筛选通过后，挂接文件跟踪信息到红黑树上。
+* 如果监控目标目录中有文件移出事件，登记文件移出事件。
+* 如果监控目标目录中有文件移入事件，匹配原移出事件，按文件改名处理。
+* 如果监控目标目录中有文件删除事件，采集完文件最后追加内容，注销文件系统事件。
+* 如果监控目标目录发生移动或删除事件，采集器退出。
+* 如果已注册文件发生修改或写完关闭事件，采集文件最后追加内容。
+
+每轮处理完后检查本轮事件数量，如果数量少则沉睡一段时间后再进入事件总线，避免高耗CPU。
+
+每轮处理完后或空闲超时发生，检查清理过期移出事件。
+
+采集文件最后追加内容时，如果连续采集几个文件块还未读完，则做标记延迟到下轮或空闲时继续读，防止被一个文件挂死。如果启用了文件大小转档，采集文件最后追加内容后，按条件转档。
+
+为防止`inotify`队列慢而丢失事件，即使采集完文件追加内容，还是做标记延迟到下轮或空闲时继续读，不过每次检查读间隔都会增倍。
+
+已存在文件或移入文件默认不采集已有信息，只记录当前行号和字节偏移量。计算当前行号和字节偏移量通过`mmap`到内存中做字符串搜索，减少一次内核态与应用态数据复制，提高性能。
 
 ### 7.2.2. TCP输入插件`logpipe-input-tcp`
 
+初始化钩子函数`InitInputPluginContext`创建侦听套接字，注册到事件总线。
+
+一旦有侦听套接字事件发生，`logpipe`框架引擎调用事件通知钩子函数`OnInputPluginEvent`，接受新连接，创建连接会话，注册会话读事件到事件总线。
+
+一旦有连接套接字事件发生，`logpipe`框架引擎调用事件通知钩子函数`OnInputPluginEvent_accepted_session`，接收通讯头，调用API`AddInputPluginEvent`启动处理流，钩子函数`ReadInputPlugin`迭代调用连接会话钩子函数`ReadInputPlugin_accepted_session`读数据，交由过滤插件和输出插件处理。
+
+通讯应用协议：
+
+| 段序号 | 段名 | 段长度 | 备注 |
+|---|---|---|---|
+| 1 | 定位符 | 1B | '@' |
+| 2 | 文件名长度 | 2B| 网络字节序 |
+| 3 | 文件名 | (文件名长度)B | |
+| 4 | 文件块长度 | 2B | 网络字节序 |
+| 5 | 文件块数据 | (文件块长度)B | 段序号4~5不断迭代直到出现文件块长度为0的块 |
+| 6 | 为0的文件块长度 | 2B | 网络字节序 |
+
 ### 7.2.3. 长命令输入插件`logpipe-input-exec`
 
+初始化钩子函数`InitInputPluginContext`创建子进程执行长命令，与父进程之间通过管道捕获长命令输出，注册管道读事件到事件总线。
+
+一旦有管道事件发生，`logpipe`框架引擎调用事件通知钩子函数`OnInputPluginEvent`，启动处理流，钩子函数`ReadInputPlugin`每次非堵塞的读一块数据，直到无数据，继续等待事件总线上的管道事件。
+
+命令配置示例如下：
+```
+"inputs" : 
+[
+	{ "plugin":"so/logpipe-input-exec.so" , "cmd":"while [ 1 ] ; do echo `date +'%Y-%m-%d %H:%M:%S'` `vmstat 1 2 | tail -1 | awk '{printf \"%d %d %d %d\",$13,$14,$16,$15}'` `free | head -2 | tail -1 | awk '{printf \"%d %d %d\",$3,$6,$4 }'` `iostat -d 1 2 | grep -w sda | tail -1 | awk '{printf \"%f %f %f %f\",$4,$5,$6,$7}'` `sar -n DEV 1 2 | grep -w ens33 | head -2 | tail -1 | awk '{printf \"%f %f %f %f\",$3,$4,$5,$6}'`; sleep 1 ; done" , "output_filename":"system_monitor" }
+]
+```
+
+*（该插件还未生产使用）*
+
 ### 7.2.4. Kafka输入插件`logpipe-input-kafka`
+
+初始化钩子函数`InitInputPluginContext`设置`Kafka`配置，连接`broker`，如果配置了`zookeeper`地址则`broker`地址从`zookeeper`获取，最后进入订阅消息。由于没有注册事件，`logpipe`框架引擎将循环堵塞调用钩子函数`OnInputPluginEvent`，该函数简单的启动处理流。
+
+钩子函数`ReadInputPlugin`每秒钟长`poll`消息，如果接收到消息则交由过滤插件和输出插件处理。
+
+*（该插件还未生产使用）*
 
 ## 7.3. 过滤插件
 
@@ -1413,15 +1469,67 @@ int UnloadInputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeInputPlugi
 
 ### 7.4.1. 文件输出插件`logpipe-output-file`
 
+当输入事件发生后，启动处理流，调用输出插件钩子函数`BeforeWriteOutputPlugin`和`WriteOutputPlugin`。
+
+钩子函数`BeforeWriteOutputPlugin`检查是否已缓存文件打开句柄，如果没有则打开文件并缓存打开句柄。
+
+钩子函数`WriteOutputPlugin`写文件块。如果启用了文件大小转档则处理之。
+
 ### 7.4.2. TCP输出插件`logpipe-output-tcp`
+
+初始化钩子函数`InitOutputPluginContext`连接所有负载均衡服务端，并注册读或出错事件到事件总线。
+
+一旦有读或出错事件发生，`logpipe`框架引擎调用事件通知钩子函数`OnOutputPluginEvent`，确认是否连接已断开。
+
+钩子函数`BeforeWriteOutputPlugin`在写套接字前检查如果连接已断开则重连，否则以轮询(Round Robin)算法输出本轮数据。如果重连失败，也采用轮询算法故障切换。先发送定位头和文件名头。
+
+钩子函数`WriteOutputPlugin`发送文件块数据。
+
+钩子函数`AfterWriteOutputPlugin`发送最后为0的文件块长度。
 
 ### 7.4.3. 屏幕输出插件`logpipe-output-stdout`
 
+钩子函数`WriteOutputPlugin`输出数据。同时也往日志里写一份。
+
 ### 7.4.4. Kafka输出插件`logpipe-output-kafka`
+
+初始化钩子函数`InitOutputPluginContext`设置`Kafka`配置，连接`broker`，如果配置了`zookeeper`地址则`broker`地址从`zookeeper`获取。
+
+钩子函数`WriteOutputPlugin`发送消息。
+
+空闲钩子函数`OnOutputPluginIdle`会定时调用`rd_kafka_poll`。
+
+*（该插件还未生产使用）*
 
 ### 7.4.5. ES输出插件`logpipe-output-es`
 
+初始化钩子函数`InitOutputPluginContext`解析配置时会预分解输出模板、创建`HTTP`客户端，并注册读或出错事件到事件总线。
+
+一旦有读或出错事件发生，`logpipe`框架引擎调用事件通知钩子函数`OnOutputPluginEvent`，如果连接已断开则重连连接。
+
+钩子函数`WriteOutputPlugin`调用函数`CombineToParseBuffer`合并消息。函数`CombineToParseBuffer`把数据合并到块缓冲区，拆分行，迭代行数据送到函数`ParseCombineBuffer`。函数`ParseCombineBuffer`做关键词过滤和词替换，然后分列，调用函数`FormatOutputTemplate`。函数`FormatOutputTemplate`实例化输出模板，然后按需字符编码转换，最后提交到`HTTP`发送缓冲区输出。如果启用了批量发送，则等函数`ParseCombineBuffer`迭代完后一起发送。
+
+输出模板示例如下：
+```
+"outputs" : 
+[
+	{ "plugin":"so/logpipe-output-ek.so" , "iconv_from":"GB18030" , "iconv_to":"UTF-8" , "translate_charset":"[]" , "output_template":"{ \"trans_date\":\"$1\",\"trans_time\":\"$2\" , \"source_channel\":\"$11\",\"source_netaddr\":\"$12\",\"dest_netaddr\":\"$6\" , \"comm_app_code\":\"$13\",\"comm_app_desc\":\"$14\",\"comm_status_code\":\"$15\" , \"total_elapse\":$18,\"keepalive_elapse\":$19,\"comm_recv_elapse\":$20,\"app_elapse\":$21,\"comm_send_elapse\":$22,\"somain_elapse\":$23 }" , "ip":"158.1.0.53" , "port":9200 , "index":"ecif_platform" , "type":"data" , "bulk":"true" }
+]
+```
+
+*（该插件还未生产使用）*
+
 ### 7.4.6. HDFS输出插件`logpipe-output-hdfs`
+
+初始化钩子函数`InitOutputPluginContext`连接HDFS、以配置参数`$system`或`$path/YYYYMMDD_hhmmss`为名建立目录。
+
+钩子函数`BeforeWriteOutputPlugin`确认目录存在，否则补建之。每当午夜零时，以`$path/YYYYMMDD`建以新目录。检查`HDFS`文件打开句柄，如果没有则打开并保存句柄。
+
+之所以在目录上大费周章是因为`HDFS`不支持打开文件继续写。
+
+钩子函数`WriteOutputPlugin`把数据块`hdfsWrite`写入`HDFS`文件，并`hdfsHFlush`。
+
+*（该插件还未生产使用）*
 
 # 8. 最后
 
